@@ -95,7 +95,7 @@ function App() {
 
   async function refreshProjects(currentDb: Database) {
     const rows = (await currentDb.select(
-      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk FROM projects ORDER BY COALESCE(last_opened, 0) DESC",
+      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk FROM projects ORDER BY name ASC",
     )) as ProjectRow[];
     setProjects(rows);
     if (!activeProjectPath && rows.length > 0) {
@@ -124,7 +124,7 @@ function App() {
 
   async function init() {
     try {
-      const currentDb = await Database.load("sqlite:ns-forge.db");
+      const currentDb = await Database.load("sqlite:nsforge_v1.db");
       setDb(currentDb);
       await refreshProjects(currentDb);
     } catch (err) {
@@ -146,8 +146,8 @@ function App() {
     const lastOpened = Date.now();
 
     await currentDb.execute(
-      `INSERT INTO projects (name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO projects (name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        ON CONFLICT(path) DO UPDATE SET
          name = excluded.name,
          nativescript_version = excluded.nativescript_version,
@@ -158,7 +158,8 @@ function App() {
          permissions_count = excluded.permissions_count,
          version_code = excluded.version_code,
          version_name = excluded.version_name,
-         target_sdk = excluded.target_sdk`,
+         target_sdk = excluded.target_sdk,
+         min_sdk = excluded.min_sdk`,
       [
         analysis.name,
         analysis.path,
@@ -171,6 +172,7 @@ function App() {
         analysis.versionCode ?? null,
         analysis.versionName ?? null,
         analysis.targetSdk ?? null,
+        analysis.minSdk ?? null,
       ],
     );
   }

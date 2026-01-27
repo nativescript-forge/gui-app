@@ -20,6 +20,7 @@ struct ProjectAnalysis {
     version_code: Option<String>,
     version_name: Option<String>,
     target_sdk: Option<String>,
+    min_sdk: Option<String>,
 }
 
 #[tauri::command]
@@ -152,7 +153,7 @@ fn detect_platforms(project_path: &str) -> Vec<String> {
     platforms
 }
 
-fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32, Option<String>) {
+fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32, Option<String>, Option<String>) {
     let manifest_path = project_file(project_path, "App_Resources/Android/src/main/AndroidManifest.xml");
     let gradle_path = project_file(project_path, "App_Resources/Android/app.gradle");
 
@@ -160,6 +161,7 @@ fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32,
     let mut version_name = None;
     let mut permissions_count = 0;
     let mut target_sdk = None;
+    let mut min_sdk = None;
 
     // Try to read from AndroidManifest.xml
     if let Ok(content) = fs::read_to_string(&manifest_path) {
@@ -179,6 +181,9 @@ fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32,
             if line.starts_with("targetSdkVersion") || line.starts_with("compileSdkVersion") {
                 target_sdk = line.split_whitespace().last().map(|s| s.to_string());
             }
+            if line.starts_with("minSdkVersion") {
+                min_sdk = line.split_whitespace().last().map(|s| s.to_string());
+            }
         }
     }
     
@@ -189,7 +194,7 @@ fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32,
         }
     }
 
-    (version_code, version_name, permissions_count, target_sdk)
+    (version_code, version_name, permissions_count, target_sdk, min_sdk)
 }
 
 fn count_plugins(pkg: &serde_json::Value) -> u32 {
@@ -217,7 +222,7 @@ fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
     let nativescript_version = pkg.as_ref().and_then(detect_ns_version);
     let platforms = detect_platforms(project_path);
     
-    let (version_code, version_name, permissions_count, target_sdk) = get_android_info(project_path);
+    let (version_code, version_name, permissions_count, target_sdk, min_sdk) = get_android_info(project_path);
     let plugins_count = pkg.as_ref().map(|p| count_plugins(p)).unwrap_or(0);
 
     ProjectAnalysis {
@@ -231,6 +236,7 @@ fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
         version_code,
         version_name,
         target_sdk,
+        min_sdk,
     }
 }
 
@@ -704,7 +710,8 @@ pub fn run() {
               permissions_count INTEGER DEFAULT 0,
               version_code TEXT,
               version_name TEXT,
-              target_sdk TEXT
+              target_sdk TEXT,
+              min_sdk TEXT
             );
             "#,
             kind: MigrationKind::Up,
@@ -716,7 +723,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:ns-forge.db", migrations)
+                .add_migrations("sqlite:nsforge_v1.db", migrations)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![

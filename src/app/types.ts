@@ -23,6 +23,7 @@ export type ProjectRow = {
   version_code?: string | null;
   version_name?: string | null;
   target_sdk?: string | null;
+  min_sdk?: string | null;
 };
 
 export type ProjectAnalysis = {
@@ -36,6 +37,7 @@ export type ProjectAnalysis = {
   versionCode?: string | null;
   versionName?: string | null;
   targetSdk?: string | null;
+  minSdk?: string | null;
 };
 
 export type DoctorCheck = {

@@ -13,7 +13,7 @@
     "windows": [
       {
         "title": "NativeScript Forge",
-        "width": 1100,
+        "width": 1200,
         "height": 800
       }
     ],
@@ -34,7 +34,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:ns-forge.db"]
+      "preload": ["sqlite:nsforge_v1.db"]
     }
   }
 }

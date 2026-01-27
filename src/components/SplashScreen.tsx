@@ -16,7 +16,7 @@ export function SplashScreen(props: SplashScreenProps) {
           <img
             src={props.logoSrc}
             alt="NativeScript Forge"
-            className="h-20 w-auto"
+            className="h-24 w-auto object-contain"
           />
         </div>
         <div className="flex items-center gap-3">

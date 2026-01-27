@@ -1,5 +1,6 @@
 import type { ProjectRow } from "../app/types";
 import { parsePlatforms } from "../app/platforms";
+import { shortenPath } from "../app/utils";
 import {
   FiArrowRight,
   FiCalendar,
@@ -171,7 +172,7 @@ export function WelcomePage(props: WelcomePageProps) {
             {props.projects.slice(0, 5).map((p) => (
               <div
                 key={p.path}
-                className="group card bg-base-100 border border-base-200 hover:border-primary/50 hover:shadow-xl transition-all cursor-pointer overflow-hidden"
+                className="group card bg-base-100 border border-base-200 hover:border-primary/50 transition-all cursor-pointer overflow-hidden"
                 onClick={() => props.onOpenProject(p.path)}
               >
                 <div className="card-body p-0">
@@ -186,9 +187,11 @@ export function WelcomePage(props: WelcomePageProps) {
                           {p.name}
                         </h3>
                       </div>
-                      <div className="flex items-center gap-2 text-sm opacity-60 font-mono truncate">
-                        <FiFolderPlus className="h-3.5 w-3.5" />
-                        {p.path}
+                      <div className="flex items-center gap-2 text-sm opacity-60 font-mono min-w-0">
+                        <FiFolderPlus className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate" title={p.path}>
+                          {shortenPath(p.path)}
+                        </span>
                       </div>
                     </div>
 

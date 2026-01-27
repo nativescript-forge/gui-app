@@ -102,10 +102,10 @@ export function AppShell(props: AppShellProps) {
             {/* Logo Section */}
             <div className="p-8 pb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-primary text-primary-content shadow-lg shadow-primary/20">
+                <div className="p-1 rounded-2xl bg-base-200 text-base-content border border-base-300 shadow-sm">
                   <img
                     src={props.brandIconSrc}
-                    className="w-6 h-6"
+                    className="w-10 h-10 object-contain"
                     alt="Logo"
                   />
                 </div>
