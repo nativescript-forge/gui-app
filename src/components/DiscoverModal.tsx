@@ -18,7 +18,11 @@ export function DiscoverModal(props: DiscoverModalProps) {
       <div className="modal-box max-w-4xl">
         <div className="flex items-center justify-between gap-3">
           <div className="text-lg font-semibold">Project discovery</div>
-          <button type="button" className="btn btn-sm btn-ghost" onClick={props.onClose}>
+          <button
+            type="button"
+            className="btn btn-sm btn-ghost"
+            onClick={props.onClose}
+          >
             <FiX className="h-4 w-4" />
           </button>
         </div>
@@ -35,7 +39,9 @@ export function DiscoverModal(props: DiscoverModalProps) {
             </div>
           ) : props.results.length === 0 ? (
             <div className="alert">
-              <span>No NativeScript projects found in the selected folder.</span>
+              <span>
+                No NativeScript projects found in the selected folder.
+              </span>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -44,21 +50,31 @@ export function DiscoverModal(props: DiscoverModalProps) {
                   <tr>
                     <th>Project</th>
                     <th className="hidden md:table-cell">Framework</th>
-                    <th className="hidden md:table-cell">NS</th>
+                    <th className="hidden md:table-cell">NS Version</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {props.results.map((p) => {
-                    const alreadySaved = props.projects.some((x) => x.path === p.path);
+                    const alreadySaved = props.projects.some(
+                      (x) => x.path === p.path,
+                    );
                     return (
                       <tr key={p.path}>
                         <td>
-                          <div className="font-semibold truncate max-w-[52vw]">{p.name}</div>
-                          <div className="text-xs opacity-70 truncate max-w-[52vw]">{p.path}</div>
+                          <div className="font-semibold truncate max-w-[52vw]">
+                            {p.name}
+                          </div>
+                          <div className="text-xs opacity-70 truncate max-w-[52vw]">
+                            {p.path}
+                          </div>
                         </td>
-                        <td className="hidden md:table-cell">{p.framework ?? "-"}</td>
-                        <td className="hidden md:table-cell">{p.nativescriptVersion ?? "-"}</td>
+                        <td className="hidden md:table-cell">
+                          {p.framework ?? "-"}
+                        </td>
+                        <td className="hidden md:table-cell">
+                          {p.nativescriptVersion ?? "-"}
+                        </td>
                         <td className="text-right">
                           <button
                             type="button"

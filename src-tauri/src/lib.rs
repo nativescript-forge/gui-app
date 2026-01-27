@@ -15,6 +15,37 @@ struct ProjectAnalysis {
     nativescript_version: Option<String>,
     framework: Option<String>,
     platforms: Vec<String>,
+    plugins_count: u32,
+    permissions_count: u32,
+    version_code: Option<String>,
+    version_name: Option<String>,
+    target_sdk: Option<String>,
+}
+
+#[tauri::command]
+fn reveal_in_explorer(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -96,13 +127,80 @@ fn detect_ns_version(pkg: &serde_json::Value) -> Option<String> {
 
 fn detect_platforms(project_path: &str) -> Vec<String> {
     let mut platforms = Vec::new();
-    if project_file(project_path, "App_Resources/Android").exists() {
+    let pkg = read_package_json(project_path);
+
+    let has_android_pkg = pkg
+        .as_ref()
+        .and_then(|p| get_dep_version(p, "@nativescript/android"))
+        .is_some();
+    let has_ios_pkg = pkg
+        .as_ref()
+        .and_then(|p| get_dep_version(p, "@nativescript/ios"))
+        .is_some();
+
+    // Check platforms folder - this indicates it has been prepared/run
+    let has_android_plt = project_file(project_path, "platforms/android").exists();
+    let has_ios_plt = project_file(project_path, "platforms/ios").exists();
+
+    if has_android_pkg || has_android_plt {
         platforms.push("Android".to_string());
     }
-    if project_file(project_path, "App_Resources/iOS").exists() {
+    if has_ios_pkg || has_ios_plt {
         platforms.push("iOS".to_string());
     }
+
     platforms
+}
+
+fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32, Option<String>) {
+    let manifest_path = project_file(project_path, "App_Resources/Android/src/main/AndroidManifest.xml");
+    let gradle_path = project_file(project_path, "App_Resources/Android/app.gradle");
+
+    let mut version_code = None;
+    let mut version_name = None;
+    let mut permissions_count = 0;
+    let mut target_sdk = None;
+
+    // Try to read from AndroidManifest.xml
+    if let Ok(content) = fs::read_to_string(&manifest_path) {
+         permissions_count = content.matches("<uses-permission").count() as u32;
+    }
+
+    // Try to read from app.gradle for version info (common in NS projects)
+    if let Ok(content) = fs::read_to_string(&gradle_path) {
+        for line in content.lines() {
+            let line = line.trim();
+            if line.starts_with("versionCode") {
+                version_code = line.split_whitespace().last().map(|s| s.to_string());
+            }
+            if line.starts_with("versionName") {
+                version_name = line.split('"').nth(1).map(|s| s.to_string());
+            }
+            if line.starts_with("targetSdkVersion") || line.starts_with("compileSdkVersion") {
+                target_sdk = line.split_whitespace().last().map(|s| s.to_string());
+            }
+        }
+    }
+    
+    // Fallback: check package.json for version if not found
+    if version_name.is_none() {
+        if let Some(pkg) = read_package_json(project_path) {
+             version_name = pkg.get("version").and_then(|v| v.as_str()).map(|s| s.to_string());
+        }
+    }
+
+    (version_code, version_name, permissions_count, target_sdk)
+}
+
+fn count_plugins(pkg: &serde_json::Value) -> u32 {
+    let mut count = 0;
+    if let Some(deps) = pkg.get("dependencies").and_then(|v| v.as_object()) {
+        count += deps.iter().filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/")).count();
+    }
+    if let Some(dev_deps) = pkg.get("devDependencies").and_then(|v| v.as_object()) {
+         count += dev_deps.iter().filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/")).count();
+    }
+    count as u32
 }
 
 fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
@@ -118,6 +216,9 @@ fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
     let framework = pkg.as_ref().and_then(detect_framework);
     let nativescript_version = pkg.as_ref().and_then(detect_ns_version);
     let platforms = detect_platforms(project_path);
+    
+    let (version_code, version_name, permissions_count, target_sdk) = get_android_info(project_path);
+    let plugins_count = pkg.as_ref().map(|p| count_plugins(p)).unwrap_or(0);
 
     ProjectAnalysis {
         name,
@@ -125,6 +226,11 @@ fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
         nativescript_version,
         framework,
         platforms,
+        plugins_count,
+        permissions_count,
+        version_code,
+        version_name,
+        target_sdk,
     }
 }
 
@@ -581,29 +687,36 @@ fn create_ns_project(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "create_projects",
-        sql: r#"
-        CREATE TABLE IF NOT EXISTS projects (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          path TEXT NOT NULL UNIQUE,
-          nativescript_version TEXT,
-          framework TEXT,
-          platforms TEXT,
-          last_opened INTEGER
-        );
-        "#,
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create_projects",
+            sql: r#"
+            CREATE TABLE IF NOT EXISTS projects (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              path TEXT NOT NULL UNIQUE,
+              nativescript_version TEXT,
+              framework TEXT,
+              platforms TEXT,
+              last_opened INTEGER,
+              plugins_count INTEGER DEFAULT 0,
+              permissions_count INTEGER DEFAULT 0,
+              version_code TEXT,
+              version_name TEXT,
+              target_sdk TEXT
+            );
+            "#,
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:nsforge.db", migrations)
+                .add_migrations("sqlite:ns-forge.db", migrations)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
@@ -611,7 +724,8 @@ pub fn run() {
             discover_projects,
             doctor_checks,
             run_ns,
-            create_ns_project
+            create_ns_project,
+            reveal_in_explorer
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

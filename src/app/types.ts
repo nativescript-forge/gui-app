@@ -18,6 +18,11 @@ export type ProjectRow = {
   framework: string | null;
   platforms: string | null;
   last_opened: number | null;
+  plugins_count?: number;
+  permissions_count?: number;
+  version_code?: string | null;
+  version_name?: string | null;
+  target_sdk?: string | null;
 };
 
 export type ProjectAnalysis = {
@@ -26,6 +31,11 @@ export type ProjectAnalysis = {
   nativescriptVersion?: string | null;
   framework?: string | null;
   platforms: string[];
+  pluginsCount: number;
+  permissionsCount: number;
+  versionCode?: string | null;
+  versionName?: string | null;
+  targetSdk?: string | null;
 };
 
 export type DoctorCheck = {

@@ -37,6 +37,36 @@ function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
   const [route, setRoute] = useState<Route>("welcome");
   const [theme, setTheme] = useState<Theme>("dark");
+
+  const updateTheme = (newTheme: Theme) => {
+    setTheme(newTheme);
+    localStorage.setItem("ns-forge-theme", newTheme);
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    updateTheme(newTheme);
+  };
+
+  // Sync with System OS if no saved preference
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("ns-forge-theme") as Theme | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    } else {
+      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+      setTheme(prefersDark.matches ? "dark" : "light");
+
+      const handler = (e: MediaQueryListEvent) => {
+        if (!localStorage.getItem("ns-forge-theme")) {
+          setTheme(e.matches ? "dark" : "light");
+        }
+      };
+
+      prefersDark.addEventListener("change", handler);
+      return () => prefersDark.removeEventListener("change", handler);
+    }
+  }, []);
   const [db, setDb] = useState<Database | null>(null);
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
@@ -65,7 +95,7 @@ function App() {
 
   async function refreshProjects(currentDb: Database) {
     const rows = (await currentDb.select(
-      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened FROM projects ORDER BY COALESCE(last_opened, 0) DESC",
+      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk FROM projects ORDER BY COALESCE(last_opened, 0) DESC",
     )) as ProjectRow[];
     setProjects(rows);
     if (!activeProjectPath && rows.length > 0) {
@@ -76,9 +106,25 @@ function App() {
     }
   }
 
+  async function removeProject(path: string) {
+    if (!db) return;
+    try {
+      await db.execute("DELETE FROM projects WHERE path = $1", [path]);
+      if (activeProjectPath === path) {
+        setActiveProjectPath(null);
+      }
+      if (actionsProjectPath === path) {
+        setActionsProjectPath(null);
+      }
+      await refreshProjects(db);
+    } catch (err) {
+      console.error("Failed to remove project:", err);
+    }
+  }
+
   async function init() {
     try {
-      const currentDb = await Database.load("sqlite:nsforge.db");
+      const currentDb = await Database.load("sqlite:ns-forge.db");
       setDb(currentDb);
       await refreshProjects(currentDb);
     } catch (err) {
@@ -100,14 +146,19 @@ function App() {
     const lastOpened = Date.now();
 
     await currentDb.execute(
-      `INSERT INTO projects (name, path, nativescript_version, framework, platforms, last_opened)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO projects (name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT(path) DO UPDATE SET
          name = excluded.name,
          nativescript_version = excluded.nativescript_version,
          framework = excluded.framework,
          platforms = excluded.platforms,
-         last_opened = excluded.last_opened`,
+         last_opened = excluded.last_opened,
+         plugins_count = excluded.plugins_count,
+         permissions_count = excluded.permissions_count,
+         version_code = excluded.version_code,
+         version_name = excluded.version_name,
+         target_sdk = excluded.target_sdk`,
       [
         analysis.name,
         analysis.path,
@@ -115,6 +166,11 @@ function App() {
         analysis.framework ?? null,
         platforms,
         lastOpened,
+        analysis.pluginsCount ?? 0,
+        analysis.permissionsCount ?? 0,
+        analysis.versionCode ?? null,
+        analysis.versionName ?? null,
+        analysis.targetSdk ?? null,
       ],
     );
   }
@@ -268,6 +324,30 @@ function App() {
     }
   }
 
+  async function handleSelectProject(path: string) {
+    setActiveProjectPath(path);
+    setActionsProjectPath(path);
+
+    // Re-analyze on select to keep metadata fresh
+    if (db) {
+      try {
+        const analysis = (await invoke("analyze_project", {
+          projectPath: path,
+        })) as ProjectAnalysis;
+        await upsertProject(db, analysis);
+        await refreshProjects(db);
+      } catch (err) {
+        console.error("Failed to re-analyze project on select:", err);
+      }
+    }
+  }
+
+  async function handleOpenActions(path: string) {
+    setActiveProjectPath(path);
+    setActionsProjectPath(path);
+    setRoute("app-actions");
+  }
+
   if (bootStage === "splash") {
     return <SplashScreen theme={theme} logoSrc={logoSrc} />;
   }
@@ -287,7 +367,7 @@ function App() {
         activeProject ? activeProject.name : "No project selected"
       }
       brandIconSrc={iconSrc}
-      onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+      onToggleTheme={toggleTheme}
       onAddProject={browseAndAddProject}
       onCreateProject={() => setRoute("create")}
       onOpenDoctor={runDoctor}
@@ -307,11 +387,7 @@ function App() {
           onCreateProject={() => setRoute("create")}
           onOpenDoctor={runDoctor}
           onViewAllProjects={() => setRoute("projects")}
-          onOpenProject={(path) => {
-            setActiveProjectPath(path);
-            setActionsProjectPath(path);
-            setRoute("app-actions"); // Open into app context
-          }}
+          onOpenProject={handleOpenActions}
         />
       )}
 
@@ -319,19 +395,13 @@ function App() {
         <ProjectsPage
           projects={projects}
           activeProjectPath={activeProjectPath}
-          onSelectProject={(path) => {
-            setActiveProjectPath(path);
-            setActionsProjectPath(path);
-            setRoute("app-actions"); // Selection from library opens the app context
-          }}
+          onSelectProject={handleSelectProject}
           onScanFolder={scanAndDiscoverProjects}
           onAddProject={browseAndAddProject}
           onCreateProject={() => setRoute("create")}
-          onOpenFolder={openInFileManager}
-          onOpenActions={(path) => {
-            setActionsProjectPath(path);
-            setRoute("app-actions");
-          }}
+          onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+          onOpenActions={handleOpenActions}
+          onRemoveProject={removeProject}
         />
       )}
 

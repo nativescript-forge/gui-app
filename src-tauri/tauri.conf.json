@@ -34,7 +34,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:nsforge.db"]
+      "preload": ["sqlite:ns-forge.db"]
     }
   }
 }
