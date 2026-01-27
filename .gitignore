@@ -26,3 +26,4 @@ dist-ssr
 bun.lock
 package-lock.json
 yarn.lock
+Cargo.lock
