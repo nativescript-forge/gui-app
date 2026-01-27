@@ -25,6 +25,9 @@ import { WelcomePage } from "./pages/WelcomePage";
 import { ProjectsPage } from "./pages/ProjectsPage";
 import { DoctorPage } from "./pages/DoctorPage";
 import { ActionsPage } from "./pages/ActionsPage";
+import { PluginsPage } from "./pages/PluginsPage";
+import { PermissionsPage } from "./pages/PermissionsPage";
+import { ConfigPage } from "./pages/ConfigPage";
 import {
   CreateProjectPage,
   type ProjectConfig,
@@ -137,7 +140,7 @@ function App() {
       await refreshProjects(db);
       setActiveProjectPath(projectPath);
       setActionsProjectPath(projectPath);
-      setRoute("projects");
+      setRoute("app-actions"); // Go directly to app actions when adding
     } catch (err) {
       console.error("Failed to add project:", err);
     }
@@ -202,7 +205,7 @@ function App() {
         await refreshProjects(db);
         setActiveProjectPath(projectPath);
         setActionsProjectPath(projectPath);
-        setRoute("projects");
+        setRoute("app-actions"); // Go directly to app actions when created
       } else {
         alert(`Failed to create project: ${result.stderr || result.stdout}`);
       }
@@ -220,7 +223,21 @@ function App() {
 
   async function runDoctor() {
     setDoctorLoading(true);
-    setRoute("doctor");
+    // If we have an active project, go to app-doctor, else maybe stay on home doctor if it existed?
+    // User wants doctor in Application context.
+    if (activeProjectPath) {
+      setRoute("app-doctor");
+    } else {
+      // Fallback for home context if needed, but user said doctor is in Application Page.
+      // For now let's assume if they click doctor from home, it opens the last active or first project.
+      if (projects.length > 0) {
+        const path = activeProjectPath || projects[0].path;
+        setActiveProjectPath(path);
+        setActionsProjectPath(path);
+        setRoute("app-doctor");
+      }
+    }
+
     try {
       const result = (await invoke("doctor_checks")) as DoctorCheck[];
       setDoctorChecks(result);
@@ -259,19 +276,28 @@ function App() {
     ? projects.find((p) => p.path === activeProjectPath)
     : null;
 
+  const isAppMode = route.startsWith("app-");
+
   return (
     <AppShell
       theme={theme}
       route={route}
       setRoute={setRoute}
       activeProjectPathLabel={
-        activeProject ? activeProject.path : "No project selected"
+        activeProject ? activeProject.name : "No project selected"
       }
       brandIconSrc={iconSrc}
       onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
       onAddProject={browseAndAddProject}
       onCreateProject={() => setRoute("create")}
       onOpenDoctor={runDoctor}
+      isAppMode={isAppMode}
+      projects={projects}
+      activeProjectPath={activeProjectPath}
+      onSelectProject={(path) => {
+        setActiveProjectPath(path);
+        setActionsProjectPath(path);
+      }}
     >
       {route === "welcome" && (
         <WelcomePage
@@ -284,7 +310,7 @@ function App() {
           onOpenProject={(path) => {
             setActiveProjectPath(path);
             setActionsProjectPath(path);
-            setRoute("projects");
+            setRoute("app-actions"); // Open into app context
           }}
         />
       )}
@@ -293,14 +319,18 @@ function App() {
         <ProjectsPage
           projects={projects}
           activeProjectPath={activeProjectPath}
-          onSelectProject={setActiveProjectPath}
+          onSelectProject={(path) => {
+            setActiveProjectPath(path);
+            setActionsProjectPath(path);
+            setRoute("app-actions"); // Selection from library opens the app context
+          }}
           onScanFolder={scanAndDiscoverProjects}
           onAddProject={browseAndAddProject}
           onCreateProject={() => setRoute("create")}
           onOpenFolder={openInFileManager}
           onOpenActions={(path) => {
             setActionsProjectPath(path);
-            setRoute("actions");
+            setRoute("app-actions");
           }}
         />
       )}
@@ -313,7 +343,7 @@ function App() {
         />
       )}
 
-      {route === "doctor" && (
+      {route === "app-doctor" && (
         <DoctorPage
           checks={doctorChecks}
           loading={doctorLoading}
@@ -321,7 +351,7 @@ function App() {
         />
       )}
 
-      {route === "actions" && (
+      {route === "app-actions" && (
         <ActionsPage
           projects={projects}
           projectPath={actionsProjectPath}
@@ -333,6 +363,11 @@ function App() {
           onRunAction={runAction}
         />
       )}
+
+      {/* Application Tools */}
+      {route === "app-plugins" && <PluginsPage />}
+      {route === "app-permissions" && <PermissionsPage />}
+      {route === "app-config" && <ConfigPage />}
 
       <DiscoverModal
         open={discoverOpen}

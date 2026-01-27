@@ -1,16 +1,28 @@
 import type { ReactNode } from "react";
-import type { Route, Theme } from "../app/types";
+import type { IconType } from "react-icons";
 import {
   FiActivity,
+  FiChevronLeft,
   FiFolderPlus,
   FiGrid,
   FiHome,
+  FiKey,
   FiMenu,
   FiMoon,
+  FiPackage,
   FiPlus,
+  FiSettings,
   FiSun,
   FiTerminal,
 } from "react-icons/fi";
+import type { ProjectRow, Route, Theme } from "../app/types";
+
+interface SidebarItem {
+  id: string;
+  label: string;
+  icon: IconType;
+  onClick?: () => void;
+}
 
 type AppShellProps = {
   theme: Theme;
@@ -23,9 +35,35 @@ type AppShellProps = {
   onCreateProject: () => void;
   children: ReactNode;
   onOpenDoctor: () => void;
+  isAppMode: boolean;
+  projects: ProjectRow[];
+  activeProjectPath: string | null;
+  onSelectProject: (path: string) => void;
 };
 
 export function AppShell(props: AppShellProps) {
+  const homeSidebarItems: SidebarItem[] = [
+    { id: "welcome", label: "Welcome", icon: FiHome },
+    { id: "create", label: "Create Project", icon: FiPlus },
+    {
+      id: "add",
+      label: "Add Existing",
+      icon: FiFolderPlus,
+      onClick: props.onAddProject,
+    },
+    { id: "projects", label: "Library", icon: FiGrid },
+  ];
+
+  const appSidebarItems: SidebarItem[] = [
+    { id: "app-doctor", label: "Health Check", icon: FiActivity },
+    { id: "app-actions", label: "Quick Action", icon: FiTerminal },
+    { id: "app-plugins", label: "Install Plugin", icon: FiPackage },
+    { id: "app-permissions", label: "Manage Permission", icon: FiKey },
+    { id: "app-config", label: "Project Config", icon: FiSettings },
+  ];
+
+  const sidebarItems = props.isAppMode ? appSidebarItems : homeSidebarItems;
+
   return (
     <div
       data-theme={props.theme}
@@ -35,72 +73,23 @@ export function AppShell(props: AppShellProps) {
         <input id="nsf-drawer" type="checkbox" className="drawer-toggle" />
 
         <div className="drawer-content flex flex-col h-full overflow-hidden">
-          {/* Navbar - Fixed at top */}
-          <div className="navbar bg-base-100 border-b border-base-200 sticky top-0 z-30 min-h-[64px]">
-            <div className="flex-none lg:hidden">
-              <label htmlFor="nsf-drawer" className="btn btn-square btn-ghost">
-                <FiMenu className="h-5 w-5" />
-              </label>
+          {/* Mobile Header */}
+          <div className="lg:hidden flex items-center justify-between p-4 bg-base-100 border-b border-base-200">
+            <div className="flex items-center gap-2">
+              <img src={props.brandIconSrc} className="w-6 h-6" alt="Logo" />
+              <span className="font-black tracking-tighter text-lg">FORGE</span>
             </div>
-
-            <div className="flex-1 gap-3 px-4">
-              <div className="hidden md:flex items-center gap-2 text-xs">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-base-200 border border-base-300">
-                  <FiGrid className="h-3.5 w-3.5 opacity-50" />
-                  <span className="font-medium opacity-50 uppercase tracking-wider text-[10px]">
-                    Active Project
-                  </span>
-                  <div className="divider divider-horizontal m-0 h-4 self-center"></div>
-                  <span className="truncate max-w-[30vw] font-mono opacity-70 italic">
-                    {props.activeProjectPathLabel}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-none gap-2 px-2">
-              <div
-                className="tooltip tooltip-bottom"
-                data-tip={
-                  props.theme === "dark"
-                    ? "Switch to Light Mode"
-                    : "Switch to Dark Mode"
-                }
-              >
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm btn-square"
-                  onClick={props.onToggleTheme}
-                >
-                  {props.theme === "dark" ? (
-                    <FiSun className="h-4 w-4" />
-                  ) : (
-                    <FiMoon className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm gap-2"
-                onClick={props.onCreateProject}
-              >
-                <FiPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">Create</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-neutral btn-sm gap-2"
-                onClick={props.onAddProject}
-              >
-                <FiFolderPlus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Existing</span>
-              </button>
-            </div>
+            <label
+              htmlFor="nsf-drawer"
+              className="btn btn-ghost btn-sm drawer-button"
+            >
+              <FiMenu className="h-5 w-5" />
+            </label>
           </div>
 
-          <div className="flex-1 overflow-auto p-4 lg:p-6">
+          <main className="flex-1 overflow-auto p-4 lg:p-8">
             {props.children}
-          </div>
+          </main>
         </div>
 
         <div className="drawer-side">
@@ -110,80 +99,109 @@ export function AppShell(props: AppShellProps) {
             className="drawer-overlay"
           />
           <aside className="w-72 bg-base-100 border-r border-base-200 h-full flex flex-col">
-            <div className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="avatar">
-                  <div className="w-12 rounded-xl bg-base-200 p-2 border border-base-300">
-                    <img src={props.brandIconSrc} alt="NativeScript Forge" />
-                  </div>
+            {/* Logo Section */}
+            <div className="p-8 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-primary text-primary-content shadow-lg shadow-primary/20">
+                  <img
+                    src={props.brandIconSrc}
+                    className="w-6 h-6"
+                    alt="Logo"
+                  />
                 </div>
                 <div>
-                  <div className="font-bold text-lg leading-tight">
-                    NativeScript Forge
+                  <div className="font-black tracking-tighter text-xl leading-none">
+                    FORGE
                   </div>
-                  <div className="text-[10px] uppercase tracking-widest opacity-40">
-                    Development
+                  <div className="text-[10px] opacity-40 font-bold tracking-[0.2em] uppercase mt-1">
+                    NativeScript
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex-1 px-4">
-              <ul className="menu w-full p-0 gap-1">
-                <li className="menu-title uppercase text-[10px] tracking-widest font-bold opacity-50 px-4 py-2">
-                  Main Navigation
-                </li>
-                <li>
+            {/* Navigation */}
+            <div className="flex-1 px-4 py-6 space-y-8 overflow-y-auto">
+              {/* Context Switcher (Only in App Mode) */}
+              {props.isAppMode && (
+                <div className="space-y-3">
                   <button
-                    type="button"
-                    className={`gap-3 py-3 px-4 rounded-xl transition-all duration-200 ${props.route === "welcome" ? "active" : ""}`}
                     onClick={() => props.setRoute("welcome")}
+                    className="btn btn-ghost btn-sm w-full justify-start gap-2 text-primary hover:bg-primary/10"
                   >
-                    <FiHome className="h-4 w-4" />
-                    Welcome
+                    <FiChevronLeft className="h-4 w-4" />
+                    <span>Back to Home</span>
                   </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className={`gap-3 py-3 px-4 rounded-xl transition-all duration-200 ${props.route === "create" ? "active" : ""}`}
-                    onClick={() => props.setRoute("create")}
-                  >
-                    <FiPlus className="h-4 w-4" />
-                    Create New
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className={`gap-3 py-3 px-4 rounded-xl transition-all duration-200 ${props.route === "projects" ? "active" : ""}`}
-                    onClick={() => props.setRoute("projects")}
-                  >
-                    <FiGrid className="h-4 w-4" />
-                    Library
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className={`gap-3 py-3 px-4 rounded-xl transition-all duration-200 ${props.route === "doctor" ? "active" : ""}`}
-                    onClick={() => props.setRoute("doctor")}
-                  >
-                    <FiActivity className="h-4 w-4" />
-                    Health Check
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    className={`gap-3 py-3 px-4 rounded-xl transition-all duration-200 ${props.route === "actions" ? "active" : ""}`}
-                    onClick={() => props.setRoute("actions")}
-                  >
-                    <FiTerminal className="h-4 w-4" />
-                    Quick Actions
-                  </button>
-                </li>
-              </ul>
+
+                  <div className="p-3 rounded-2xl bg-base-200/50 border border-base-300">
+                    <div className="text-[9px] font-black uppercase tracking-[0.2em] opacity-50 mb-2 px-1">
+                      Current Application
+                    </div>
+                    <select
+                      className="select select-ghost select-sm w-full font-bold focus:bg-transparent"
+                      value={props.activeProjectPath ?? ""}
+                      onChange={(e) => props.onSelectProject(e.target.value)}
+                    >
+                      {props.projects.map((p) => (
+                        <option key={p.path} value={p.path}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="px-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-4">
+                  {props.isAppMode ? "Project Tools" : "Main Navigation"}
+                </div>
+                <div className="space-y-1">
+                  {sidebarItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.onClick) {
+                          item.onClick();
+                        } else {
+                          props.setRoute(item.id as Route);
+                        }
+                      }}
+                      className={`btn btn-ghost btn-block justify-start gap-3 rounded-xl transition-all duration-200 ${
+                        props.route === item.id
+                          ? "bg-primary/10 text-primary font-bold shadow-sm"
+                          : "hover:bg-base-200 opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <item.icon
+                        className={`h-4 w-4 ${props.route === item.id ? "text-primary" : ""}`}
+                      />
+                      <span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Toggle & Footer */}
+            <div className="p-4 border-t border-base-200 bg-base-50/30">
+              <button
+                type="button"
+                className="btn btn-ghost btn-block justify-start gap-3 rounded-xl hover:bg-base-200"
+                onClick={props.onToggleTheme}
+              >
+                {props.theme === "dark" ? (
+                  <>
+                    <FiSun className="h-4 w-4 text-warning" />
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <FiMoon className="h-4 w-4 text-primary" />
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
             </div>
           </aside>
         </div>

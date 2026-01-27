@@ -1,4 +1,12 @@
-export type Route = "welcome" | "projects" | "doctor" | "actions" | "create";
+export type Route =
+  | "welcome"
+  | "create"
+  | "projects"
+  | "app-doctor"
+  | "app-actions"
+  | "app-plugins"
+  | "app-permissions"
+  | "app-config";
 
 export type Theme = "light" | "dark";
 
