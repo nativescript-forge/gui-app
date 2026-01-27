@@ -1,9 +1,9 @@
-# NS Forge Roadmap
+# NativeScript Forge Roadmap
 
-This roadmap outlines the planned development phases for **NS Forge**, a community-built development studio for NativeScript.  
+This roadmap outlines the planned development phases for **NativeScript Forge**, a community-built development studio for NativeScript.  
 The focus is on delivering practical value early, maintaining transparency, and evolving incrementally with community feedback.
 
-> ⚠️ NS Forge is **not an official NativeScript product**.  
+> ⚠️ NativeScript Forge is **not an official NativeScript product**.  
 > It is built by the community, for the community.
 
 ---
@@ -23,11 +23,13 @@ The focus is on delivering practical value early, maintaining transparency, and 
 **Goal:** Establish a solid technical and organizational foundation.
 
 ### Scope
+
 - Define product scope and non-goals
 - Finalize branding and positioning
 - Prepare repository structure
 
 ### Deliverables
+
 - GitHub organization: `nsforge`
 - Initial repositories:
   - `nsforge-core`
@@ -44,6 +46,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 **Goal:** Deliver immediate, tangible value for NativeScript developers.
 
 ### Forge Projects
+
 - Project discovery (scan local directories)
 - Detect:
   - NativeScript version
@@ -52,6 +55,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 - Project dashboard view
 
 ### Forge Doctor
+
 - Environment health checks:
   - Node.js
   - NativeScript CLI
@@ -61,6 +65,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 - Basic fix hints (no auto-mutation)
 
 ### Forge Actions
+
 - Run common CLI commands:
   - `ns run android`
   - `ns run ios`
@@ -69,6 +74,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 - Error highlighting and filtering
 
 ### Deliverables
+
 - First public MVP release
 - Binary builds (macOS / Windows / Linux)
 - Basic documentation
@@ -80,12 +86,14 @@ The focus is on delivering practical value early, maintaining transparency, and 
 **Goal:** Reduce repetitive manual work and common mistakes.
 
 ### Forge Plugins
+
 - List installed plugins
 - Install / uninstall plugins
 - Display plugin metadata
 - Basic compatibility hints (best-effort)
 
 ### Forge Config
+
 - Visual editor for:
   - `nativescript.config.ts`
   - App ID
@@ -94,6 +102,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 - Diff preview before save
 
 ### Forge Platforms
+
 - Platform management:
   - Reset Android / iOS platform
   - Clean build artifacts
@@ -101,6 +110,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
 - Safe execution (explicit user action)
 
 ### Deliverables
+
 - Improved UX polish
 - Expanded documentation
 - Community feedback iteration
@@ -112,17 +122,20 @@ The focus is on delivering practical value early, maintaining transparency, and 
 **Goal:** Support advanced workflows and long-term maintenance.
 
 ### Forge Migrate
+
 - NativeScript version scan
 - Plugin compatibility analysis
 - Migration checklist generation
 - Dry-run upgrade simulation
 
 ### Forge Signing
+
 - Android keystore configuration
 - iOS signing overview (read-only first)
 - Validation and warnings
 
 ### Forge Inspect
+
 - Connected device overview
 - Build/runtime information
 - Basic performance metrics (non-invasive)
@@ -131,9 +144,10 @@ The focus is on delivering practical value early, maintaining transparency, and 
 
 ## Phase 4 — Ecosystem & Automation
 
-**Goal:** Make NS Forge extensible and ecosystem-aware.
+**Goal:** Make NativeScript Forge extensible and ecosystem-aware.
 
 ### Forge Deploy
+
 - Build presets (Dev / Staging / Production)
 - Environment variable editor
 - CI configuration export:
@@ -141,6 +155,7 @@ The focus is on delivering practical value early, maintaining transparency, and 
   - GitLab CI (optional)
 
 ### Forge Intelligence (Optional)
+
 - Community-driven knowledge base
 - Known issues per NS version
 - Plugin compatibility matrix
@@ -153,12 +168,14 @@ The focus is on delivering practical value early, maintaining transparency, and 
 **Goal:** Ensure long-term maintainability and community health.
 
 ### Focus Areas
-- Plugin architecture for NS Forge itself
+
+- Plugin architecture for NativeScript Forge itself
 - Stable API contracts in `nsforge-core`
 - Better error diagnostics
 - Documentation and onboarding improvements
 
 ### Community
+
 - Contributor recognition
 - Roadmap voting
 - RFC process for major changes
