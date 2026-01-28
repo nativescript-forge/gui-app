@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import Database from "@tauri-apps/plugin-sql";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
@@ -100,13 +101,40 @@ function App() {
     const rows = (await currentDb.select(
       "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk FROM projects ORDER BY name ASC",
     )) as ProjectRow[];
-    setProjects(rows);
-    if (autoSelect && rows.length > 0) {
+
+    // Verify if folders still exist
+    const validProjects: ProjectRow[] = [];
+    const missingPaths: string[] = [];
+
+    for (const project of rows) {
+      const exists = await invoke("check_directory_exists", {
+        path: project.path,
+      });
+      if (exists) {
+        validProjects.push(project);
+      } else {
+        missingPaths.push(project.path);
+      }
+    }
+
+    // Cleanup missing projects from DB
+    if (missingPaths.length > 0) {
+      console.log("Cleaning up missing projects:", missingPaths);
+      for (const path of missingPaths) {
+        await currentDb.execute("DELETE FROM projects WHERE path = $1", [path]);
+        if (activeProjectPath === path) setActiveProjectPath(null);
+        if (actionsProjectPath === path) setActionsProjectPath(null);
+      }
+    }
+
+    setProjects(validProjects);
+
+    if (autoSelect && validProjects.length > 0) {
       if (!activeProjectPath) {
-        setActiveProjectPath(rows[0].path);
+        setActiveProjectPath(validProjects[0].path);
       }
       if (!actionsProjectPath) {
-        setActionsProjectPath(rows[0].path);
+        setActionsProjectPath(validProjects[0].path);
       }
     }
   }
@@ -248,6 +276,15 @@ function App() {
   async function handleCreateProject(config: ProjectConfig) {
     if (!db) return;
     setCreateLoading(true);
+    setLogText("Starting project creation process...\n");
+
+    const unlisten = await listen<{ message: string }>(
+      "create-project-log",
+      (event) => {
+        setLogText((prev) => prev + event.payload.message);
+      },
+    );
+
     try {
       const result = (await invoke("create_ns_project", {
         projectName: config.name,
@@ -268,14 +305,15 @@ function App() {
         await refreshProjects(db);
         setActiveProjectPath(projectPath);
         setActionsProjectPath(projectPath);
-        setRoute("app-actions"); // Go directly to app actions when created
+        // REMOVED: setRoute("app-actions"); // Do not auto-redirect
       } else {
-        alert(`Failed to create project: ${result.stderr || result.stdout}`);
+        alert(`Failed to create project. Check terminal for details.`);
       }
     } catch (err) {
       console.error("Create project failed:", err);
       alert(`Error: ${String(err)}`);
     } finally {
+      unlisten();
       setCreateLoading(false);
     }
   }
@@ -378,7 +416,10 @@ function App() {
       brandIconSrc={iconSrc}
       onToggleTheme={toggleTheme}
       onAddProject={browseAndAddProject}
-      onCreateProject={() => setRoute("create")}
+      onCreateProject={() => {
+        setLogText("");
+        setRoute("create");
+      }}
       onOpenDoctor={runDoctor}
       isAppMode={isAppMode}
       projects={projects}
@@ -412,6 +453,7 @@ function App() {
           onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
           onOpenActions={handleOpenActions}
           onRemoveProject={removeProject}
+          onRefresh={() => db && refreshProjects(db)}
         />
       )}
 
@@ -419,7 +461,9 @@ function App() {
         <CreateProjectPage
           onBack={() => setRoute("home")}
           onCreate={handleCreateProject}
+          onProjectCreated={() => setRoute("app-actions")}
           isCreating={createLoading}
+          logs={logText}
         />
       )}
 

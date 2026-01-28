@@ -102,8 +102,19 @@ fn detect_platforms(project_path: &str) -> Vec<String> {
     platforms
 }
 
-fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32, Option<String>, Option<String>) {
-    let manifest_path = project_file(project_path, "App_Resources/Android/src/main/AndroidManifest.xml");
+fn get_android_info(
+    project_path: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    u32,
+    Option<String>,
+    Option<String>,
+) {
+    let manifest_path = project_file(
+        project_path,
+        "App_Resources/Android/src/main/AndroidManifest.xml",
+    );
     let gradle_path = project_file(project_path, "App_Resources/Android/app.gradle");
 
     let mut version_code = None;
@@ -113,7 +124,7 @@ fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32,
     let mut min_sdk = None;
 
     if let Ok(content) = fs::read_to_string(&manifest_path) {
-         permissions_count = content.matches("<uses-permission").count() as u32;
+        permissions_count = content.matches("<uses-permission").count() as u32;
     }
 
     if let Ok(content) = fs::read_to_string(&gradle_path) {
@@ -133,23 +144,38 @@ fn get_android_info(project_path: &str) -> (Option<String>, Option<String>, u32,
             }
         }
     }
-    
+
     if version_name.is_none() {
         if let Some(pkg) = read_package_json(project_path) {
-             version_name = pkg.get("version").and_then(|v| v.as_str()).map(|s| s.to_string());
+            version_name = pkg
+                .get("version")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
         }
     }
 
-    (version_code, version_name, permissions_count, target_sdk, min_sdk)
+    (
+        version_code,
+        version_name,
+        permissions_count,
+        target_sdk,
+        min_sdk,
+    )
 }
 
 fn count_plugins(pkg: &serde_json::Value) -> u32 {
     let mut count = 0;
     if let Some(deps) = pkg.get("dependencies").and_then(|v| v.as_object()) {
-        count += deps.iter().filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/")).count();
+        count += deps
+            .iter()
+            .filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/"))
+            .count();
     }
     if let Some(dev_deps) = pkg.get("devDependencies").and_then(|v| v.as_object()) {
-         count += dev_deps.iter().filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/")).count();
+        count += dev_deps
+            .iter()
+            .filter(|(k, _)| k.contains("nativescript-") || k.contains("@nativescript/"))
+            .count();
     }
     count as u32
 }
@@ -167,8 +193,9 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
     let framework = pkg.as_ref().and_then(detect_framework);
     let nativescript_version = pkg.as_ref().and_then(detect_ns_version);
     let platforms = detect_platforms(project_path);
-    
-    let (version_code, version_name, permissions_count, target_sdk, min_sdk) = get_android_info(project_path);
+
+    let (version_code, version_name, permissions_count, target_sdk, min_sdk) =
+        get_android_info(project_path);
     let plugins_count = pkg.as_ref().map(|p| count_plugins(p)).unwrap_or(0);
 
     ProjectAnalysis {
@@ -233,7 +260,10 @@ fn discover_projects_recursive(dir: &Path, depth_left: u32, out: &mut Vec<Projec
 }
 
 #[tauri::command]
-pub fn discover_projects(root_path: String, max_depth: u32) -> Result<Vec<ProjectAnalysis>, String> {
+pub fn discover_projects(
+    root_path: String,
+    max_depth: u32,
+) -> Result<Vec<ProjectAnalysis>, String> {
     let root = PathBuf::from(&root_path);
     if !root.exists() {
         return Err("Folder not found".to_string());

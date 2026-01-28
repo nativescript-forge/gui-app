@@ -12,7 +12,7 @@ export function SplashScreen(props: SplashScreenProps) {
       className="h-full w-full bg-base-200 text-base-content"
     >
       <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-6">
-        <div className="card bg-base-100 p-6 shadow-xl border border-base-200">
+        <div className="card p-6 shadow-none border-none">
           <img
             src={props.logoSrc}
             alt="NativeScript Forge"

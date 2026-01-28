@@ -1,8 +1,8 @@
 use serde::Serialize;
-use std::process::Command;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,7 +30,11 @@ pub struct ResolvedCli {
     pub display: String,
 }
 
-pub fn run_command(program: &str, args: &[&str], cwd: Option<&str>) -> Result<CommandResult, String> {
+pub fn run_command(
+    program: &str,
+    args: &[&str],
+    cwd: Option<&str>,
+) -> Result<CommandResult, String> {
     let mut cmd = Command::new(program);
     cmd.args(args);
     if let Some(cwd) = cwd {
@@ -45,7 +49,11 @@ pub fn run_command(program: &str, args: &[&str], cwd: Option<&str>) -> Result<Co
     })
 }
 
-pub fn run_command_vec(program: &str, args: Vec<String>, cwd: Option<&str>) -> Result<CommandResult, String> {
+pub fn run_command_vec(
+    program: &str,
+    args: Vec<String>,
+    cwd: Option<&str>,
+) -> Result<CommandResult, String> {
     let mut cmd = Command::new(program);
     cmd.args(args);
     if let Some(cwd) = cwd {
@@ -60,7 +68,11 @@ pub fn run_command_vec(program: &str, args: Vec<String>, cwd: Option<&str>) -> R
     })
 }
 
-pub fn run_resolved(cli: &ResolvedCli, args: &[&str], cwd: Option<&str>) -> Result<CommandResult, String> {
+pub fn run_resolved(
+    cli: &ResolvedCli,
+    args: &[&str],
+    cwd: Option<&str>,
+) -> Result<CommandResult, String> {
     let mut full_args = cli.base_args.clone();
     full_args.extend(args.iter().map(|a| a.to_string()));
     run_command_vec(&cli.launcher, full_args, cwd)
@@ -122,6 +134,42 @@ fn first_existing_in_dirs(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
 }
 
 pub fn resolve_cli() -> Option<ResolvedCli> {
+    let dirs = path_dirs();
+
+    // On Windows, we should prioritize .cmd files for npm-installed binaries
+    #[cfg(target_os = "windows")]
+    let names = ["ns.cmd", "ns.exe", "nativescript.cmd", "nativescript.exe"];
+    #[cfg(not(target_os = "windows"))]
+    let names = ["ns", "nativescript"];
+
+    // First, try to find the executable in PATH without spawning it
+    if let Some(path) = first_existing_in_dirs(&dirs, &names) {
+        let path_str = path.to_string_lossy().to_string();
+
+        #[cfg(target_os = "windows")]
+        {
+            let ext = path
+                .extension()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if ext == "cmd" || ext == "bat" {
+                return Some(ResolvedCli {
+                    launcher: "cmd".to_string(),
+                    base_args: vec!["/C".to_string(), path_str.clone()],
+                    display: format!("cmd /C {}", path_str),
+                });
+            }
+        }
+
+        return Some(ResolvedCli {
+            launcher: path_str.clone(),
+            base_args: Vec::new(),
+            display: path_str,
+        });
+    }
+
+    // Fallback: check if 'ns' is directly available in PATH (shell resolution)
     if run_command("ns", &["--version"], None).is_ok() {
         return Some(ResolvedCli {
             launcher: "ns".to_string(),
@@ -138,36 +186,7 @@ pub fn resolve_cli() -> Option<ResolvedCli> {
         });
     }
 
-    let dirs = path_dirs();
-
-    #[cfg(target_os = "windows")]
-    let names = ["ns.cmd", "ns.exe", "nativescript.cmd", "nativescript.exe"];
-    #[cfg(not(target_os = "windows"))]
-    let names = ["ns", "nativescript"];
-
-    let Some(path) = first_existing_in_dirs(&dirs, &names) else {
-        return None;
-    };
-
-    let path_str = path.to_string_lossy().to_string();
-
-    #[cfg(target_os = "windows")]
-    {
-        let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
-        if ext == "cmd" || ext == "bat" {
-            return Some(ResolvedCli {
-                launcher: "cmd".to_string(),
-                base_args: vec!["/C".to_string(), path_str.clone()],
-                display: format!("cmd /C {}", path_str),
-            });
-        }
-    }
-
-    Some(ResolvedCli {
-        launcher: path_str.clone(),
-        base_args: Vec::new(),
-        display: path_str,
-    })
+    None
 }
 
 fn doctor_command_check(
@@ -179,7 +198,9 @@ fn doctor_command_check(
 ) -> DoctorCheck {
     match run_command(program, args, None) {
         Ok(result) => {
-            let combined = format!("{}{}", result.stdout, result.stderr).trim().to_string();
+            let combined = format!("{}{}", result.stdout, result.stderr)
+                .trim()
+                .to_string();
             let summary = if combined.is_empty() {
                 "Detected".to_string()
             } else {
@@ -188,7 +209,12 @@ fn doctor_command_check(
             DoctorCheck {
                 id: id.to_string(),
                 label: label.to_string(),
-                status: if result.status_code == Some(0) { "ok" } else { "warning" }.to_string(),
+                status: if result.status_code == Some(0) {
+                    "ok"
+                } else {
+                    "warning"
+                }
+                .to_string(),
                 summary,
                 details: Some(combined),
                 hint: None,
@@ -354,44 +380,122 @@ pub fn run_ns(project_path: String, action: String) -> Result<CommandResult, Str
     run_resolved(&cli, &args, Some(&project_path))
 }
 
+use std::io::Read;
+use tauri::Emitter;
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct LogPayload {
+    pub message: String,
+}
+
+// ... existing structs ...
+
+pub fn run_resolved_streaming(
+    window: &tauri::Window,
+    cli: &ResolvedCli,
+    args: &[&str],
+    cwd: Option<&str>,
+) -> Result<CommandResult, String> {
+    let mut full_args = cli.base_args.clone();
+    full_args.extend(args.iter().map(|a| a.to_string()));
+
+    let mut cmd = Command::new(&cli.launcher);
+    cmd.args(full_args);
+    if let Some(cwd) = cwd {
+        cmd.current_dir(cwd);
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+
+    let window_clone = window.clone();
+    let stdout_thread = std::thread::spawn(move || {
+        let mut reader = stdout;
+        let mut buffer = [0u8; 1024];
+        while let Ok(n) = std::io::Read::read(&mut reader, &mut buffer) {
+            if n == 0 {
+                break;
+            }
+            let message = String::from_utf8_lossy(&buffer[..n]).to_string();
+            let _ = window_clone.emit("create-project-log", LogPayload { message });
+        }
+    });
+
+    let window_clone = window.clone();
+    let stderr_thread = std::thread::spawn(move || {
+        let mut reader = stderr;
+        let mut buffer = [0u8; 1024];
+        while let Ok(n) = std::io::Read::read(&mut reader, &mut buffer) {
+            if n == 0 {
+                break;
+            }
+            let message = String::from_utf8_lossy(&buffer[..n]).to_string();
+            let _ = window_clone.emit("create-project-log", LogPayload { message });
+        }
+    });
+
+    let status = child.wait().map_err(|e| e.to_string())?;
+    let _ = stdout_thread.join();
+    let _ = stderr_thread.join();
+
+    Ok(CommandResult {
+        status_code: status.code(),
+        stdout: "Logs sent via events".to_string(),
+        stderr: "".to_string(),
+    })
+}
+
 #[tauri::command]
-pub fn create_ns_project(
+pub async fn create_ns_project(
+    window: tauri::Window,
     project_name: String,
     parent_path: String,
     flavor: String,
     template: String,
     platform: String,
 ) -> Result<CommandResult, String> {
-    let mut args = vec!["create", &project_name];
+    let mut args = vec!["create".to_string(), project_name];
 
     let is_vision = platform == "vision";
 
-    if is_vision {
-        match flavor.as_str() {
-            "angular" | "ng" => args.push("--vision-ng"),
-            "vue" | "vue-ts" => args.push("--vision-vue"),
-            "react" => args.push("--vision-react"),
-            "solid" => args.push("--vision-solid"),
-            "svelte" => args.push("--vision-svelte"),
-            "js" | "ts" => args.push("--vision"),
-            _ => {}
-        }
+    if !template.is_empty() && template != "none" {
+        args.push("--template".to_string());
+        args.push(template);
     } else {
-        match flavor.as_str() {
-            "angular" | "ng" => args.push("--ng"),
-            "vue" | "vue-ts" => args.push("--vue"),
-            "react" => args.push("--react"),
-            "solid" => args.push("--solid"),
-            "svelte" => args.push("--svelte"),
-            "js" => args.push("--js"),
-            "ts" => args.push("--ts"),
-            _ => {}
+        if is_vision {
+            match flavor.as_str() {
+                "angular" | "ng" => args.push("--vision-ng".to_string()),
+                "vue" | "vue-ts" => args.push("--vision-vue".to_string()),
+                "react" => args.push("--vision-react".to_string()),
+                "solid" => args.push("--vision-solid".to_string()),
+                "svelte" => args.push("--vision-svelte".to_string()),
+                "js" | "ts" => args.push("--vision".to_string()),
+                _ => {}
+            }
+        } else {
+            match flavor.as_str() {
+                "angular" | "ng" => args.push("--ng".to_string()),
+                "vue" | "vue-ts" => args.push("--vue".to_string()),
+                "react" => args.push("--react".to_string()),
+                "solid" => args.push("--solid".to_string()),
+                "svelte" => args.push("--svelte".to_string()),
+                "js" => {},
+                "ts" => args.push("--ts".to_string()),
+                _ => {}
+            }
         }
-    }
-
-    if !template.is_empty() {
-        args.push("--template");
-        args.push(&template);
     }
 
     let Some(cli) = resolve_cli() else {
@@ -400,5 +504,13 @@ pub fn create_ns_project(
         );
     };
 
-    run_resolved(&cli, &args, Some(&parent_path))
+    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    
+    // Run in a separate thread to avoid blocking the Tauri async runtime
+    tauri::async_runtime::spawn_blocking(move || {
+        let args_refs: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
+        run_resolved_streaming(&window, &cli, &args_refs, Some(&parent_path))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

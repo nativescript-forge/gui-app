@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ProjectRow } from "../../app/types";
-import { FiCopy, FiPlay } from "react-icons/fi";
+import { FiCopy, FiPlay, FiCheckCircle } from "react-icons/fi";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 type ActionsPageProps = {
   projects: ProjectRow[];
@@ -26,7 +27,9 @@ export function ActionsPage(props: ActionsPageProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-2xl font-bold">Forge Actions</div>
-          <div className="text-sm opacity-70">Run NativeScript CLI commands and inspect logs</div>
+          <div className="text-sm opacity-70">
+            Run NativeScript CLI commands and inspect logs
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
@@ -34,7 +37,9 @@ export function ActionsPage(props: ActionsPageProps) {
             value={props.projectPath ?? ""}
             onChange={(e) => props.setProjectPath(e.target.value || null)}
           >
-            {props.projects.length === 0 ? <option value="">No projects</option> : null}
+            {props.projects.length === 0 ? (
+              <option value="">No projects</option>
+            ) : null}
             {props.projects.map((p) => (
               <option key={p.path} value={p.path}>
                 {p.name}
@@ -77,7 +82,9 @@ export function ActionsPage(props: ActionsPageProps) {
         <div className="card bg-base-100 shadow-sm lg:col-span-1">
           <div className="card-body">
             <div className="font-semibold">Log Viewer</div>
-            <div className="text-sm opacity-70">Filter errors and copy output</div>
+            <div className="text-sm opacity-70">
+              Filter errors and copy output
+            </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className="join">
@@ -125,9 +132,14 @@ export function ActionsPage(props: ActionsPageProps) {
                 </pre>
               ) : (
                 filteredLogLines.map((line, idx) => {
-                  const isError = /(error|failed|exception|traceback)/i.test(line);
+                  const isError = /(error|failed|exception|traceback)/i.test(
+                    line,
+                  );
                   return (
-                    <pre key={idx} className={`px-4 ${isError ? "text-error" : ""}`}>
+                    <pre
+                      key={idx}
+                      className={`px-4 ${isError ? "text-error" : ""}`}
+                    >
                       <code>{line || " "}</code>
                     </pre>
                   );
@@ -140,4 +152,3 @@ export function ActionsPage(props: ActionsPageProps) {
     </div>
   );
 }
-

@@ -20,6 +20,7 @@ pub fn run() {
     }];
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
                 .add_migrations("sqlite:nsforge.db", migrations)
@@ -30,6 +31,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             commands::fs::reveal_in_explorer,
+            commands::fs::check_directory_exists,
             commands::project::analyze_project,
             commands::project::discover_projects,
             commands::ns::doctor_checks,

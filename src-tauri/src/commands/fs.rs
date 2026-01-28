@@ -1,4 +1,10 @@
+use std::path::Path;
 use std::process::Command;
+
+#[tauri::command]
+pub fn check_directory_exists(path: String) -> bool {
+    Path::new(&path).exists() && Path::new(&path).is_dir()
+}
 
 #[tauri::command]
 pub fn reveal_in_explorer(path: String) -> Result<(), String> {

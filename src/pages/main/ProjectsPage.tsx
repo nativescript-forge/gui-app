@@ -16,6 +16,7 @@ import {
   FiPackage,
   FiShield,
   FiX,
+  FiRefreshCw,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 
@@ -29,6 +30,7 @@ type ProjectsPageProps = {
   onOpenFolder: (projectPath: string) => void;
   onOpenActions: (projectPath: string) => void;
   onRemoveProject: (projectPath: string) => void;
+  onRefresh: () => void;
 };
 
 export function ProjectsPage(props: ProjectsPageProps) {
@@ -73,6 +75,15 @@ export function ProjectsPage(props: ProjectsPageProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={props.onRefresh}
+            title="Refresh list and check existence"
+          >
+            <FiRefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
