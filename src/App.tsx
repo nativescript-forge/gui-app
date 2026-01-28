@@ -21,21 +21,21 @@ import { AppShell } from "./components/AppShell";
 import { DiscoverModal } from "./components/DiscoverModal";
 
 // Pages
-import { WelcomePage } from "./pages/WelcomePage";
-import { ProjectsPage } from "./pages/ProjectsPage";
-import { DoctorPage } from "./pages/DoctorPage";
-import { ActionsPage } from "./pages/ActionsPage";
-import { PluginsPage } from "./pages/PluginsPage";
-import { PermissionsPage } from "./pages/PermissionsPage";
-import { ConfigPage } from "./pages/ConfigPage";
+import { HomePage } from "./pages/main/HomePage";
+import { ProjectsPage } from "./pages/main/ProjectsPage";
+import { DoctorPage } from "./pages/app-mode/DoctorPage";
+import { ActionsPage } from "./pages/app-mode/ActionsPage";
+import { PluginsPage } from "./pages/app-mode/PluginsPage";
+import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
+import { ConfigPage } from "./pages/app-mode/ConfigPage";
 import {
   CreateProjectPage,
   type ProjectConfig,
-} from "./pages/CreateProjectPage";
+} from "./pages/main/CreateProjectPage";
 
 function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
-  const [route, setRoute] = useState<Route>("welcome");
+  const [route, setRoute] = useState<Route>("home");
   const [theme, setTheme] = useState<Theme>("dark");
 
   const updateTheme = (newTheme: Theme) => {
@@ -93,16 +93,21 @@ function App() {
 
   const { logoSrc, iconSrc } = getBrandAssets(theme);
 
-  async function refreshProjects(currentDb: Database) {
+  async function refreshProjects(
+    currentDb: Database,
+    autoSelect: boolean = false,
+  ) {
     const rows = (await currentDb.select(
       "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk FROM projects ORDER BY name ASC",
     )) as ProjectRow[];
     setProjects(rows);
-    if (!activeProjectPath && rows.length > 0) {
-      setActiveProjectPath(rows[0].path);
-    }
-    if (!actionsProjectPath && rows.length > 0) {
-      setActionsProjectPath(rows[0].path);
+    if (autoSelect && rows.length > 0) {
+      if (!activeProjectPath) {
+        setActiveProjectPath(rows[0].path);
+      }
+      if (!actionsProjectPath) {
+        setActionsProjectPath(rows[0].path);
+      }
     }
   }
 
@@ -126,7 +131,7 @@ function App() {
     try {
       const currentDb = await Database.load("sqlite:nsforge_v1.db");
       setDb(currentDb);
-      await refreshProjects(currentDb);
+      await refreshProjects(currentDb, true);
     } catch (err) {
       console.error("Failed to init DB:", err);
     }
@@ -326,12 +331,14 @@ function App() {
     }
   }
 
-  async function handleSelectProject(path: string) {
+  async function handleSelectProject(path: string | null) {
     setActiveProjectPath(path);
-    setActionsProjectPath(path);
+    if (path) {
+      setActionsProjectPath(path);
+    }
 
     // Re-analyze on select to keep metadata fresh
-    if (db) {
+    if (db && path) {
       try {
         const analysis = (await invoke("analyze_project", {
           projectPath: path,
@@ -381,8 +388,8 @@ function App() {
         setActionsProjectPath(path);
       }}
     >
-      {route === "welcome" && (
-        <WelcomePage
+      {route === "home" && (
+        <HomePage
           logoSrc={logoSrc}
           projects={projects}
           onAddProject={browseAndAddProject}
@@ -390,6 +397,7 @@ function App() {
           onOpenDoctor={runDoctor}
           onViewAllProjects={() => setRoute("projects")}
           onOpenProject={handleOpenActions}
+          onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
         />
       )}
 
@@ -409,7 +417,7 @@ function App() {
 
       {route === "create" && (
         <CreateProjectPage
-          onBack={() => setRoute("welcome")}
+          onBack={() => setRoute("home")}
           onCreate={handleCreateProject}
           isCreating={createLoading}
         />

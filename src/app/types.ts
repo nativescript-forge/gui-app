@@ -1,5 +1,5 @@
 export type Route =
-  | "welcome"
+  | "home"
   | "create"
   | "projects"
   | "app-doctor"

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { ProjectRow } from "../app/types";
+import type { ProjectRow } from "../../app/types";
 import { FiCopy, FiPlay } from "react-icons/fi";
 
 type ActionsPageProps = {

@@ -1,4 +1,4 @@
-import type { DoctorCheck } from "../app/types";
+import type { DoctorCheck } from "../../app/types";
 import { FiPlay } from "react-icons/fi";
 
 type DoctorPageProps = {

@@ -38,12 +38,12 @@ type AppShellProps = {
   isAppMode: boolean;
   projects: ProjectRow[];
   activeProjectPath: string | null;
-  onSelectProject: (path: string) => void;
+  onSelectProject: (path: string | null) => void;
 };
 
 export function AppShell(props: AppShellProps) {
   const homeSidebarItems: SidebarItem[] = [
-    { id: "welcome", label: "Welcome", icon: FiHome },
+    { id: "home", label: "Home", icon: FiHome },
     { id: "create", label: "Create Project", icon: FiPlus },
     {
       id: "add",
@@ -51,7 +51,7 @@ export function AppShell(props: AppShellProps) {
       icon: FiFolderPlus,
       onClick: props.onAddProject,
     },
-    { id: "projects", label: "Library", icon: FiGrid },
+    { id: "projects", label: "Projects", icon: FiGrid },
   ];
 
   const appSidebarItems: SidebarItem[] = [
@@ -126,7 +126,7 @@ export function AppShell(props: AppShellProps) {
               {props.isAppMode && (
                 <div className="space-y-3">
                   <button
-                    onClick={() => props.setRoute("welcome")}
+                    onClick={() => props.setRoute("home")}
                     className="btn btn-ghost btn-sm w-full justify-start gap-2 text-primary hover:bg-primary/10"
                   >
                     <FiChevronLeft className="h-4 w-4" />

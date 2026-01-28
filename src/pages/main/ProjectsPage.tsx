@@ -1,7 +1,7 @@
 import { useRef } from "react";
-import type { ProjectRow } from "../app/types";
-import { shortenPath } from "../app/utils";
-import { parsePlatforms } from "../app/platforms";
+import type { ProjectRow } from "../../app/types";
+import { shortenPath } from "../../app/utils";
+import { parsePlatforms } from "../../app/platforms";
 import {
   FiCalendar,
   FiCpu,
@@ -15,13 +15,14 @@ import {
   FiZap,
   FiPackage,
   FiShield,
+  FiX,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 
 type ProjectsPageProps = {
   projects: ProjectRow[];
   activeProjectPath: string | null;
-  onSelectProject: (projectPath: string) => void;
+  onSelectProject: (projectPath: string | null) => void;
   onScanFolder: () => void;
   onAddProject: () => void;
   onCreateProject: () => void;
@@ -96,24 +97,15 @@ export function ProjectsPage(props: ProjectsPageProps) {
             <FiSearch className="h-4 w-4" />
             Scan Folder
           </button>
-          {activeProject ? (
-            <div className="divider divider-horizontal h-8 mx-2 hidden sm:flex"></div>
-          ) : null}
-          {activeProject ? (
-            <button
-              type="button"
-              className="btn btn-ghost btn-square"
-              onClick={() => props.onOpenFolder(activeProject.path)}
-              title="Open Folder"
-            >
-              <FiExternalLink className="h-4 w-4 opacity-70" />
-            </button>
-          ) : null}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-7 xl:col-span-8">
+        <div
+          className={
+            activeProject ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"
+          }
+        >
           <div className="flex flex-col gap-4">
             {props.projects.length === 0 ? (
               <div className="card bg-base-100 border border-base-200 border-dashed shadow-sm p-12 md:p-20 text-center flex flex-col items-center gap-6">
@@ -157,9 +149,9 @@ export function ProjectsPage(props: ProjectsPageProps) {
                   >
                     <div className="card-body p-0">
                       <div className="flex flex-col md:flex-row">
-                        {/* Left side: Basic info */}
+                        {/* Project Info */}
                         <div
-                          className={`p-5 flex-1 border-b md:border-b-0 md:border-r border-base-200 transition-colors ${
+                          className={`p-5 flex-1 transition-colors ${
                             isActive
                               ? "bg-primary/10"
                               : "group-hover:bg-primary/5"
@@ -185,58 +177,28 @@ export function ProjectsPage(props: ProjectsPageProps) {
                               {p.name}
                             </h3>
                           </div>
-                          <div className="flex items-center gap-2 text-xs opacity-50 font-mono min-w-0">
+                          <div className="flex items-center gap-2 text-xs opacity-50 font-mono min-w-0 mb-4">
                             <FiFolderPlus className="h-3 w-3 shrink-0" />
                             <span className="truncate" title={p.path}>
                               {shortenPath(p.path)}
                             </span>
                           </div>
-                        </div>
 
-                        {/* Right side: Detailed info */}
-                        <div
-                          className={`p-5 lg:w-48 xl:w-64 flex flex-col justify-center gap-4 ${
-                            isActive ? "bg-primary/5" : "bg-base-200/30"
-                          }`}
-                        >
-                          <div className="flex flex-wrap gap-2">
-                            {p.framework && (
-                              <div className="badge badge-neutral gap-1.5 py-1 h-auto min-h-[0.25rem]">
-                                <FiCpu className="h-3 w-3 shrink-0" />
-                                <span className="leading-tight">
-                                  {p.framework}
-                                </span>
-                              </div>
-                            )}
-                            {p.nativescript_version && (
-                              <div className="badge badge-primary gap-1.5 py-1 h-auto min-h-[0.25rem]">
-                                <span className="text-[10px] opacity-70 font-bold shrink-0">
-                                  CLI
-                                </span>
-                                <span className="leading-tight">
-                                  v
-                                  {p.nativescript_version.replace(
-                                    /[^0-9.]/g,
-                                    "",
-                                  )}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center justify-between gap-3 text-xs opacity-60">
-                            <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-                              <FiSmartphone className="h-3.5 w-3.5 shrink-0" />
+                          <div className="flex flex-wrap items-center gap-4 mt-auto pt-4 border-t border-base-200/50">
+                            <div className="flex items-center gap-1.5">
+                              <FiSmartphone className="h-3.5 w-3.5 opacity-40" />
                               {renderPlatforms(p.platforms)}
                             </div>
-                            {p.last_opened && (
-                              <div className="flex items-center gap-1.5 shrink-0 ml-auto md:ml-0">
-                                <FiCalendar className="h-3.5 w-3.5" />
-                                <span>
-                                  {new Date(p.last_opened).toLocaleDateString()}
-                                </span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-60 bg-base-200 px-2 py-1 rounded">
+                              <FiPackage className="h-3 w-3" />
+                              NativeScript {p.nativescript_version || "N/A"}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-40 ml-auto">
+                              <FiCalendar className="h-3 w-3" />
+                              {p.last_opened
+                                ? new Date(p.last_opened).toLocaleDateString()
+                                : "N/A"}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -248,17 +210,17 @@ export function ProjectsPage(props: ProjectsPageProps) {
           </div>
         </div>
 
-        <div className="lg:col-span-5 xl:col-span-4">
-          <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto custom-scrollbar">
-            <div className="card-body">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <div className="badge badge-primary badge-xs badge-outline"></div>
-                  <div className="text-[10px] font-bold uppercase tracking-widest opacity-50">
-                    Overviews
+        {activeProject && (
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6">
+              <div className="card-body">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="badge badge-primary badge-xs badge-outline"></div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest opacity-50">
+                      Overviews
+                    </div>
                   </div>
-                </div>
-                {activeProject ? (
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -277,20 +239,17 @@ export function ProjectsPage(props: ProjectsPageProps) {
                     >
                       <FiTrash2 className="h-3.5 w-3.5" />
                     </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => props.onSelectProject(null)}
+                      title="Close Overview"
+                    >
+                      <FiX className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                ) : null}
-              </div>
-
-              {!activeProject ? (
-                <div className="py-12 text-center">
-                  <div className="p-4 rounded-full bg-base-200 w-fit mx-auto mb-4 opacity-50">
-                    <FiSearch className="h-8 w-8" />
-                  </div>
-                  <p className="text-sm opacity-40 italic">
-                    Select a project to view metrics.
-                  </p>
                 </div>
-              ) : (
+
                 <div className="space-y-6">
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-1">
@@ -324,7 +283,7 @@ export function ProjectsPage(props: ProjectsPageProps) {
                     <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
                       <div className="card-body p-3">
                         <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                          Framework
+                          Flavor
                         </div>
                         <div className="font-bold text-sm flex items-center gap-2">
                           <FiCpu className="h-3.5 w-3.5 opacity-50" />
@@ -448,10 +407,10 @@ export function ProjectsPage(props: ProjectsPageProps) {
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* DaisyUI Confirmation Modal */}
