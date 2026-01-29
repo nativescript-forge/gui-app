@@ -9,7 +9,8 @@ export function SplashScreen(props: SplashScreenProps) {
   return (
     <div
       data-theme={props.theme}
-      className="h-full w-full bg-base-200 text-base-content"
+      data-tauri-drag-region
+      className="flex-1 h-screen w-full bg-base-200 text-base-content overflow-hidden select-none"
     >
       <div className="flex h-full w-full flex-col items-center justify-center gap-6 px-6">
         <div className="card p-6 shadow-none border-none">

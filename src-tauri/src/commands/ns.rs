@@ -380,7 +380,6 @@ pub fn run_ns(project_path: String, action: String) -> Result<CommandResult, Str
     run_resolved(&cli, &args, Some(&project_path))
 }
 
-use std::io::Read;
 use tauri::Emitter;
 
 #[derive(Serialize, Clone)]

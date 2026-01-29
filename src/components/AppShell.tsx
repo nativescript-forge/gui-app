@@ -67,7 +67,7 @@ export function AppShell(props: AppShellProps) {
   return (
     <div
       data-theme={props.theme}
-      className="h-screen w-full bg-base-200 text-base-content overflow-hidden"
+      className="flex-1 w-full bg-base-200 text-base-content overflow-hidden"
     >
       <div className="drawer lg:drawer-open h-full">
         <input id="nsf-drawer" type="checkbox" className="drawer-toggle" />
@@ -183,25 +183,16 @@ export function AppShell(props: AppShellProps) {
               </div>
             </div>
 
-            {/* Theme Toggle & Footer */}
+            {/* Footer */}
             <div className="p-4 border-t border-base-200 bg-base-50/30">
-              <button
-                type="button"
-                className="btn btn-ghost btn-block justify-start gap-3 rounded-xl hover:bg-base-200"
-                onClick={props.onToggleTheme}
-              >
-                {props.theme === "dark" ? (
-                  <>
-                    <FiSun className="h-4 w-4 text-warning" />
-                    <span>Light Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <FiMoon className="h-4 w-4 text-primary" />
-                    <span>Dark Mode</span>
-                  </>
-                )}
-              </button>
+              <div className="flex items-center justify-between px-2">
+                <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">
+                  v1.0.0
+                </span>
+                <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">
+                  NS-Forge
+                </span>
+              </div>
             </div>
           </aside>
         </div>

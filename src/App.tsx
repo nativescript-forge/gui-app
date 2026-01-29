@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import Database from "@tauri-apps/plugin-sql";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -20,6 +21,7 @@ import { getBrandAssets } from "./app/brand";
 import { SplashScreen } from "./components/SplashScreen";
 import { AppShell } from "./components/AppShell";
 import { DiscoverModal } from "./components/DiscoverModal";
+import { TitleBar } from "./components/TitleBar";
 
 // Pages
 import { HomePage } from "./pages/main/HomePage";
@@ -168,6 +170,13 @@ function App() {
     const elapsed = Date.now() - splashStartRef.current;
     const remaining = Math.max(0, minSplashMs - elapsed);
     window.setTimeout(() => setBootStage("ready"), remaining);
+
+    // Show window after initial loading to prevent white flash
+    try {
+      await getCurrentWindow().show();
+    } catch (err) {
+      console.error("Failed to show window:", err);
+    }
   }
 
   useEffect(() => {
@@ -406,103 +415,123 @@ function App() {
   const isAppMode = route.startsWith("app-");
 
   return (
-    <AppShell
-      theme={theme}
-      route={route}
-      setRoute={setRoute}
-      activeProjectPathLabel={
-        activeProject ? activeProject.name : "No project selected"
-      }
-      brandIconSrc={iconSrc}
-      onToggleTheme={toggleTheme}
-      onAddProject={browseAndAddProject}
-      onCreateProject={() => {
-        setLogText("");
-        setRoute("create");
-      }}
-      onOpenDoctor={runDoctor}
-      isAppMode={isAppMode}
-      projects={projects}
-      activeProjectPath={activeProjectPath}
-      onSelectProject={(path) => {
-        setActiveProjectPath(path);
-        setActionsProjectPath(path);
-      }}
-    >
-      {route === "home" && (
-        <HomePage
-          logoSrc={logoSrc}
-          projects={projects}
-          onAddProject={browseAndAddProject}
-          onCreateProject={() => setRoute("create")}
-          onOpenDoctor={runDoctor}
-          onViewAllProjects={() => setRoute("projects")}
-          onOpenProject={handleOpenActions}
-          onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-        />
-      )}
-
-      {route === "projects" && (
-        <ProjectsPage
-          projects={projects}
-          activeProjectPath={activeProjectPath}
-          onSelectProject={handleSelectProject}
-          onScanFolder={scanAndDiscoverProjects}
-          onAddProject={browseAndAddProject}
-          onCreateProject={() => setRoute("create")}
-          onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-          onOpenActions={handleOpenActions}
-          onRemoveProject={removeProject}
-          onRefresh={() => db && refreshProjects(db)}
-        />
-      )}
-
-      {route === "create" && (
-        <CreateProjectPage
-          onBack={() => setRoute("home")}
-          onCreate={handleCreateProject}
-          onProjectCreated={() => setRoute("app-actions")}
-          isCreating={createLoading}
-          logs={logText}
-        />
-      )}
-
-      {route === "app-doctor" && (
-        <DoctorPage
-          checks={doctorChecks}
-          loading={doctorLoading}
-          onRunChecks={runDoctor}
-        />
-      )}
-
-      {route === "app-actions" && (
-        <ActionsPage
-          projects={projects}
-          projectPath={actionsProjectPath}
-          setProjectPath={setActionsProjectPath}
-          running={actionsRunning}
-          logText={logText}
-          logFilter={logFilter}
-          setLogFilter={setLogFilter}
-          onRunAction={runAction}
-        />
-      )}
-
-      {/* Application Tools */}
-      {route === "app-plugins" && <PluginsPage />}
-      {route === "app-permissions" && <PermissionsPage />}
-      {route === "app-config" && <ConfigPage />}
-
-      <DiscoverModal
-        open={discoverOpen}
-        loading={discoverLoading}
-        results={discoverResults}
+    <div className="flex flex-col h-screen overflow-hidden">
+      <TitleBar
         projects={projects}
-        db={db}
-        onClose={() => setDiscoverOpen(false)}
-        onImport={handleImportProject}
+        activeProjectPath={activeProjectPath}
+        onSelectProject={(path) => {
+          setActiveProjectPath(path);
+          setActionsProjectPath(path);
+        }}
+        onAddProject={browseAndAddProject}
+        onCreateProject={() => {
+          setLogText("");
+          setRoute("create");
+        }}
+        onOpenDoctor={runDoctor}
+        setRoute={setRoute}
+        brandIconSrc={iconSrc}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
-    </AppShell>
+      <AppShell
+        theme={theme}
+        route={route}
+        setRoute={setRoute}
+        activeProjectPathLabel={
+          activeProject ? activeProject.name : "No project selected"
+        }
+        brandIconSrc={iconSrc}
+        onToggleTheme={toggleTheme}
+        onAddProject={browseAndAddProject}
+        onCreateProject={() => {
+          setLogText("");
+          setRoute("create");
+        }}
+        onOpenDoctor={runDoctor}
+        isAppMode={isAppMode}
+        projects={projects}
+        activeProjectPath={activeProjectPath}
+        onSelectProject={(path) => {
+          setActiveProjectPath(path);
+          setActionsProjectPath(path);
+        }}
+      >
+        {route === "home" && (
+          <HomePage
+            logoSrc={logoSrc}
+            projects={projects}
+            onAddProject={browseAndAddProject}
+            onCreateProject={() => setRoute("create")}
+            onOpenDoctor={runDoctor}
+            onViewAllProjects={() => setRoute("projects")}
+            onOpenProject={handleOpenActions}
+            onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+          />
+        )}
+
+        {route === "projects" && (
+          <ProjectsPage
+            projects={projects}
+            activeProjectPath={activeProjectPath}
+            onSelectProject={handleSelectProject}
+            onScanFolder={scanAndDiscoverProjects}
+            onAddProject={browseAndAddProject}
+            onCreateProject={() => setRoute("create")}
+            onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+            onOpenActions={handleOpenActions}
+            onRemoveProject={removeProject}
+            onRefresh={() => db && refreshProjects(db)}
+          />
+        )}
+
+        {route === "create" && (
+          <CreateProjectPage
+            onBack={() => setRoute("home")}
+            onCreate={handleCreateProject}
+            onProjectCreated={() => setRoute("app-actions")}
+            isCreating={createLoading}
+            logs={logText}
+          />
+        )}
+
+        {route === "app-doctor" && (
+          <DoctorPage
+            checks={doctorChecks}
+            loading={doctorLoading}
+            onRunChecks={runDoctor}
+          />
+        )}
+
+        {route === "app-actions" && (
+          <ActionsPage
+            projects={projects}
+            projectPath={actionsProjectPath}
+            setProjectPath={setActionsProjectPath}
+            running={actionsRunning}
+            logText={logText}
+            logFilter={logFilter}
+            setLogFilter={setLogFilter}
+            onRunAction={runAction}
+          />
+        )}
+
+        {/* Application Tools */}
+        {route === "app-plugins" && <PluginsPage />}
+        {route === "app-permissions" && <PermissionsPage />}
+        {route === "app-config" && <ConfigPage />}
+
+        <DiscoverModal
+          open={discoverOpen}
+          loading={discoverLoading}
+          results={discoverResults}
+          projects={projects}
+          db={db}
+          onClose={() => setDiscoverOpen(false)}
+          onImport={handleImportProject}
+        />
+      </AppShell>
+    </div>
   );
 }
 
