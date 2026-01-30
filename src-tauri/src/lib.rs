@@ -37,6 +37,7 @@ pub fn run() {
             commands::ns::doctor_checks,
             commands::ns::run_ns,
             commands::ns::create_ns_project,
+            commands::ns::get_adb_devices,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

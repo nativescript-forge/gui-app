@@ -14,6 +14,7 @@ import type {
   ProjectAnalysis,
   DoctorCheck,
   CommandResult,
+  AdbDevice,
 } from "./app/types";
 import { getBrandAssets } from "./app/brand";
 
@@ -35,11 +36,13 @@ import {
   CreateProjectPage,
   type ProjectConfig,
 } from "./pages/main/CreateProjectPage";
+import { BuildModal, type BuildConfig } from "./components/TitleBar/BuildModal";
 
 function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
   const [route, setRoute] = useState<Route>("home");
   const [theme, setTheme] = useState<Theme>("dark");
+  const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
 
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme);
@@ -358,7 +361,11 @@ function App() {
     }
   }
 
-  async function runAction(action: "run-android" | "run-ios" | "build") {
+  async function runAction(
+    action: "run-android" | "run-ios" | "debug-android" | "debug-ios" | "build",
+    deviceId?: string,
+    buildConfig?: BuildConfig,
+  ) {
     if (!actionsProjectPath) return;
     setActionsRunning(true);
     setLogText("");
@@ -366,6 +373,8 @@ function App() {
       const result = (await invoke("run_ns", {
         projectPath: actionsProjectPath,
         action,
+        deviceId,
+        buildConfig,
       })) as CommandResult;
       const combined = [result.stdout, result.stderr]
         .filter(Boolean)
@@ -430,9 +439,13 @@ function App() {
         }}
         onOpenDoctor={runDoctor}
         setRoute={setRoute}
+        currentRoute={route}
+        onRunAction={runAction}
+        actionsRunning={actionsRunning}
         brandIconSrc={iconSrc}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onOpenBuildModal={() => setIsBuildModalOpen(true)}
       />
       <AppShell
         theme={theme}
@@ -456,6 +469,7 @@ function App() {
           setActiveProjectPath(path);
           setActionsProjectPath(path);
         }}
+        onOpenBuildModal={() => setIsBuildModalOpen(true)}
       >
         {route === "home" && (
           <HomePage
@@ -512,7 +526,13 @@ function App() {
             logText={logText}
             logFilter={logFilter}
             setLogFilter={setLogFilter}
-            onRunAction={runAction}
+            onRunAction={(action, deviceId) => {
+              if (action === "build") {
+                setIsBuildModalOpen(true);
+              } else {
+                runAction(action, deviceId);
+              }
+            }}
           />
         )}
 
@@ -531,6 +551,20 @@ function App() {
           onImport={handleImportProject}
         />
       </AppShell>
+
+      <BuildModal
+        isOpen={isBuildModalOpen}
+        onClose={() => setIsBuildModalOpen(false)}
+        platform={
+          route === "app-actions"
+            ? (localStorage.getItem("ns-forge-platform") as
+                | "android"
+                | "ios") || "android"
+            : "android"
+        }
+        onBuild={(config) => runAction("build", undefined, config)}
+        projectPath={activeProjectPath || undefined}
+      />
     </div>
   );
 }

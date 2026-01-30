@@ -39,6 +39,7 @@ type AppShellProps = {
   projects: ProjectRow[];
   activeProjectPath: string | null;
   onSelectProject: (path: string | null) => void;
+  onOpenBuildModal: () => void;
 };
 
 export function AppShell(props: AppShellProps) {

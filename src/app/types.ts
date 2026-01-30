@@ -54,3 +54,10 @@ export type CommandResult = {
   stdout: string;
   stderr: string;
 };
+
+export type AdbDevice = {
+  id: string;
+  model: string;
+  status: string;
+  platform: "android" | "ios" | "visionos";
+};

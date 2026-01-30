@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -10,6 +10,40 @@ pub struct CommandResult {
     pub status_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdbDevice {
+    pub id: String,
+    pub model: String,
+    pub status: String,
+    pub platform: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuildConfig {
+    pub platform: String,
+    pub mode: String,
+    #[serde(rename = "type")]
+    pub build_type: String,
+    pub clean: bool,
+    pub key_store_path: Option<String>,
+    pub key_store_password: Option<String>,
+    pub key_store_alias: Option<String>,
+    pub key_store_alias_password: Option<String>,
+    // New flags
+    pub aot: Option<bool>,
+    pub snapshot: Option<bool>,
+    pub compile_snapshot: Option<bool>,
+    pub uglify: Option<bool>,
+    pub report: Option<bool>,
+    pub source_map: Option<bool>,
+    pub hidden_source_map: Option<bool>,
+    pub force: Option<bool>,
+    pub compile_sdk: Option<String>,
+    pub copy_to: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -363,13 +397,180 @@ pub fn doctor_checks() -> Vec<DoctorCheck> {
 }
 
 #[tauri::command]
-pub fn run_ns(project_path: String, action: String) -> Result<CommandResult, String> {
-    let args: Vec<&str> = match action.as_str() {
-        "run-android" => vec!["run", "android"],
-        "run-ios" => vec!["run", "ios"],
-        "build" => vec!["build"],
+pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
+    // 1. Try to find adb
+    let adb_cmd = if cfg!(target_os = "windows") {
+        "adb.exe"
+    } else {
+        "adb"
+    };
+
+    // Kill and Start server
+    let _ = run_command(adb_cmd, &["kill-server"], None);
+    let _ = run_command(adb_cmd, &["start-server"], None);
+
+    // Get devices
+    let output = run_command(adb_cmd, &["devices", "-l"], None)?;
+    let mut devices = Vec::new();
+
+    for line in output.stdout.lines().skip(1) {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() >= 2 {
+            let id = parts[0].to_string();
+            let status = parts[1].to_string();
+            let mut model = id.clone();
+
+            // Extract model from -l output (e.g., model:Pixel_4_API_30)
+            for part in parts.iter().skip(2) {
+                if part.starts_with("model:") {
+                    model = part.replace("model:", "").replace("_", " ");
+                }
+            }
+
+            devices.push(AdbDevice {
+                id,
+                model,
+                status,
+                platform: "android".to_string(),
+            });
+        }
+    }
+
+    // Also check for iOS devices if on macOS
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(xc_output) = run_command("xcrun", &["simctl", "list", "devices", "booted"], None) {
+            for line in xc_output.stdout.lines() {
+                if line.contains("(") && line.contains(")") && line.contains("Booted") {
+                    let parts: Vec<&str> = line.split('(').collect();
+                    if parts.len() >= 2 {
+                        let model = parts[0].trim().to_string();
+                        let id_part = parts[1].split(')').next().unwrap_or("").trim();
+                        devices.push(AdbDevice {
+                            id: id_part.to_string(),
+                            model,
+                            status: "device".to_string(),
+                            platform: "ios".to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(devices)
+}
+
+#[tauri::command]
+pub fn run_ns(
+    project_path: String,
+    action: String,
+    device_id: Option<String>,
+    build_config: Option<BuildConfig>,
+) -> Result<CommandResult, String> {
+    let mut args: Vec<String> = match action.as_str() {
+        "run-android" => vec!["run".to_string(), "android".to_string()],
+        "run-ios" => vec!["run".to_string(), "ios".to_string()],
+        "debug-android" => vec!["debug".to_string(), "android".to_string()],
+        "debug-ios" => vec!["debug".to_string(), "ios".to_string()],
+        "build" => {
+            if let Some(config) = &build_config {
+                let mut b_args = vec!["build".to_string(), config.platform.clone()];
+                if config.mode == "release" {
+                    b_args.push("--release".to_string());
+                }
+
+                if config.platform == "android" {
+                    if config.build_type == "aab" {
+                        b_args.push("--aab".to_string());
+                    }
+
+                    // Add optimization and additional flags
+                    if config.uglify.unwrap_or(false) {
+                        b_args.push("--env.uglify".to_string());
+                    }
+                    if config.aot.unwrap_or(false) {
+                        b_args.push("--env.aot".to_string());
+                    }
+                    if config.snapshot.unwrap_or(false) {
+                        b_args.push("--env.snapshot".to_string());
+                    }
+                    if config.compile_snapshot.unwrap_or(false) {
+                        b_args.push("--env.compileSnapshot".to_string());
+                    }
+                    if config.report.unwrap_or(false) {
+                        b_args.push("--env.report".to_string());
+                    }
+                    if config.source_map.unwrap_or(false) {
+                        b_args.push("--env.sourceMap".to_string());
+                    }
+                    if config.hidden_source_map.unwrap_or(false) {
+                        b_args.push("--env.hiddenSourceMap".to_string());
+                    }
+                    if config.force.unwrap_or(false) {
+                        b_args.push("--force".to_string());
+                    }
+                    if let Some(sdk) = &config.compile_sdk {
+                        if !sdk.is_empty() {
+                            b_args.push("--compileSdk".to_string());
+                            b_args.push(sdk.clone());
+                        }
+                    }
+                    if let Some(copy_to) = &config.copy_to {
+                        if !copy_to.is_empty() {
+                            b_args.push("--copy-to".to_string());
+                            b_args.push(copy_to.clone());
+                        }
+                    }
+
+                    // Add keystore args if provided (usually for release)
+                    if config.mode == "release" {
+                        if let Some(path) = &config.key_store_path {
+                            if !path.is_empty() {
+                                b_args.push("--key-store-path".to_string());
+                                b_args.push(path.clone());
+                            }
+                        }
+                        if let Some(pwd) = &config.key_store_password {
+                            if !pwd.is_empty() {
+                                b_args.push("--key-store-password".to_string());
+                                b_args.push(pwd.clone());
+                            }
+                        }
+                        if let Some(alias) = &config.key_store_alias {
+                            if !alias.is_empty() {
+                                b_args.push("--key-store-alias".to_string());
+                                b_args.push(alias.clone());
+                            }
+                        }
+                        if let Some(alias_pwd) = &config.key_store_alias_password {
+                            if !alias_pwd.is_empty() {
+                                b_args.push("--key-store-alias-password".to_string());
+                                b_args.push(alias_pwd.clone());
+                            }
+                        }
+                    }
+                }
+                if config.platform == "ios" && config.build_type == "simulator" {
+                    b_args.push("--emulator".to_string());
+                }
+                b_args
+            } else {
+                vec!["build".to_string()]
+            }
+        }
         _ => return Err("Unknown action".to_string()),
     };
+
+    if let Some(id) = device_id {
+        if !id.is_empty() {
+            args.push("--device".to_string());
+            args.push(id);
+        }
+    }
 
     let Some(cli) = resolve_cli() else {
         return Err(
@@ -377,7 +578,44 @@ pub fn run_ns(project_path: String, action: String) -> Result<CommandResult, Str
         );
     };
 
-    run_resolved(&cli, &args, Some(&project_path))
+    let mut combined_stdout = String::new();
+    let mut combined_stderr = String::new();
+
+    // Handle ns clean if requested
+    if let Some(config) = &build_config {
+        if config.clean {
+            let clean_args = ["clean"];
+            match run_resolved(&cli, &clean_args, Some(&project_path)) {
+                Ok(res) => {
+                    combined_stdout.push_str(&res.stdout);
+                    combined_stderr.push_str(&res.stderr);
+                    if res.status_code != Some(0) {
+                        return Ok(CommandResult {
+                            status_code: res.status_code,
+                            stdout: combined_stdout,
+                            stderr: combined_stderr,
+                        });
+                    }
+                    combined_stdout.push_str("\n--- Clean completed, starting build ---\n");
+                }
+                Err(e) => return Err(format!("Clean failed: {}", e)),
+            }
+        }
+    }
+
+    let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    match run_resolved(&cli, &args_refs, Some(&project_path)) {
+        Ok(res) => {
+            combined_stdout.push_str(&res.stdout);
+            combined_stderr.push_str(&res.stderr);
+            Ok(CommandResult {
+                status_code: res.status_code,
+                stdout: combined_stdout,
+                stderr: combined_stderr,
+            })
+        }
+        Err(e) => Err(e),
+    }
 }
 
 use tauri::Emitter;

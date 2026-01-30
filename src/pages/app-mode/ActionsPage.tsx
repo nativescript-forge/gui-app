@@ -11,7 +11,10 @@ type ActionsPageProps = {
   logText: string;
   logFilter: "all" | "errors";
   setLogFilter: (filter: "all" | "errors") => void;
-  onRunAction: (action: "run-android" | "run-ios" | "build") => void;
+  onRunAction: (
+    action: "run-android" | "run-ios" | "debug-android" | "debug-ios" | "build",
+    deviceId?: string
+  ) => void;
 };
 
 export function ActionsPage(props: ActionsPageProps) {
