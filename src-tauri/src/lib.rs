@@ -52,6 +52,15 @@ pub fn run() {
             sql: "ALTER TABLE projects ADD COLUMN created_at INTEGER;",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "add android signing columns to projects",
+            sql: "ALTER TABLE projects ADD COLUMN ks_path TEXT;
+                  ALTER TABLE projects ADD COLUMN ks_password TEXT;
+                  ALTER TABLE projects ADD COLUMN ks_alias TEXT;
+                  ALTER TABLE projects ADD COLUMN ks_alias_password TEXT;",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

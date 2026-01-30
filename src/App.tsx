@@ -194,7 +194,7 @@ function App() {
     autoSelect: boolean = false,
   ) {
     const rows = (await currentDb.select(
-      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, created_at, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk FROM projects ORDER BY name ASC",
+      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, created_at, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk, ks_path, ks_password, ks_alias, ks_alias_password FROM projects ORDER BY name ASC",
     )) as ProjectRow[];
 
     // Verify if folders still exist
@@ -927,6 +927,7 @@ function App() {
           projects.find((p) => p.path === activeProjectPath)?.framework ||
           undefined
         }
+        db={db}
       />
 
       <GlobalTerminal

@@ -36,6 +36,10 @@ export type ProjectRow = {
   version_name?: string | null;
   target_sdk?: string | null;
   min_sdk?: string | null;
+  ks_path?: string | null;
+  ks_password?: string | null;
+  ks_alias?: string | null;
+  ks_alias_password?: string | null;
 };
 
 export type ProjectAnalysis = {
