@@ -211,6 +211,7 @@ export function TitleBar({
             onAddProject={onAddProject}
             onSelectProject={onSelectProject}
             projects={projects}
+            onOpenSettings={() => setRoute("settings")}
           />
 
           <RunMenu activeProject={activeProject} setRoute={setRoute} />

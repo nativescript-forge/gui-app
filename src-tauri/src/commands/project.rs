@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -16,6 +17,7 @@ pub struct ProjectAnalysis {
     pub version_name: Option<String>,
     pub target_sdk: Option<String>,
     pub min_sdk: Option<String>,
+    pub created_at: u64,
 }
 
 fn folder_name(path: &str) -> String {
@@ -198,6 +200,19 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
         get_android_info(project_path);
     let plugins_count = pkg.as_ref().map(|p| count_plugins(p)).unwrap_or(0);
 
+    let created_at = fs::metadata(project_path)
+        .and_then(|m| {
+            m.created()
+                .or_else(|_| m.modified())
+                .or_else(|_| m.accessed())
+        })
+        .and_then(|c| {
+            c.duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+        })
+        .unwrap_or(0);
+
     ProjectAnalysis {
         name,
         path: project_path.to_string(),
@@ -210,6 +225,7 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
         version_name,
         target_sdk,
         min_sdk,
+        created_at,
     }
 }
 

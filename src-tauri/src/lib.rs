@@ -7,20 +7,52 @@ use commands::ns::ProcessState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "create projects table",
-        sql: "CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            path TEXT NOT NULL UNIQUE,
-            nativescript_version TEXT,
-            framework TEXT,
-            platforms TEXT,
-            last_opened INTEGER
-        );",
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create projects table",
+            sql: "CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                path TEXT NOT NULL UNIQUE,
+                nativescript_version TEXT,
+                framework TEXT,
+                platforms TEXT,
+                last_opened INTEGER
+            );",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "create activity_logs table",
+            sql: "CREATE TABLE IF NOT EXISTS activity_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                activity_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                metadata TEXT
+            );",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 3,
+            description: "add extra columns to projects",
+            sql: "ALTER TABLE projects ADD COLUMN plugins_count INTEGER DEFAULT 0;
+                  ALTER TABLE projects ADD COLUMN permissions_count INTEGER DEFAULT 0;
+                  ALTER TABLE projects ADD COLUMN version_code TEXT;
+                  ALTER TABLE projects ADD COLUMN version_name TEXT;
+                  ALTER TABLE projects ADD COLUMN target_sdk TEXT;
+                  ALTER TABLE projects ADD COLUMN min_sdk TEXT;",
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 4,
+            description: "add created_at to projects",
+            sql: "ALTER TABLE projects ADD COLUMN created_at INTEGER;",
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .manage(ProcessState(Mutex::new(None)))

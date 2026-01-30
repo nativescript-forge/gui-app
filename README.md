@@ -88,6 +88,18 @@ For a detailed breakdown of our plans, check out the full [ROADMAPS.md](./ROADMA
 
 ---
 
+## 💾 Database & Migrations
+
+NativeScript Forge uses SQLite for persistent storage. To ensure data integrity and avoid errors during development:
+
+- **Golden Rule**: Never modify an existing migration (e.g., `version: 1`). If you need to change the schema (add columns, etc.), always create a **new version** (e.g., `version: 4`) in `src-tauri/src/lib.rs`.
+- **Error: "migration was modified"**: This happens if you change the SQL of a version that has already been applied. To fix this, you must reset the database.
+- **Resetting the Database**: Delete the database files in your app data folder:
+  - Windows: `%APPDATA%\com.kangcahya.nativescript-forge-app\nsforge.db`
+  - This will clear all projects and logs, and re-apply all migrations from scratch.
+
+---
+
 <div align="center">
   <img src="./public/nsf-dark-io.svg" alt="NativeScript Forge Icon" width="64" />
   <p><i>Built with ❤️ for the NativeScript Community</i></p>

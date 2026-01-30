@@ -6,9 +6,20 @@ export type Route =
   | "app-actions"
   | "app-plugins"
   | "app-permissions"
-  | "app-config";
+  | "app-config"
+  | "activity"
+  | "settings";
 
 export type Theme = "light" | "dark";
+
+export type ActivityLog = {
+  id: number;
+  activity_type: string;
+  description: string;
+  status: string;
+  timestamp: string;
+  metadata?: string | null;
+};
 
 export type ProjectRow = {
   id: number;
@@ -18,6 +29,7 @@ export type ProjectRow = {
   framework: string | null;
   platforms: string | null;
   last_opened: number | null;
+  created_at?: number | null;
   plugins_count?: number;
   permissions_count?: number;
   version_code?: string | null;
@@ -38,6 +50,7 @@ export type ProjectAnalysis = {
   versionName?: string | null;
   targetSdk?: string | null;
   minSdk?: string | null;
+  createdAt: number;
 };
 
 export type DoctorCheck = {
@@ -53,6 +66,7 @@ export type CommandResult = {
   statusCode?: number | null;
   stdout: string;
   stderr: string;
+  command?: string | null;
 };
 
 export type AdbDevice = {

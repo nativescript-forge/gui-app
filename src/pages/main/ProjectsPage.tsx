@@ -17,6 +17,7 @@ import {
   FiShield,
   FiX,
   FiRefreshCw,
+  FiClock,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 
@@ -66,7 +67,7 @@ export function ProjectsPage(props: ProjectsPageProps) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl pb-10">
       <div className="flex flex-wrap items-center justify-between gap-6 mb-8 px-2">
         <div>
           <h1 className="text-3xl font-extrabold">Project Library</h1>
@@ -146,84 +147,108 @@ export function ProjectsPage(props: ProjectsPageProps) {
                 </div>
               </div>
             ) : (
-              props.projects.map((p) => {
-                const isActive = p.path === props.activeProjectPath;
-                return (
-                  <div
-                    key={p.path}
-                    className={`group card bg-base-100 border transition-all cursor-pointer overflow-hidden ${
-                      isActive
-                        ? "border-primary shadow-md"
-                        : "border-base-200 hover:border-primary/50"
-                    }`}
-                    onClick={() => props.onSelectProject(p.path)}
-                  >
-                    <div className="card-body p-0">
-                      <div className="flex flex-col md:flex-row">
-                        {/* Project Info */}
-                        <div
-                          className={`p-5 flex-1 transition-colors ${
-                            isActive
-                              ? "bg-primary/10"
-                              : "group-hover:bg-primary/5"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3 mb-2">
-                            <div
-                              className={`p-2 rounded-lg ${
-                                isActive
-                                  ? "bg-primary text-white"
-                                  : "bg-primary/10 text-primary"
-                              }`}
-                            >
-                              <FiGrid className="h-5 w-5" />
+              [...props.projects]
+                .sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+                .map((p) => {
+                  const isActive = p.path === props.activeProjectPath;
+                  return (
+                    <div
+                      key={p.path}
+                      className={`group card bg-base-100 border transition-all cursor-pointer overflow-hidden ${
+                        isActive
+                          ? "border-primary shadow-md"
+                          : "border-base-200 hover:border-primary/50"
+                      }`}
+                      onClick={() => props.onSelectProject(p.path)}
+                    >
+                      <div className="card-body p-0">
+                        <div className="flex flex-col md:flex-row">
+                          {/* Project Info */}
+                          <div
+                            className={`p-5 flex-1 transition-colors ${
+                              isActive
+                                ? "bg-primary/10"
+                                : "group-hover:bg-primary/5"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <div
+                                className={`p-2 rounded-lg ${
+                                  isActive
+                                    ? "bg-primary text-white"
+                                    : "bg-primary/10 text-primary"
+                                }`}
+                              >
+                                <FiGrid className="h-5 w-5" />
+                              </div>
+                              <h3
+                                className={`card-title text-lg transition-colors ${
+                                  isActive
+                                    ? "text-primary"
+                                    : "group-hover:text-primary"
+                                }`}
+                              >
+                                {p.name}
+                              </h3>
                             </div>
-                            <h3
-                              className={`card-title text-lg transition-colors ${
-                                isActive
-                                  ? "text-primary"
-                                  : "group-hover:text-primary"
-                              }`}
-                            >
-                              {p.name}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs opacity-50 font-mono min-w-0 mb-4">
-                            <FiFolderPlus className="h-3 w-3 shrink-0" />
-                            <span className="truncate" title={p.path}>
-                              {shortenPath(p.path)}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 text-xs opacity-50 font-mono min-w-0 mb-4">
+                              <FiFolderPlus className="h-3 w-3 shrink-0" />
+                              <span className="truncate" title={p.path}>
+                                {shortenPath(p.path)}
+                              </span>
+                            </div>
 
-                          <div className="flex flex-wrap items-center gap-4 mt-auto pt-4 border-t border-base-200/50">
-                            <div className="flex items-center gap-1.5">
-                              <FiSmartphone className="h-3.5 w-3.5 opacity-40" />
-                              {renderPlatforms(p.platforms)}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-60 bg-base-200 px-2 py-1 rounded">
-                              <FiPackage className="h-3 w-3" />
-                              NativeScript {p.nativescript_version || "N/A"}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-40 ml-auto">
-                              <FiCalendar className="h-3 w-3" />
-                              {p.last_opened
-                                ? new Date(p.last_opened).toLocaleDateString()
-                                : "N/A"}
+                            <div className="flex flex-wrap items-center gap-4 mt-auto pt-4 border-t border-base-200/50">
+                              <div className="flex items-center gap-1.5">
+                                <FiSmartphone className="h-3.5 w-3.5 opacity-40" />
+                                {renderPlatforms(p.platforms)}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-60 bg-base-200 px-2 py-1 rounded">
+                                <FiPackage className="h-3 w-3" />
+                                NativeScript {p.nativescript_version || "N/A"}
+                              </div>
+                              <div className="flex flex-col items-end gap-0.5 ml-auto">
+                                <div className="flex items-center gap-1.5 text-[9px] font-medium opacity-40">
+                                  <FiClock className="h-2.5 w-2.5" />
+                                  Opened:{" "}
+                                  {p.last_opened
+                                    ? new Date(p.last_opened).toLocaleString(
+                                        undefined,
+                                        {
+                                          dateStyle: "short",
+                                          timeStyle: "short",
+                                        },
+                                      )
+                                    : "N/A"}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[9px] font-medium opacity-40">
+                                  <FiCalendar className="h-2.5 w-2.5" />
+                                  Created:{" "}
+                                  {p.created_at !== null &&
+                                  p.created_at !== undefined
+                                    ? new Date(
+                                        p.created_at * 1000,
+                                      ).toLocaleString(undefined, {
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                      })
+                                    : "N/A"}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
             )}
           </div>
         </div>
 
         {activeProject && (
           <div className="lg:col-span-5 xl:col-span-4">
-            <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6">
+            <div className="card bg-base-100 border border-base-200 shadow-sm lg:sticky lg:top-6">
               <div className="card-body">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
@@ -381,6 +406,40 @@ export function ProjectsPage(props: ProjectsPageProps) {
                         </div>
                         <div className="font-bold text-sm">
                           {activeProject.min_sdk ?? "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card bg-base-200 border border-base-300">
+                    <div className="card-body p-4">
+                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-2">
+                        Timestamps
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="opacity-50 flex items-center gap-1.5">
+                            <FiClock className="h-3 w-3" /> Last Opened
+                          </span>
+                          <span className="font-medium">
+                            {activeProject.last_opened
+                              ? new Date(
+                                  activeProject.last_opened,
+                                ).toLocaleString()
+                              : "Never"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="opacity-50 flex items-center gap-1.5">
+                            <FiCalendar className="h-3 w-3" /> Created Date
+                          </span>
+                          <span className="font-medium">
+                            {activeProject.created_at
+                              ? new Date(
+                                  activeProject.created_at * 1000,
+                                ).toLocaleString()
+                              : "Unknown"}
+                          </span>
                         </div>
                       </div>
                     </div>

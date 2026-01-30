@@ -10,6 +10,7 @@ pub struct CommandResult {
     pub status_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    pub command: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -80,6 +81,7 @@ pub fn run_command(
         status_code: output.status.code(),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        command: Some(format!("{} {}", program, args.join(" "))),
     })
 }
 
@@ -89,7 +91,7 @@ pub fn run_command_vec(
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
     let mut cmd = Command::new(program);
-    cmd.args(args);
+    cmd.args(&args);
     if let Some(cwd) = cwd {
         cmd.current_dir(cwd);
     }
@@ -99,6 +101,7 @@ pub fn run_command_vec(
         status_code: output.status.code(),
         stdout: String::from_utf8_lossy(&output.stdout).to_string(),
         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        command: Some(format!("{} {}", program, args.join(" "))),
     })
 }
 
@@ -639,7 +642,8 @@ pub fn run_resolved_streaming(
     full_args.extend(args.iter().map(|a| a.to_string()));
 
     let mut cmd = Command::new(&cli.launcher);
-    cmd.args(full_args);
+    cmd.args(full_args.clone());
+    cmd.env("CI", "true");
     if let Some(cwd) = cwd {
         cmd.current_dir(cwd);
     }
@@ -654,7 +658,24 @@ pub fn run_resolved_streaming(
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn().map_err(|e| {
+        let err_msg = format!("Failed to spawn command: {}\n", e);
+        let _ = window.emit("create-project-log", LogPayload { message: err_msg.clone() });
+        e.to_string()
+    })?;
+
+    let _ = window.emit("create-project-log", LogPayload { 
+        message: format!("Executing: {} {}\n", 
+            cli.launcher, 
+            args.iter().map(|&a| {
+                if a.contains("password") || a.contains("alias") {
+                    "********"
+                } else {
+                    a
+                }
+            }).collect::<Vec<_>>().join(" ")) 
+    });
+
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
 
@@ -666,39 +687,41 @@ pub fn run_resolved_streaming(
 
     let window_clone = window.clone();
     let stdout_thread = std::thread::spawn(move || {
-        let mut reader = stdout;
-        let mut buffer = [0u8; 1024];
-        while let Ok(n) = std::io::Read::read(&mut reader, &mut buffer) {
-            if n == 0 {
-                break;
+        use std::io::{BufRead, BufReader};
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line_content) = line {
+                let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
             }
-            let message = String::from_utf8_lossy(&buffer[..n]).to_string();
-            let _ = window_clone.emit("create-project-log", LogPayload { message });
         }
     });
 
     let window_clone = window.clone();
     let stderr_thread = std::thread::spawn(move || {
-        let mut reader = stderr;
-        let mut buffer = [0u8; 1024];
-        while let Ok(n) = std::io::Read::read(&mut reader, &mut buffer) {
-            if n == 0 {
-                break;
+        use std::io::{BufRead, BufReader};
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(line_content) = line {
+                let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
             }
-            let message = String::from_utf8_lossy(&buffer[..n]).to_string();
-            let _ = window_clone.emit("create-project-log", LogPayload { message });
         }
     });
 
-    // Wait for child to finish
-    let status = {
-        let mut lock = state.0.lock().unwrap();
-        if let Some(mut child) = lock.take() {
-            let res = child.wait().map_err(|e| e.to_string());
-            res
-        } else {
-            return Err("Process was terminated".to_string());
+    // Wait for child to finish without holding the lock continuously
+    let status = loop {
+        {
+            let mut lock = state.0.lock().unwrap();
+            if let Some(child) = lock.as_mut() {
+                match child.try_wait() {
+                    Ok(Some(status)) => break Ok(status),
+                    Ok(None) => {} // Still running
+                    Err(e) => break Err(e.to_string()),
+                }
+            } else {
+                break Err("Process was terminated".to_string());
+            }
         }
+        std::thread::sleep(std::time::Duration::from_millis(200));
     };
 
     let _ = stdout_thread.join();
@@ -710,13 +733,15 @@ pub fn run_resolved_streaming(
         status_code: status.code(),
         stdout: "Logs sent via events".to_string(),
         stderr: "".to_string(),
+        command: Some(format!("{} {}", cli.launcher, full_args.join(" "))),
     })
 }
 
 #[tauri::command]
-pub async fn stop_ns_command(state: State<'_, ProcessState>) -> Result<(), String> {
+pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessState>) -> Result<(), String> {
     let mut lock = state.0.lock().unwrap();
     if let Some(child) = lock.take() {
+        let _ = window.emit("create-project-log", LogPayload { message: "\n--- Process stop requested ---\n".to_string() });
         #[cfg(target_os = "windows")]
         {
             // On Windows, taskkill /F /T /PID is better for killing process trees
@@ -730,6 +755,7 @@ pub async fn stop_ns_command(state: State<'_, ProcessState>) -> Result<(), Strin
             let mut child = child;
             let _ = child.kill();
         }
+        let _ = window.emit("create-project-log", LogPayload { message: "--- Process terminated ---\n".to_string() });
     }
     Ok(())
 }

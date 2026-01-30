@@ -1,10 +1,11 @@
-import { FiPlus, FiFolder } from "react-icons/fi";
+import { FiPlus, FiFolder, FiSettings } from "react-icons/fi";
 import type { ProjectRow } from "../../app/types";
 
 interface FileMenuProps {
   onCreateProject: () => void;
   onAddProject: () => void;
   onSelectProject: (path: string) => void;
+  onOpenSettings: () => void;
   projects: ProjectRow[];
 }
 
@@ -12,6 +13,7 @@ export function FileMenu({
   onCreateProject,
   onAddProject,
   onSelectProject,
+  onOpenSettings,
   projects,
 }: FileMenuProps) {
   const closeDropdown = (e: React.MouseEvent) => {
@@ -77,6 +79,18 @@ export function FileMenu({
             ))}
           </>
         )}
+        <div className="divider my-1 opacity-10"></div>
+        <li>
+          <button
+            onClick={(e) => {
+              onOpenSettings();
+              closeDropdown(e);
+            }}
+            className="py-1.5 hover:bg-white/10 rounded flex items-center gap-2"
+          >
+            <FiSettings className="w-3.5 h-3.5 opacity-70" /> Settings
+          </button>
+        </li>
       </ul>
     </div>
   );

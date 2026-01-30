@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ProjectRow } from "../../app/types";
+import type { ProjectRow, ActivityLog } from "../../app/types";
 import { parsePlatforms } from "../../app/platforms";
 import { shortenPath } from "../../app/utils";
 import {
@@ -21,16 +21,24 @@ import {
   FiPackage,
   FiCalendar,
   FiShield,
+  FiActivity,
+  FiClock,
+  FiCheckCircle,
+  FiAlertCircle,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
+import Database from "@tauri-apps/plugin-sql";
 
 type HomePageProps = {
   logoSrc: string;
   projects: ProjectRow[];
+  db: Database | null;
+  lastActivityTime?: number;
   onAddProject: () => void;
   onCreateProject: () => void;
   onOpenDoctor: () => void;
   onViewAllProjects: () => void;
+  onViewAllActivities?: () => void;
   onOpenProject: (projectPath: string) => void;
   onOpenFolder: (projectPath: string) => void;
 };
@@ -235,36 +243,38 @@ export function HomePage(props: HomePageProps) {
         )}
       </div>
 
-      <div className="mt-12">
-        <div className="flex items-center justify-between mb-6 px-2">
-          <h2 className="text-2xl font-bold">Recent Projects</h2>
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm gap-2"
-            onClick={props.onViewAllProjects}
-          >
-            View Library
-            <FiArrowRight className="h-4 w-4" />
-          </button>
-        </div>
+      <div className="flex items-center justify-between mb-6 mt-12">
+        <h2 className="text-2xl font-bold">Recent Projects</h2>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm gap-2"
+          onClick={props.onViewAllProjects}
+        >
+          View Library
+          <FiArrowRight className="h-4 w-4" />
+        </button>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div
-            className={
-              activeProject ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"
-            }
-          >
-            {props.projects.length === 0 ? (
-              <div className="alert bg-base-100 border-base-200 rounded-box p-6 shadow-sm flex flex-col items-center py-12 text-center">
-                <FiFolderPlus className="h-12 w-12 opacity-10 mb-4" />
-                <span className="opacity-60 italic text-sm">
-                  Your project library is empty. Click "Add Project" to begin
-                  your journey.
-                </span>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {props.projects.slice(0, 5).map((p) => {
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div
+          className={
+            activeProject ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"
+          }
+        >
+          {props.projects.length === 0 ? (
+            <div className="alert bg-base-100 border-base-200 rounded-box p-6 shadow-sm flex flex-col items-center py-12 text-center">
+              <FiFolderPlus className="h-12 w-12 opacity-10 mb-4" />
+              <span className="opacity-60 italic text-sm">
+                Your project library is empty. Click "Add Project" to begin your
+                journey.
+              </span>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {[...props.projects]
+                .sort((a, b) => (b.last_opened || 0) - (a.last_opened || 0))
+                .slice(0, 5)
+                .map((p) => {
                   const isActive = p.path === activeProjectPath;
                   return (
                     <div
@@ -322,11 +332,33 @@ export function HomePage(props: HomePageProps) {
                                 <FiPackage className="h-3 w-3" />
                                 NativeScript {p.nativescript_version || "N/A"}
                               </div>
-                              <div className="flex items-center gap-1.5 text-[10px] font-medium opacity-40 ml-auto">
-                                <FiCalendar className="h-3 w-3" />
-                                {p.last_opened
-                                  ? new Date(p.last_opened).toLocaleDateString()
-                                  : "N/A"}
+                              <div className="flex flex-col items-end gap-0.5 ml-auto">
+                                <div className="flex items-center gap-1.5 text-[9px] font-medium opacity-40">
+                                  <FiClock className="h-2.5 w-2.5" />
+                                  Opened:{" "}
+                                  {p.last_opened
+                                    ? new Date(p.last_opened).toLocaleString(
+                                        undefined,
+                                        {
+                                          dateStyle: "short",
+                                          timeStyle: "short",
+                                        },
+                                      )
+                                    : "N/A"}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-[9px] font-medium opacity-40">
+                                  <FiCalendar className="h-2.5 w-2.5" />
+                                  Created:{" "}
+                                  {p.created_at !== null &&
+                                  p.created_at !== undefined
+                                    ? new Date(
+                                        p.created_at * 1000,
+                                      ).toLocaleString(undefined, {
+                                        dateStyle: "short",
+                                        timeStyle: "short",
+                                      })
+                                    : "N/A"}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -335,208 +367,237 @@ export function HomePage(props: HomePageProps) {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </div>
+            </div>
+          )}
+        </div>
 
-          {activeProject && (
-            <div className="lg:col-span-5 xl:col-span-4">
-              <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6">
-                <div className="card-body">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <div className="badge badge-primary badge-xs badge-outline"></div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-50">
-                        Overviews
-                      </div>
+        {activeProject && (
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6">
+              <div className="card-body">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <div className="badge badge-primary badge-xs badge-outline"></div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest opacity-50">
+                      Overviews
                     </div>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-xs"
-                        onClick={() => props.onOpenProject(activeProject.path)}
-                        title="Open Project Actions"
-                      >
-                        <FiZap className="h-3.5 w-3.5" />
-                        Open
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-xs"
-                        onClick={() => setActiveProjectPath(null)}
-                        title="Close Overview"
-                      >
-                        <FiX className="h-3.5 w-3.5" />
-                      </button>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-xs"
+                      onClick={() => props.onOpenProject(activeProject.path)}
+                      title="Open Project Actions"
+                    >
+                      <FiZap className="h-3.5 w-3.5" />
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setActiveProjectPath(null)}
+                      title="Close Overview"
+                    >
+                      <FiX className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-1">
+                      Project Name
+                    </div>
+                    <div className="text-xl font-extrabold text-primary">
+                      {activeProject.name}
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-1">
-                        Project Name
+                  <div className="card bg-base-200 border border-base-300">
+                    <div className="card-body p-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 flex items-center gap-2">
+                          <FiSearch className="h-3 w-3" /> Location
+                        </div>
+                        <button
+                          className="btn btn-ghost btn-xs text-[10px] opacity-50 hover:opacity-100"
+                          onClick={() => props.onOpenFolder(activeProject.path)}
+                        >
+                          <FiExternalLink className="h-3 w-3" /> Reveal
+                        </button>
                       </div>
-                      <div className="text-xl font-extrabold text-primary">
-                        {activeProject.name}
+                      <div className="text-[11px] font-mono break-all opacity-60">
+                        {activeProject.path}
                       </div>
                     </div>
+                  </div>
 
-                    <div className="card bg-base-200 border border-base-300">
-                      <div className="card-body p-4">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 flex items-center gap-2">
-                            <FiSearch className="h-3 w-3" /> Location
-                          </div>
-                          <button
-                            className="btn btn-ghost btn-xs text-[10px] opacity-50 hover:opacity-100"
-                            onClick={() =>
-                              props.onOpenFolder(activeProject.path)
-                            }
-                          >
-                            <FiExternalLink className="h-3 w-3" /> Reveal
-                          </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          Flavor
                         </div>
-                        <div className="text-[11px] font-mono break-all opacity-60">
-                          {activeProject.path}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            Flavor
-                          </div>
-                          <div className="font-bold text-sm flex items-center gap-2">
-                            <FiCpu className="h-3.5 w-3.5 opacity-50" />
-                            {activeProject.framework ?? "Unknown"}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            NS Version
-                          </div>
-                          <div className="font-bold text-sm font-mono text-primary flex items-center gap-2">
-                            <FiZap className="h-3.5 w-3.5 opacity-50" />
-                            {activeProject.nativescript_version ?? "N/A"}
-                          </div>
+                        <div className="font-bold text-sm flex items-center gap-2">
+                          <FiCpu className="h-3.5 w-3.5 opacity-50" />
+                          {activeProject.framework ?? "Unknown"}
                         </div>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1 flex items-center gap-1.5">
-                            Plugins
-                          </div>
-                          <div className="font-bold text-lg flex items-center gap-2">
-                            <FiPackage className="h-4 w-4 text-primary" />
-                            {activeProject.plugins_count ?? 0}
-                          </div>
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          NS Version
                         </div>
-                      </div>
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1 flex items-center gap-1.5">
-                            Permissions
-                          </div>
-                          <div className="font-bold text-lg flex items-center gap-2">
-                            <FiShield className="h-4 w-4 text-primary" />
-                            {activeProject.permissions_count ?? 0}
-                          </div>
+                        <div className="font-bold text-sm font-mono text-primary flex items-center gap-2">
+                          <FiZap className="h-3.5 w-3.5 opacity-50" />
+                          {activeProject.nativescript_version ?? "N/A"}
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            Version Name
-                          </div>
-                          <div className="font-bold text-sm">
-                            {activeProject.version_name ?? "1.0.0"}
-                          </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1 flex items-center gap-1.5">
+                          Plugins
                         </div>
-                      </div>
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            Version Code
-                          </div>
-                          <div className="font-bold text-sm">
-                            {activeProject.version_code ?? "1"}
-                          </div>
+                        <div className="font-bold text-lg flex items-center gap-2">
+                          <FiPackage className="h-4 w-4 text-primary" />
+                          {activeProject.plugins_count ?? 0}
                         </div>
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            Target SDK
-                          </div>
-                          <div className="font-bold text-sm">
-                            {activeProject.target_sdk ?? "N/A"}
-                          </div>
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1 flex items-center gap-1.5">
+                          Permissions
                         </div>
-                      </div>
-                      <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
-                        <div className="card-body p-3">
-                          <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
-                            Minimum SDK
-                          </div>
-                          <div className="font-bold text-sm">
-                            {activeProject.min_sdk ?? "N/A"}
-                          </div>
+                        <div className="font-bold text-lg flex items-center gap-2">
+                          <FiShield className="h-4 w-4 text-primary" />
+                          {activeProject.permissions_count ?? 0}
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="card bg-base-200 border border-base-300">
-                      <div className="card-body p-4">
-                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-2">
-                          Target Platforms
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          Version Name
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          {parsePlatforms(activeProject.platforms).map(
-                            (plat) => {
-                              const isAndroid = plat
-                                .toLowerCase()
-                                .includes("android");
-                              const isIOS = plat.toLowerCase().includes("ios");
-                              return (
-                                <div
-                                  key={plat}
-                                  className="badge badge-outline badge-primary text-[10px] gap-1"
-                                >
-                                  {isAndroid && (
-                                    <FaAndroid className="h-2.5 w-2.5" />
-                                  )}
-                                  {isIOS && <FaApple className="h-2.5 w-2.5" />}
-                                  {plat}
-                                </div>
-                              );
-                            },
-                          ) || (
-                            <span className="text-xs opacity-20 italic">
-                              No platforms configured
-                            </span>
-                          )}
+                        <div className="font-bold text-sm">
+                          {activeProject.version_name ?? "1.0.0"}
                         </div>
+                      </div>
+                    </div>
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          Version Code
+                        </div>
+                        <div className="font-bold text-sm">
+                          {activeProject.version_code ?? "1"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          Target SDK
+                        </div>
+                        <div className="font-bold text-sm">
+                          {activeProject.target_sdk ?? "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="card bg-base-200/50 border border-base-300 hover:bg-base-200 transition-colors">
+                      <div className="card-body p-3">
+                        <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
+                          Minimum SDK
+                        </div>
+                        <div className="font-bold text-sm">
+                          {activeProject.min_sdk ?? "N/A"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card bg-base-200 border border-base-300">
+                    <div className="card-body p-4">
+                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-2">
+                        Timestamps
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="opacity-50 flex items-center gap-1.5">
+                            <FiClock className="h-3 w-3" /> Last Opened
+                          </span>
+                          <span className="font-medium">
+                            {activeProject.last_opened
+                              ? new Date(
+                                  activeProject.last_opened,
+                                ).toLocaleString()
+                              : "Never"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="opacity-50 flex items-center gap-1.5">
+                            <FiCalendar className="h-3 w-3" /> Created Date
+                          </span>
+                          <span className="font-medium">
+                            {activeProject.created_at
+                              ? new Date(
+                                  activeProject.created_at * 1000,
+                                ).toLocaleString()
+                              : "Unknown"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="card bg-base-200 border border-base-300">
+                    <div className="card-body p-4">
+                      <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 mb-2">
+                        Target Platforms
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {parsePlatforms(activeProject.platforms).map((plat) => {
+                          const isAndroid = plat
+                            .toLowerCase()
+                            .includes("android");
+                          const isIOS = plat.toLowerCase().includes("ios");
+                          return (
+                            <div
+                              key={plat}
+                              className="badge badge-outline badge-primary text-[10px] gap-1"
+                            >
+                              {isAndroid && (
+                                <FaAndroid className="h-2.5 w-2.5" />
+                              )}
+                              {isIOS && <FaApple className="h-2.5 w-2.5" />}
+                              {plat}
+                            </div>
+                          );
+                        }) || (
+                          <span className="text-xs opacity-20 italic">
+                            No platforms configured
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
