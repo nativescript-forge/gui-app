@@ -480,6 +480,7 @@ pub async fn run_ns(
         "run-ios" => vec!["run".to_string(), "ios".to_string()],
         "debug-android" => vec!["debug".to_string(), "android".to_string()],
         "debug-ios" => vec!["debug".to_string(), "ios".to_string()],
+        "clean" => vec!["clean".to_string()],
         "build" => {
             if let Some(config) = &build_config {
                 let mut b_args = vec!["build".to_string(), config.platform.clone()];

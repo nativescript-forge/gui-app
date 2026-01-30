@@ -75,3 +75,26 @@ export type AdbDevice = {
   status: string;
   platform: "android" | "ios" | "visionos";
 };
+
+export type BuildConfig = {
+  platform: "android" | "ios";
+  mode: "debug" | "release";
+  format: "apk" | "aab" | "ipa";
+  buildType: "local" | "cloud" | "simulator";
+  keyStorePath?: string;
+  keyStorePassword?: string;
+  keyStoreAlias?: string;
+  keyStoreAliasPassword?: string;
+  additionalOptions?: string;
+  clean?: boolean;
+  aot?: boolean;
+  snapshot?: boolean;
+  compileSnapshot?: boolean;
+  uglify?: boolean;
+  report?: boolean;
+  sourceMap?: boolean;
+  hiddenSourceMap?: boolean;
+  force?: boolean;
+  compileSdk?: string;
+  copyTo?: string;
+};

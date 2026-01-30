@@ -39,7 +39,7 @@ import {
   CreateProjectPage,
   type ProjectConfig,
 } from "./pages/main/CreateProjectPage";
-import { BuildModal, type BuildConfig } from "./components/TitleBar/BuildModal";
+import { BuildModal } from "./components/TitleBar/BuildModal";
 import { GlobalTerminal } from "./components/GlobalTerminal";
 
 function App() {
@@ -627,9 +627,15 @@ function App() {
   }
 
   async function runAction(
-    action: "run-android" | "run-ios" | "debug-android" | "debug-ios" | "build",
+    action:
+      | "run-android"
+      | "run-ios"
+      | "debug-android"
+      | "debug-ios"
+      | "build"
+      | "clean",
     deviceId?: string,
-    buildConfig?: BuildConfig,
+    buildConfig?: { platform?: "android" | "ios"; [key: string]: any },
   ) {
     if (!actionsProjectPath) return;
     setActionsRunning(true);
@@ -751,7 +757,7 @@ function App() {
   const isAppMode = route.startsWith("app-");
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
+    <div data-theme={theme} className="flex flex-col h-screen overflow-hidden">
       <TitleBar
         projects={projects}
         activeProjectPath={activeProjectPath}
@@ -856,12 +862,9 @@ function App() {
             logText={logText}
             logFilter={logFilter}
             setLogFilter={setLogFilter}
-            onRunAction={(action, deviceId) => {
-              if (action === "build") {
-                setIsBuildModalOpen(true);
-              } else {
-                runAction(action, deviceId);
-              }
+            onOpenBuildModal={() => setIsBuildModalOpen(true)}
+            onRunAction={(action, deviceId, buildConfig) => {
+              runAction(action, deviceId, buildConfig);
             }}
           />
         )}
@@ -906,6 +909,10 @@ function App() {
         }
         onBuild={(config) => runAction("build", undefined, config)}
         projectPath={activeProjectPath || undefined}
+        flavor={
+          projects.find((p) => p.path === activeProjectPath)?.framework ||
+          undefined
+        }
       />
 
       <GlobalTerminal
