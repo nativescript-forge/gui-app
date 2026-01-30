@@ -8,7 +8,9 @@ import {
   FiMaximize2,
   FiMinimize2,
   FiSquare,
+  FiFolder,
 } from "react-icons/fi";
+import { invoke } from "@tauri-apps/api/core";
 
 interface GlobalTerminalProps {
   logs: string;
@@ -18,6 +20,7 @@ interface GlobalTerminalProps {
   onStop?: () => void;
   isVisible: boolean;
   setIsVisible: (visible: boolean) => void;
+  buildOutputPath?: string | null;
 }
 
 export function GlobalTerminal({
@@ -28,10 +31,28 @@ export function GlobalTerminal({
   onStop,
   isVisible,
   setIsVisible,
+  buildOutputPath,
 }: GlobalTerminalProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  const handleRevealInExplorer = async () => {
+    if (!buildOutputPath) return;
+    try {
+      // Get directory path from file path
+      const dirPath = buildOutputPath.substring(
+        0,
+        Math.max(
+          buildOutputPath.lastIndexOf("\\"),
+          buildOutputPath.lastIndexOf("/"),
+        ),
+      );
+      await invoke("reveal_in_explorer", { path: dirPath });
+    } catch (err) {
+      console.error("Failed to reveal in explorer:", err);
+    }
+  };
 
   // Auto-scroll to bottom when logs change
   useEffect(() => {
@@ -172,11 +193,25 @@ export function GlobalTerminal({
 
           {/* Status Badge inside content */}
           {!isRunning && logs && (
-            <div className="mt-4 flex items-center gap-2 py-2 px-4 rounded-lg bg-success/10 border border-success/20 w-fit">
-              <FiCheckCircle className="text-success w-3 h-3" />
-              <span className="text-[10px] text-success font-bold uppercase tracking-wider">
-                Process Finished
-              </span>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 py-2 px-4 rounded-lg bg-success/10 border border-success/20 w-fit">
+                <FiCheckCircle className="text-success w-3 h-3" />
+                <span className="text-[10px] text-success font-bold uppercase tracking-wider">
+                  Process Finished
+                </span>
+              </div>
+
+              {buildOutputPath && (
+                <button
+                  onClick={handleRevealInExplorer}
+                  className="btn btn-primary btn-xs h-8 px-4 rounded-lg flex items-center gap-2 hover:scale-105 transition-all shadow-lg shadow-primary/20 border-none"
+                >
+                  <FiFolder className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">
+                    Reveal in Explorer
+                  </span>
+                </button>
+              )}
             </div>
           )}
         </div>

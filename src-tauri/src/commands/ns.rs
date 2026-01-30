@@ -27,13 +27,14 @@ pub struct AdbDevice {
 pub struct BuildConfig {
     pub platform: String,
     pub mode: String,
-    #[serde(rename = "type")]
+    pub format: String,
     pub build_type: String,
     pub clean: bool,
     pub key_store_path: Option<String>,
     pub key_store_password: Option<String>,
     pub key_store_alias: Option<String>,
     pub key_store_alias_password: Option<String>,
+    pub additional_options: Option<String>,
     // New flags
     pub aot: Option<bool>,
     pub snapshot: Option<bool>,
@@ -489,7 +490,7 @@ pub async fn run_ns(
                 }
 
                 if config.platform == "android" {
-                    if config.build_type == "aab" {
+                    if config.format == "aab" {
                         b_args.push("--aab".to_string());
                     }
 
@@ -573,6 +574,16 @@ pub async fn run_ns(
                 }
                 if config.platform == "ios" && config.build_type == "simulator" {
                     b_args.push("--emulator".to_string());
+                }
+
+                // Add additional options at the end
+                if let Some(options) = &config.additional_options {
+                    if !options.is_empty() {
+                        // Split by whitespace but respect quotes if possible (simple split for now)
+                        for opt in options.split_whitespace() {
+                            b_args.push(opt.to_string());
+                        }
+                    }
                 }
                 b_args
             } else {

@@ -95,6 +95,7 @@ function App() {
     null,
   );
   const [actionsRunning, setActionsRunning] = useState(false);
+  const [buildOutputPath, setBuildOutputPath] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [logText, setLogText] = useState<string>("");
   const [logFilter, setLogFilter] = useState<"all" | "errors">("all");
@@ -162,8 +163,20 @@ function App() {
     const unlisten = listen<{ message: string }>(
       "create-project-log",
       (event) => {
-        setLogText((prev) => prev + event.payload.message);
+        const message = event.payload.message;
+        setLogText((prev) => prev + message);
         setIsTerminalVisible(true);
+
+        // Detect build output path (APK, AAB, IPA, APP)
+        // Matches typical NativeScript output: path/to/app.apk or path/to/app.aab
+        const pathRegex =
+          /([a-zA-Z]:\\[^:\n]+\.(?:apk|aab|ipa|app))|(\/[^\n]+\.(?:apk|aab|ipa|app))/gi;
+        const matches = message.match(pathRegex);
+        if (matches && matches.length > 0) {
+          // Get the last match as it's usually the final output path
+          const detectedPath = matches[matches.length - 1].trim();
+          setBuildOutputPath(detectedPath);
+        }
       },
     );
 
@@ -639,6 +652,7 @@ function App() {
   ) {
     if (!actionsProjectPath) return;
     setActionsRunning(true);
+    setBuildOutputPath(null);
     setLogText("");
     setIsTerminalVisible(true);
 
@@ -921,6 +935,7 @@ function App() {
         isVisible={isTerminalVisible}
         setIsVisible={setIsTerminalVisible}
         onStop={stopRunningAction}
+        buildOutputPath={buildOutputPath}
       />
 
       {/* DaisyUI Toast */}
