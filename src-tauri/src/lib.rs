@@ -61,6 +61,16 @@ pub fn run() {
                   ALTER TABLE projects ADD COLUMN ks_alias_password TEXT;",
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "create system_info table",
+            sql: "CREATE TABLE IF NOT EXISTS system_info (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at INTEGER
+            );",
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -80,7 +90,11 @@ pub fn run() {
             commands::project::analyze_project,
             commands::project::discover_projects,
             commands::ns::doctor_checks,
+            commands::ns::get_ns_report,
+            commands::ns::detect_available_package_managers,
+            commands::ns::set_ns_package_manager,
             commands::ns::run_ns,
+            commands::ns::run_npm,
             commands::ns::create_ns_project,
             commands::ns::get_adb_devices,
             commands::ns::stop_ns_command,

@@ -59,6 +59,57 @@ pub struct DoctorCheck {
     pub hint: Option<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NsReport {
+    pub info: String,
+    pub doctor: String,
+    pub package_manager: String,
+}
+
+#[tauri::command]
+pub async fn detect_available_package_managers() -> Vec<String> {
+    let mut available = Vec::new();
+    let pms = vec!["npm", "yarn", "pnpm", "bun"];
+
+    for pm in pms {
+        let mut found = false;
+
+        // Try raw command first (handles .exe on Windows via PATHEXT)
+        if std::process::Command::new(pm)
+            .arg("--version")
+            .output()
+            .is_ok()
+        {
+            found = true;
+        }
+
+        // If not found and on Windows, try .cmd specifically
+        if !found && cfg!(windows) {
+            let cmd = format!("{}.cmd", pm);
+            if std::process::Command::new(&cmd)
+                .arg("--version")
+                .output()
+                .is_ok()
+            {
+                found = true;
+            }
+        }
+
+        if found {
+            available.push(pm.to_string());
+        }
+    }
+
+    available
+}
+
+#[tauri::command]
+pub async fn set_ns_package_manager(pm: String) -> Result<CommandResult, String> {
+    let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
+    run_resolved(&cli, &["package-manager", "set", &pm], None)
+}
+
 #[derive(Clone)]
 pub struct ResolvedCli {
     pub launcher: String,
@@ -469,6 +520,33 @@ pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
 }
 
 #[tauri::command]
+pub async fn run_npm(
+    window: tauri::Window,
+    args: Vec<String>,
+    cwd: Option<String>,
+) -> Result<CommandResult, String> {
+    let program = if cfg!(target_os = "windows") {
+        "npm.cmd"
+    } else {
+        "npm"
+    };
+
+    let cli = ResolvedCli {
+        launcher: program.to_string(),
+        base_args: Vec::new(),
+        display: program.to_string(),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<ProcessState>();
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        run_resolved_streaming(&window, state, &cli, &args_refs, cwd.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn run_ns(
     window: tauri::Window,
     project_path: String,
@@ -482,6 +560,12 @@ pub async fn run_ns(
         "debug-android" => vec!["debug".to_string(), "android".to_string()],
         "debug-ios" => vec!["debug".to_string(), "ios".to_string()],
         "clean" => vec!["clean".to_string()],
+        "install" => vec!["install".to_string()],
+        "doctor" => vec!["doctor".to_string()],
+        "info" => vec!["info".to_string()],
+        "update" => vec!["update".to_string()],
+        "migrate" => vec!["migrate".to_string()],
+        "package-manager" => vec!["package-manager".to_string()],
         "build" => {
             if let Some(config) = &build_config {
                 let mut b_args = vec!["build".to_string(), config.platform.clone()];
@@ -746,6 +830,29 @@ pub fn run_resolved_streaming(
         stdout: "Logs sent via events".to_string(),
         stderr: "".to_string(),
         command: Some(format!("{} {}", cli.launcher, full_args.join(" "))),
+    })
+}
+
+#[tauri::command]
+pub async fn get_ns_report() -> Result<NsReport, String> {
+    let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
+
+    let info = run_resolved(&cli, &["info"], None)
+        .map(|r| r.stdout + &r.stderr)
+        .unwrap_or_else(|e| e);
+
+    let doctor = run_resolved(&cli, &["doctor"], None)
+        .map(|r| r.stdout + &r.stderr)
+        .unwrap_or_else(|e| e);
+
+    let package_manager = run_resolved(&cli, &["package-manager"], None)
+        .map(|r| r.stdout + &r.stderr)
+        .unwrap_or_else(|e| e);
+
+    Ok(NsReport {
+        info,
+        doctor,
+        package_manager,
     })
 }
 

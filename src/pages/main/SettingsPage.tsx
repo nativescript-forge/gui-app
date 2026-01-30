@@ -5,12 +5,21 @@ import {
   FiShield,
   FiInfo,
   FiChevronLeft,
+  FiPackage,
+  FiSave,
 } from "react-icons/fi";
 import Database from "@tauri-apps/plugin-sql";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 
 type SettingsPageProps = {
   db: Database | null;
+  systemReport: {
+    info: string;
+    doctor: string;
+    packageManager: string;
+  } | null;
+  onRefreshSystemReport: () => Promise<void>;
   onBack: () => void;
   onClearLogs: () => Promise<void>;
   showToast: (
@@ -21,12 +30,58 @@ type SettingsPageProps = {
 
 export function SettingsPage({
   db,
+  systemReport,
+  onRefreshSystemReport,
   onBack,
   onClearLogs,
   showToast,
 }: SettingsPageProps) {
   const [clearing, setClearing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [availablePMs, setAvailablePMs] = useState<string[]>([]);
+  const [selectedPM, setSelectedPM] = useState<string>("");
+  const [updatingPM, setUpdatingPM] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+
+  useEffect(() => {
+    async function loadAvailablePMs() {
+      setDetecting(true);
+      try {
+        const pms = await invoke<string[]>("detect_available_package_managers");
+        setAvailablePMs(pms);
+
+        // Parse current PM from report
+        const currentPMText = systemReport?.packageManager?.trim() || "";
+        const match = currentPMText.match(/(npm|yarn|pnpm|bun)/i);
+        if (match) {
+          setSelectedPM(match[1].toLowerCase());
+        }
+      } catch (err) {
+        console.error("Failed to detect package managers:", err);
+      } finally {
+        setDetecting(false);
+      }
+    }
+    loadAvailablePMs();
+  }, [systemReport]);
+
+  const handleUpdatePM = async () => {
+    if (!selectedPM) return;
+    setUpdatingPM(true);
+    try {
+      await invoke("set_ns_package_manager", { pm: selectedPM });
+      await onRefreshSystemReport();
+      showToast(
+        `Default package manager set to ${selectedPM.toUpperCase()}`,
+        "success",
+      );
+    } catch (err) {
+      console.error("Failed to update package manager:", err);
+      showToast(`Failed to update package manager: ${err}`, "error");
+    } finally {
+      setUpdatingPM(false);
+    }
+  };
 
   const handleClearLogs = () => {
     setShowConfirmModal(true);
@@ -63,6 +118,84 @@ export function SettingsPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6">
+        {/* NativeScript Configuration Section */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
+          <div className="card-body p-0">
+            <div className="p-6 border-b border-base-200 bg-base-200/30">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FiPackage className="text-primary" />
+                NativeScript Configuration
+              </h2>
+              <p className="text-sm opacity-60 mt-1">
+                Configure global NativeScript CLI settings.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                <div className="flex-1">
+                  <h3 className="font-bold text-sm mb-1">
+                    Default Package Manager
+                  </h3>
+                  <p className="text-xs opacity-50 leading-relaxed">
+                    Choose which package manager NativeScript should use for
+                    installing dependencies and running commands.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-30">
+                      Currently:
+                    </span>
+                    <span className="badge badge-sm badge-ghost font-bold text-[10px] uppercase">
+                      {(() => {
+                        const pm = systemReport?.packageManager?.trim() || "";
+                        const match = pm.match(/(npm|yarn|pnpm|bun)/i);
+                        return match ? match[1] : "...";
+                      })()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="form-control">
+                    <div className="relative">
+                      <select
+                        className={`select select-bordered select-sm w-full sm:w-40 rounded-xl focus:select-primary transition-all ${detecting ? "opacity-50" : ""}`}
+                        value={selectedPM}
+                        onChange={(e) => setSelectedPM(e.target.value)}
+                        disabled={updatingPM || detecting}
+                      >
+                        <option value="" disabled>
+                          {detecting ? "Detecting..." : "Select PM"}
+                        </option>
+                        {availablePMs.map((pm) => (
+                          <option key={pm} value={pm}>
+                            {pm.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                      {detecting && (
+                        <span className="loading loading-spinner loading-xs absolute right-9 top-1/2 -translate-y-1/2 opacity-40"></span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleUpdatePM}
+                    disabled={updatingPM || !selectedPM || detecting}
+                    className={`btn btn-primary btn-sm rounded-xl gap-2 min-w-[80px] ${updatingPM ? "loading" : ""}`}
+                  >
+                    {!updatingPM && (
+                      <>
+                        <FiSave className="w-3.5 h-3.5" />
+                        <span>Save</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Activity Logs Section */}
         <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
           <div className="card-body p-0">

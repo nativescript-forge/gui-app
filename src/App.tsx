@@ -29,7 +29,7 @@ import { TitleBar } from "./components/TitleBar";
 import { HomePage } from "./pages/main/HomePage";
 import { ProjectsPage } from "./pages/main/ProjectsPage";
 import { DoctorPage } from "./pages/app-mode/DoctorPage";
-import { ActionsPage } from "./pages/app-mode/ActionsPage";
+import { DashboardPage } from "./pages/app-mode/DashboardPage";
 import { PluginsPage } from "./pages/app-mode/PluginsPage";
 import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
 import { ConfigPage } from "./pages/app-mode/ConfigPage";
@@ -78,6 +78,11 @@ function App() {
     }
   }, []);
   const [db, setDb] = useState<Database | null>(null);
+  const [systemReport, setSystemReport] = useState<{
+    info: string;
+    doctor: string;
+    packageManager: string;
+  } | null>(null);
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(
@@ -292,11 +297,59 @@ function App() {
     }
   }
 
+  async function runBackgroundChecks(currentDb: Database) {
+    try {
+      const report = await invoke<{
+        info: string;
+        doctor: string;
+        packageManager: string;
+      }>("get_ns_report");
+
+      setSystemReport(report);
+
+      const now = Date.now();
+      await currentDb.execute(
+        "INSERT INTO system_info (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        ["info", report.info, now],
+      );
+      await currentDb.execute(
+        "INSERT INTO system_info (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        ["doctor", report.doctor, now],
+      );
+      await currentDb.execute(
+        "INSERT INTO system_info (key, value, updated_at) VALUES ($1, $2, $3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        ["packageManager", report.packageManager, now],
+      );
+
+      logActivity("system", "System health checks completed", "success");
+    } catch (err) {
+      console.error("Background checks failed:", err);
+      logActivity("system", "System health checks failed", "error", {
+        error: String(err),
+      });
+    }
+  }
+
   async function init() {
     try {
       const currentDb = await Database.load("sqlite:nsforge.db");
       setDb(currentDb);
       await refreshProjects(currentDb, true);
+
+      // Load existing system report
+      const savedReport = await currentDb.select<
+        { key: string; value: string }[]
+      >("SELECT * FROM system_info");
+      if (savedReport.length > 0) {
+        const reportObj: any = {};
+        savedReport.forEach((row) => {
+          reportObj[row.key] = row.value;
+        });
+        setSystemReport(reportObj);
+      }
+
+      // Start background checks
+      runBackgroundChecks(currentDb);
 
       // Log App Startup
       logActivity("system", "Application Started", "success", {
@@ -646,7 +699,13 @@ function App() {
       | "debug-android"
       | "debug-ios"
       | "build"
-      | "clean",
+      | "clean"
+      | "install"
+      | "doctor"
+      | "info"
+      | "update"
+      | "migrate"
+      | "package-manager",
     deviceId?: string,
     buildConfig?: { platform?: "android" | "ios"; [key: string]: any },
   ) {
@@ -672,7 +731,11 @@ function App() {
       const redactedCmd = redactCommand(result.command || "");
 
       logActivity(
-        action.startsWith("build") ? "build" : "run",
+        action.startsWith("build")
+          ? "build"
+          : action.startsWith("run") || action.startsWith("debug")
+            ? "run"
+            : "system",
         `${activityBaseDesc} (${formatDuration(duration)})`,
         "success",
         {
@@ -696,7 +759,11 @@ function App() {
     } catch (e) {
       const duration = Date.now() - startTime;
       logActivity(
-        action.startsWith("build") ? "build" : "run",
+        action.startsWith("build")
+          ? "build"
+          : action.startsWith("run") || action.startsWith("debug")
+            ? "run"
+            : "system",
         `${activityBaseDesc} (${formatDuration(duration)})`,
         "error",
         {
@@ -716,6 +783,33 @@ function App() {
       } else {
         showToast(`Error: ${errMsg}`, "error");
       }
+    } finally {
+      setActionsRunning(false);
+    }
+  }
+
+  async function runNpm(args: string[], cwd?: string) {
+    setActionsRunning(true);
+    setLogText("");
+    setIsTerminalVisible(true);
+
+    try {
+      const result = (await invoke("run_npm", {
+        args,
+        cwd,
+      })) as CommandResult;
+
+      if (result.statusCode === 0) {
+        showToast("NPM command completed successfully", "success");
+      } else {
+        showToast(
+          `NPM command failed with exit code ${result.statusCode}`,
+          "error",
+        );
+      }
+    } catch (e) {
+      setLogText((prev) => prev + `\nError: ${String(e)}`);
+      showToast(`Error: ${String(e)}`, "error");
     } finally {
       setActionsRunning(false);
     }
@@ -868,11 +962,12 @@ function App() {
         )}
 
         {route === "app-actions" && (
-          <ActionsPage
+          <DashboardPage
             projects={projects}
             projectPath={actionsProjectPath}
             setProjectPath={setActionsProjectPath}
             running={actionsRunning}
+            systemReport={systemReport}
             logText={logText}
             logFilter={logFilter}
             setLogFilter={setLogFilter}
@@ -880,6 +975,7 @@ function App() {
             onRunAction={(action, deviceId, buildConfig) => {
               runAction(action, deviceId, buildConfig);
             }}
+            onRunNpm={runNpm}
           />
         )}
 
@@ -890,6 +986,10 @@ function App() {
         {route === "settings" && (
           <SettingsPage
             db={db}
+            systemReport={systemReport}
+            onRefreshSystemReport={async () => {
+              if (db) await runBackgroundChecks(db);
+            }}
             onBack={() => setRoute("home")}
             onClearLogs={clearLogs}
             showToast={showToast}

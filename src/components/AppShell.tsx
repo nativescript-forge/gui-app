@@ -78,11 +78,11 @@ export function AppShell(props: AppShellProps) {
   ];
 
   const appSidebarItems: SidebarItem[] = [
+    { id: "app-actions", label: "App Dashboard", icon: FiGrid },
+    { id: "app-config", label: "Project Config", icon: FiSettings },
     { id: "app-doctor", label: "Health Check", icon: FiActivity },
-    { id: "app-actions", label: "Quick Action", icon: FiTerminal },
     { id: "app-plugins", label: "Install Plugin", icon: FiPackage },
     { id: "app-permissions", label: "Manage Permission", icon: FiKey },
-    { id: "app-config", label: "Project Config", icon: FiSettings },
   ];
 
   const sidebarItems = props.isAppMode ? appSidebarItems : homeSidebarItems;

@@ -216,12 +216,12 @@ export function TitleBar({
 
           <RunMenu activeProject={activeProject} setRoute={setRoute} />
 
-          {/* Terminal */}
+          {/* Dashboard */}
           <button
             onClick={() => setRoute("app-actions")}
-            className="px-3 h-10 flex items-center hover:bg-white/5 cursor-default transition-colors text-[13px] text-white/80 hover:text-white"
+            className={`px-3 h-10 flex items-center hover:bg-white/5 cursor-default transition-colors text-[13px] font-medium ${currentRoute === "app-actions" ? "text-primary bg-primary/5" : "text-white/80 hover:text-white"}`}
           >
-            Terminal
+            Dashboard
           </button>
 
           <HelpMenu
@@ -232,7 +232,7 @@ export function TitleBar({
         </div>
       </div>
 
-      {/* Center: Global App Switching & Quick Actions */}
+      {/* Center: Global App Switching & Dashboard Actions */}
       <div
         className="flex-1 flex justify-center items-center h-full gap-4 max-w-[60%]"
         data-tauri-drag-region

@@ -17,16 +17,28 @@ import {
   FiInfo,
   FiTerminal,
   FiHash,
+  FiDownload,
+  FiShield,
+  FiArrowUpCircle,
+  FiGlobe,
+  FiSettings,
+  FiCommand,
+  FiX,
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { invoke } from "@tauri-apps/api/core";
 
-type ActionsPageProps = {
+export type DashboardPageProps = {
   projects: ProjectRow[];
   projectPath: string | null;
   setProjectPath: (projectPath: string | null) => void;
   running: boolean;
+  systemReport: {
+    info: string;
+    doctor: string;
+    packageManager: string;
+  } | null;
   logText: string;
   logFilter: "all" | "errors";
   setLogFilter: (filter: "all" | "errors") => void;
@@ -38,17 +50,37 @@ type ActionsPageProps = {
       | "debug-android"
       | "debug-ios"
       | "build"
-      | "clean",
+      | "clean"
+      | "install"
+      | "doctor"
+      | "info"
+      | "update"
+      | "migrate"
+      | "package-manager",
     deviceId?: string,
     buildConfig?: BuildConfig,
   ) => void;
+  onRunNpm: (args: string[], cwd?: string) => void;
 };
 
-export function ActionsPage(props: ActionsPageProps) {
+export function DashboardPage(props: DashboardPageProps) {
+  const {
+    projects,
+    projectPath,
+    setProjectPath,
+    running,
+    logText,
+    logFilter,
+    setLogFilter,
+    onOpenBuildModal,
+    onRunAction,
+    onRunNpm,
+  } = props;
   const [nodeModulesExist, setNodeModulesExist] = useState<boolean | null>(
     null,
   );
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [showSystemModal, setShowSystemModal] = useState(false);
 
   const activeProject = useMemo(() => {
     return props.projects.find((p) => p.path === props.projectPath);
@@ -97,37 +129,41 @@ export function ActionsPage(props: ActionsPageProps) {
       .map((p) => p.trim().toLowerCase());
   }, [activeProject]);
 
+  const isNsVersionOutdated = useMemo(() => {
+    if (!activeProject?.nativescript_version) return false;
+    // Simple check: if it doesn't contain "9." it's likely outdated (NativeScript 8 or older)
+    return !activeProject.nativescript_version.includes("9.");
+  }, [activeProject]);
+
   if (!props.projectPath) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
-        <div className="w-24 h-24 bg-base-200 rounded-full flex items-center justify-center mb-6 text-base-content/20">
-          <FiPackage className="w-12 h-12" />
-        </div>
-        <h2 className="text-2xl font-black mb-2">No Project Selected</h2>
-        <p className="text-base-content/50 max-w-xs mb-8">
-          Select a project from the list to view its console and run actions.
-        </p>
-        <div className="dropdown">
-          <div tabIndex={0} role="button" className="btn btn-primary px-8">
-            Select Project
-            <FiChevronDown className="ml-2" />
-          </div>
-          <ul
-            tabIndex={0}
-            className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-64 mt-2"
-          >
-            {props.projects.map((p) => (
-              <li key={p.path}>
-                <button onClick={() => props.setProjectPath(p.path)}>
-                  <FiPackage className="w-4 h-4" />
-                  <span className="truncate">{p.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+    <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
+      <div className="w-24 h-24 bg-base-200 rounded-full flex items-center justify-center mb-6 text-base-content/20">
+        <FiPackage className="w-12 h-12" />
       </div>
-    );
+      <h2 className="text-2xl font-black mb-2">No Project Selected</h2>
+      <p className="text-base-content/50 max-w-xs mb-8">
+        Select a project from the list to view its console and run actions.
+      </p>
+      <div className="dropdown">
+        <div tabIndex={0} role="button" className="btn btn-primary px-8">
+          Select Project
+          <FiChevronDown className="ml-2" />
+        </div>
+        <ul
+          tabIndex={0}
+          className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-64 mt-2"
+        >
+          {props.projects.map((p) => (
+            <li key={p.path}>
+              <button onClick={() => props.setProjectPath(p.path)}>
+                <FiPackage className="w-4 h-4" />
+                <span className="truncate">{p.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>;
   }
 
   return (
@@ -181,8 +217,16 @@ export function ActionsPage(props: ActionsPageProps) {
                   <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
                     NativeScript
                   </div>
-                  <div className="font-bold text-sm">
+                  <div className="font-bold text-sm flex items-center gap-2">
                     v{activeProject?.nativescript_version || "Latest"}
+                    {isNsVersionOutdated && (
+                      <div
+                        className="tooltip tooltip-warning"
+                        data-tip="Version outdated. Click update in Health section."
+                      >
+                        <FiAlertTriangle className="w-3 h-3 text-warning" />
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="w-px h-8 bg-base-300 hidden sm:block"></div>
@@ -191,11 +235,19 @@ export function ActionsPage(props: ActionsPageProps) {
                     Platforms
                   </div>
                   <div className="flex gap-2">
-                    {projectPlatforms.includes("android") && (
-                      <SiAndroid className="w-4 h-4 opacity-60" />
-                    )}
-                    {projectPlatforms.includes("ios") && (
-                      <SiApple className="w-4 h-4 opacity-60" />
+                    {projectPlatforms.length > 0 ? (
+                      <>
+                        {projectPlatforms.includes("android") && (
+                          <SiAndroid className="w-4 h-4 opacity-60" />
+                        )}
+                        {projectPlatforms.includes("ios") && (
+                          <SiApple className="w-4 h-4 opacity-60" />
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[10px] opacity-40 font-medium">
+                        No Platforms
+                      </span>
                     )}
                   </div>
                 </div>
@@ -300,6 +352,104 @@ export function ActionsPage(props: ActionsPageProps) {
               </div>
             </div>
           </div>
+
+          <div className="card bg-base-200/50 border border-base-300 rounded-3xl">
+            <div className="card-body p-6">
+              <h3 className="text-xs font-black uppercase tracking-widest opacity-40 flex items-center gap-2 mb-4">
+                <FiShield className="w-3 h-3" /> Maintenance & Diagnostics
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunAction("doctor")}
+                >
+                  <FiShield className="w-4 h-4 text-info" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">Doctor</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Check system configuration
+                    </div>
+                  </div>
+                </button>
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunAction("info")}
+                >
+                  <FiInfo className="w-4 h-4 text-primary" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">CLI Info</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Version information
+                    </div>
+                  </div>
+                </button>
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunAction("update")}
+                >
+                  <FiRefreshCw className="w-4 h-4 text-success" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">Update Project</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Update runtimes & modules
+                    </div>
+                  </div>
+                </button>
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunAction("migrate")}
+                >
+                  <FiArrowUpCircle className="w-4 h-4 text-warning" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">Migrate</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Migrate dependencies
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card bg-base-200/50 border border-base-300 rounded-3xl">
+            <div className="card-body p-6">
+              <h3 className="text-xs font-black uppercase tracking-widest opacity-40 flex items-center gap-2 mb-4">
+                <FiSettings className="w-3 h-3" /> Configuration
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunAction("package-manager")}
+                >
+                  <FiCommand className="w-4 h-4 opacity-70" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">Pkg Manager</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Current package manager
+                    </div>
+                  </div>
+                </button>
+                <button
+                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  disabled={props.running}
+                  onClick={() => props.onRunNpm(["config", "get", "proxy"])}
+                >
+                  <FiGlobe className="w-4 h-4 opacity-70" />
+                  <div className="text-left">
+                    <div className="font-bold text-[12px]">Proxy Settings</div>
+                    <div className="text-[9px] opacity-50 font-normal">
+                      Display proxy config
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar: Health & Utils */}
@@ -368,11 +518,49 @@ export function ActionsPage(props: ActionsPageProps) {
                 <div className="flex items-center gap-2 text-xs font-bold">
                   <FiInfo className="w-3 h-3" /> Action Required
                 </div>
-                <p className="text-[10px] leading-relaxed opacity-80">
+                <p className="text-[10px] leading-relaxed opacity-80 mb-2">
                   Run{" "}
-                  <code className="bg-error/10 px-1 rounded">npm install</code>{" "}
+                  <code className="bg-error/10 px-1 rounded">ns install</code>{" "}
                   in your project directory to install dependencies.
                 </p>
+                <button
+                  onClick={() => onRunAction("install")}
+                  disabled={running}
+                  className="btn btn-error btn-xs w-fit text-[10px] h-7 min-h-0"
+                >
+                  {running ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    <FiDownload className="w-3 h-3" />
+                  )}
+                  Install Dependencies
+                </button>
+              </div>
+            )}
+
+            {isNsVersionOutdated && (
+              <div className="mt-4 p-4 rounded-2xl bg-warning/5 border border-warning/10 text-warning flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold">
+                  <FiAlertTriangle className="w-3 h-3" /> Update Recommended
+                </div>
+                <p className="text-[10px] leading-relaxed opacity-80 mb-2">
+                  NativeScript CLI version is outdated. Update to the latest
+                  version for better stability.
+                </p>
+                <button
+                  onClick={() =>
+                    onRunNpm(["install", "-g", "nativescript@latest"])
+                  }
+                  disabled={running}
+                  className="btn btn-warning btn-xs w-fit text-[10px] h-7 min-h-0"
+                >
+                  {running ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    <FiRefreshCw className="w-3 h-3" />
+                  )}
+                  Update CLI
+                </button>
               </div>
             )}
           </div>
@@ -417,6 +605,65 @@ export function ActionsPage(props: ActionsPageProps) {
               </button>
             </div>
           </div>
+
+          <div className="bg-base-100 border border-base-200 rounded-3xl p-6">
+            <h3 className="text-sm font-black uppercase tracking-widest opacity-40 mb-6">
+              System Environment
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-xs">
+                <span className="opacity-50">NS CLI</span>
+                <span className="font-mono bg-base-200 px-2 py-0.5 rounded text-[10px]">
+                  {props.systemReport?.info?.match(
+                    /(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i,
+                  )?.[1] ||
+                    props.systemReport?.info?.match(/([\d.]+)/)?.[1] ||
+                    "..."}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="opacity-50">Pkg Manager</span>
+                <span className="font-bold text-[10px] uppercase">
+                  {(() => {
+                    const pm = props.systemReport?.packageManager?.trim() || "";
+                    // Match npm, yarn, or pnpm specifically, or get the last word
+                    const match = pm.match(/(npm|yarn|pnpm|bun)/i);
+                    if (match) return match[1];
+                    const words = pm.split(/\s+/);
+                    const lastWord = words[words.length - 1]?.replace(
+                      /\.$/,
+                      "",
+                    );
+                    return lastWord || "...";
+                  })()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="opacity-50">Health Status</span>
+                <span
+                  className={`badge badge-xs text-[9px] h-4 ${
+                    props.systemReport?.doctor
+                      ?.toLowerCase()
+                      .includes("no issues")
+                      ? "badge-success"
+                      : "badge-warning"
+                  }`}
+                >
+                  {props.systemReport?.doctor
+                    ?.toLowerCase()
+                    .includes("no issues")
+                    ? "Healthy"
+                    : "Review Needed"}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSystemModal(true)}
+              className="btn btn-ghost btn-block btn-xs mt-6 text-[10px] opacity-60 hover:opacity-100"
+            >
+              View Full Report
+            </button>
+          </div>
         </div>
       </div>
 
@@ -430,16 +677,18 @@ export function ActionsPage(props: ActionsPageProps) {
             </h3>
           </div>
           <div className="flex items-center gap-2">
-            <select
-              className="select select-xs select-ghost bg-base-300/50 rounded-lg text-[10px] font-bold"
-              value={props.logFilter}
-              onChange={(e) =>
-                props.setLogFilter(e.target.value as "all" | "errors")
-              }
-            >
-              <option value="all">ALL LOGS</option>
-              <option value="errors">ERRORS ONLY</option>
-            </select>
+            <div className="form-control">
+              <select
+                className="select select-xs select-ghost bg-base-300/50 rounded-lg text-[10px] font-bold focus:select-primary transition-all"
+                value={props.logFilter}
+                onChange={(e) =>
+                  props.setLogFilter(e.target.value as "all" | "errors")
+                }
+              >
+                <option value="all">ALL LOGS</option>
+                <option value="errors">ERRORS ONLY</option>
+              </select>
+            </div>
             <button
               onClick={() => copyToClipboard(props.logText)}
               className="btn btn-ghost btn-xs btn-square"
@@ -464,6 +713,76 @@ export function ActionsPage(props: ActionsPageProps) {
           )}
         </div>
       </div>
+
+      {/* Full System Report Modal */}
+      {showSystemModal && (
+        <div className="modal modal-open">
+          <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden border border-base-300 shadow-2xl rounded-3xl">
+            <div className="p-6 border-b border-base-200 flex items-center justify-between bg-base-200/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                  <FiCpu className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg">
+                    System Environment Report
+                  </h3>
+                  <p className="text-xs opacity-50">
+                    NativeScript CLI Diagnostics
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSystemModal(false)}
+                className="btn btn-ghost btn-sm btn-circle"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              <section>
+                <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                  <FiInfo className="w-3 h-3" /> CLI Information
+                </h4>
+                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                  {props.systemReport?.info || "No information available."}
+                </pre>
+              </section>
+
+              <section>
+                <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                  <FiShield className="w-3 h-3" /> Doctor Results
+                </h4>
+                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                  {props.systemReport?.doctor || "No doctor results available."}
+                </pre>
+              </section>
+
+              <section>
+                <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                  <FiPackage className="w-3 h-3" /> Package Manager
+                </h4>
+                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                  {props.systemReport?.packageManager ||
+                    "No information available."}
+                </pre>
+              </section>
+            </div>
+            <div className="p-6 border-t border-base-200 bg-base-200/30 flex justify-end">
+              <button
+                onClick={() => setShowSystemModal(false)}
+                className="btn btn-primary rounded-xl px-8"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-base-900/60 backdrop-blur-sm"
+            onClick={() => setShowSystemModal(false)}
+          ></div>
+        </div>
+      )}
     </div>
   );
 }
