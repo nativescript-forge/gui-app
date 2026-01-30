@@ -18,13 +18,6 @@ type ActionsPageProps = {
 };
 
 export function ActionsPage(props: ActionsPageProps) {
-  const filteredLogLines = useMemo(() => {
-    const lines = props.logText.split(/\r?\n/);
-    if (props.logFilter === "all") return lines;
-    const re = /(error|failed|exception|traceback)/i;
-    return lines.filter((l) => re.test(l));
-  }, [props.logFilter, props.logText]);
-
   return (
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -81,74 +74,23 @@ export function ActionsPage(props: ActionsPageProps) {
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="card bg-base-100 shadow-sm lg:col-span-1">
-          <div className="card-body">
-            <div className="font-semibold">Log Viewer</div>
-            <div className="text-sm opacity-70">
-              Filter errors and copy output
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="join">
-                <button
-                  type="button"
-                  className={`btn btn-sm join-item ${props.logFilter === "all" ? "btn-active" : ""}`}
-                  onClick={() => props.setLogFilter("all")}
-                >
-                  All
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm join-item ${props.logFilter === "errors" ? "btn-active" : ""}`}
-                  onClick={() => props.setLogFilter("errors")}
-                >
-                  Errors
-                </button>
-              </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => navigator.clipboard.writeText(props.logText)}
-                disabled={!props.logText}
-              >
-                <FiCopy className="h-4 w-4" />
-                Copy
-              </button>
-            </div>
-
-            {props.running ? (
-              <div className="mt-4 flex items-center gap-3">
-                <span className="loading loading-spinner loading-md" />
-                <span className="text-sm opacity-70">Running command…</span>
-              </div>
-            ) : null}
-          </div>
+      <div className="mt-8 flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-white/10 rounded-2xl bg-white/5">
+        <div className="p-4 bg-primary/10 rounded-full mb-4">
+          <FiPlay className="w-8 h-8 text-primary" />
         </div>
-
-        <div className="card bg-base-100 shadow-sm lg:col-span-2">
-          <div className="card-body">
-            <div className="mockup-code max-h-[55vh] overflow-auto">
-              {filteredLogLines.length === 0 ? (
-                <pre className="px-4">
-                  <code>Logs will appear here…</code>
-                </pre>
-              ) : (
-                filteredLogLines.map((line, idx) => {
-                  const isError = /(error|failed|exception|traceback)/i.test(
-                    line,
-                  );
-                  return (
-                    <pre
-                      key={idx}
-                      className={`px-4 ${isError ? "text-error" : ""}`}
-                    >
-                      <code>{line || " "}</code>
-                    </pre>
-                  );
-                })
-              )}
-            </div>
+        <h3 className="text-xl font-semibold mb-2">Ready to Run Commands</h3>
+        <p className="text-sm opacity-60 max-w-md mb-6">
+          Select a project and click one of the action buttons above. 
+          The execution logs will appear in the global terminal at the bottom of the screen.
+        </p>
+        <div className="flex items-center gap-4 text-xs opacity-50">
+          <div className="flex items-center gap-1">
+            <kbd className="kbd kbd-xs">ns run android</kbd>
+            <span>Run on Android device</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <kbd className="kbd kbd-xs">ns build</kbd>
+            <span>Build project</span>
           </div>
         </div>
       </div>

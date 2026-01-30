@@ -37,6 +37,7 @@ import {
   type ProjectConfig,
 } from "./pages/main/CreateProjectPage";
 import { BuildModal, type BuildConfig } from "./components/TitleBar/BuildModal";
+import { GlobalTerminal } from "./components/GlobalTerminal";
 
 function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
@@ -94,6 +95,21 @@ function App() {
   const [createLoading, setCreateLoading] = useState(false);
   const [logText, setLogText] = useState<string>("");
   const [logFilter, setLogFilter] = useState<"all" | "errors">("all");
+  const [isTerminalVisible, setIsTerminalVisible] = useState(false);
+
+  useEffect(() => {
+    const unlisten = listen<{ message: string }>(
+      "create-project-log",
+      (event) => {
+        setLogText((prev) => prev + event.payload.message);
+        setIsTerminalVisible(true);
+      },
+    );
+
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
 
   const splashStartRef = useRef<number>(Date.now());
 
@@ -289,13 +305,7 @@ function App() {
     if (!db) return;
     setCreateLoading(true);
     setLogText("Starting project creation process...\n");
-
-    const unlisten = await listen<{ message: string }>(
-      "create-project-log",
-      (event) => {
-        setLogText((prev) => prev + event.payload.message);
-      },
-    );
+    setIsTerminalVisible(true);
 
     try {
       const result = (await invoke("create_ns_project", {
@@ -325,7 +335,6 @@ function App() {
       console.error("Create project failed:", err);
       alert(`Error: ${String(err)}`);
     } finally {
-      unlisten();
       setCreateLoading(false);
     }
   }
@@ -361,6 +370,15 @@ function App() {
     }
   }
 
+  async function stopRunningAction() {
+    try {
+      await invoke("stop_ns_command");
+      setLogText((prev) => prev + "\n\n[PROCESS TERMINATED BY USER]\n");
+    } catch (e) {
+      console.error("Failed to stop action:", e);
+    }
+  }
+
   async function runAction(
     action: "run-android" | "run-ios" | "debug-android" | "debug-ios" | "build",
     deviceId?: string,
@@ -369,19 +387,16 @@ function App() {
     if (!actionsProjectPath) return;
     setActionsRunning(true);
     setLogText("");
+    setIsTerminalVisible(true);
     try {
-      const result = (await invoke("run_ns", {
+      await invoke("run_ns", {
         projectPath: actionsProjectPath,
         action,
         deviceId,
         buildConfig,
-      })) as CommandResult;
-      const combined = [result.stdout, result.stderr]
-        .filter(Boolean)
-        .join("\n");
-      setLogText(combined.trim());
+      });
     } catch (e) {
-      setLogText(String(e));
+      setLogText((prev) => prev + `\nError: ${String(e)}`);
     } finally {
       setActionsRunning(false);
     }
@@ -564,6 +579,14 @@ function App() {
         }
         onBuild={(config) => runAction("build", undefined, config)}
         projectPath={activeProjectPath || undefined}
+      />
+
+      <GlobalTerminal
+        logs={logText}
+        isRunning={createLoading || actionsRunning}
+        isVisible={isTerminalVisible}
+        setIsVisible={setIsTerminalVisible}
+        onStop={stopRunningAction}
       />
     </div>
   );

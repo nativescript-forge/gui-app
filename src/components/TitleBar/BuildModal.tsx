@@ -75,6 +75,7 @@ export function BuildModal({
   const [force, setForce] = useState(false);
   const [compileSdk, setCompileSdk] = useState("");
   const [copyTo, setCopyTo] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
 
   // Keystore states
   const [keyStorePath, setKeyStorePath] = useState("");
@@ -186,7 +187,24 @@ export function BuildModal({
     }
   };
 
+  const isKeystoreValid = () => {
+    if (currentPlatform === "android" && mode === "release") {
+      return (
+        keyStorePath.trim() !== "" &&
+        keyStorePassword.trim() !== "" &&
+        keyStoreAlias.trim() !== "" &&
+        keyStoreAliasPassword.trim() !== ""
+      );
+    }
+    return true;
+  };
+
   const handleBuild = () => {
+    if (!isKeystoreValid()) {
+      setShowErrors(true);
+      return;
+    }
+
     onBuild({
       platform: currentPlatform,
       mode,
@@ -389,23 +407,30 @@ export function BuildModal({
               <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 {/* Keystore Path */}
                 <div className="space-y-1.5 col-span-2">
-                  <label className="text-[10px] text-white/40 font-medium">
-                    Keystore File Path
+                  <label className="text-[10px] text-white/40 font-medium flex items-center justify-between">
+                    <span>Keystore File Path</span>
+                    {showErrors && !keyStorePath && (
+                      <span className="text-[9px] text-error font-bold uppercase">
+                        Required
+                      </span>
+                    )}
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1 group">
-                      <FiFolder className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-success transition-colors" />
+                      <FiFolder
+                        className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${showErrors && !keyStorePath ? "text-error" : "text-white/20 group-focus-within:text-success"} transition-colors`}
+                      />
                       <input
                         type="text"
                         value={keyStorePath}
                         onChange={(e) => setKeyStorePath(e.target.value)}
                         placeholder="C:\path\to\your.keystore"
-                        className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-success/50 transition-all"
+                        className={`w-full bg-black/40 border ${showErrors && !keyStorePath ? "border-error/50 focus:border-error" : "border-white/10 focus:border-success/50"} rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none transition-all`}
                       />
                     </div>
                     <button
                       onClick={handleBrowseKeystore}
-                      className="px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-xs font-medium transition-colors flex items-center gap-2"
+                      className={`px-3 bg-white/5 hover:bg-white/10 border ${showErrors && !keyStorePath ? "border-error/30 text-error" : "border-white/10"} rounded-lg text-xs font-medium transition-colors flex items-center gap-2`}
                     >
                       Browse
                     </button>
@@ -414,51 +439,72 @@ export function BuildModal({
 
                 {/* Keystore Password */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 font-medium">
-                    Keystore Password
+                  <label className="text-[10px] text-white/40 font-medium flex items-center justify-between">
+                    <span>Keystore Password</span>
+                    {showErrors && !keyStorePassword && (
+                      <span className="text-[9px] text-error font-bold uppercase">
+                        Required
+                      </span>
+                    )}
                   </label>
                   <div className="relative group">
-                    <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-success transition-colors" />
+                    <FiLock
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${showErrors && !keyStorePassword ? "text-error" : "text-white/20 group-focus-within:text-success"} transition-colors`}
+                    />
                     <input
                       type="password"
                       value={keyStorePassword}
                       onChange={(e) => setKeyStorePassword(e.target.value)}
                       placeholder="Password"
-                      className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-success/50 transition-all"
+                      className={`w-full bg-black/40 border ${showErrors && !keyStorePassword ? "border-error/50 focus:border-error" : "border-white/10 focus:border-success/50"} rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none transition-all`}
                     />
                   </div>
                 </div>
 
                 {/* Key Alias */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 font-medium">
-                    Key Alias
+                  <label className="text-[10px] text-white/40 font-medium flex items-center justify-between">
+                    <span>Key Alias</span>
+                    {showErrors && !keyStoreAlias && (
+                      <span className="text-[9px] text-error font-bold uppercase">
+                        Required
+                      </span>
+                    )}
                   </label>
                   <div className="relative group">
-                    <FiKey className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-success transition-colors" />
+                    <FiKey
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${showErrors && !keyStoreAlias ? "text-error" : "text-white/20 group-focus-within:text-success"} transition-colors`}
+                    />
                     <input
                       type="text"
                       value={keyStoreAlias}
                       onChange={(e) => setKeyStoreAlias(e.target.value)}
                       placeholder="Alias Name"
-                      className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-success/50 transition-all"
+                      className={`w-full bg-black/40 border ${showErrors && !keyStoreAlias ? "border-error/50 focus:border-error" : "border-white/10 focus:border-success/50"} rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none transition-all`}
                     />
                   </div>
                 </div>
 
                 {/* Key Alias Password */}
                 <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 font-medium">
-                    Key Alias Password
+                  <label className="text-[10px] text-white/40 font-medium flex items-center justify-between">
+                    <span>Key Alias Password</span>
+                    {showErrors && !keyStoreAliasPassword && (
+                      <span className="text-[9px] text-error font-bold uppercase">
+                        Required
+                      </span>
+                    )}
                   </label>
                   <div className="relative group">
-                    <FiLock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 group-focus-within:text-success transition-colors" />
+                    <FiLock
+                      className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${showErrors && !keyStoreAliasPassword ? "text-error" : "text-white/20 group-focus-within:text-success"} transition-colors`}
+                    />
                     <input
                       type="password"
                       value={keyStoreAliasPassword}
                       onChange={(e) => setKeyStoreAliasPassword(e.target.value)}
                       placeholder="Alias Password"
-                      className="w-full bg-black/40 border border-white/10 rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none focus:border-success/50 transition-all"
+                      className={`w-full bg-black/40 border ${showErrors && !keyStoreAliasPassword ? "border-error/50 focus:border-error" : "border-white/10 focus:border-success/50"} rounded-lg py-2 pl-9 pr-3 text-xs text-white placeholder:text-white/20 focus:outline-none transition-all`}
                     />
                   </div>
                 </div>
@@ -524,7 +570,7 @@ export function BuildModal({
                         <span className="text-[11px] text-white/80 group-hover:text-white transition-colors font-mono">
                           --env.uglify
                         </span>
-                        <span className="badge badge-success badge-outline text-[8px] h-auto py-0.5 font-bold uppercase tracking-tighter">
+                        <span className="badge badge-success badge-outline text-[8px] h-auto py-0.1 font-bold uppercase tracking-tighter">
                           Recommended
                         </span>
                       </div>
@@ -706,7 +752,7 @@ export function BuildModal({
                   </span>
                 </div>
                 <span className="text-[9px] text-white/40 italic">
-                  Proses build lebih bersih namun prosesnya jadi agak lambat
+                  Cleaner build process, but it may be slightly slower
                 </span>
               </div>
             </label>

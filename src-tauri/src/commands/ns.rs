@@ -21,7 +21,7 @@ pub struct AdbDevice {
     pub platform: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildConfig {
     pub platform: String,
@@ -465,7 +465,8 @@ pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
 }
 
 #[tauri::command]
-pub fn run_ns(
+pub async fn run_ns(
+    window: tauri::Window,
     project_path: String,
     action: String,
     device_id: Option<String>,
@@ -486,6 +487,18 @@ pub fn run_ns(
                 if config.platform == "android" {
                     if config.build_type == "aab" {
                         b_args.push("--aab".to_string());
+                    }
+
+                    // Validation for Android Release
+                    if config.mode == "release" {
+                        let missing_keystore = config.key_store_path.as_ref().map_or(true, |s| s.is_empty()) ||
+                                              config.key_store_password.as_ref().map_or(true, |s| s.is_empty()) ||
+                                              config.key_store_alias.as_ref().map_or(true, |s| s.is_empty()) ||
+                                              config.key_store_alias_password.as_ref().map_or(true, |s| s.is_empty());
+                        
+                        if missing_keystore {
+                            return Err("When producing a release build for Android, you must specify all key-store options (path, password, alias, and alias password).".to_string());
+                        }
                     }
 
                     // Add optimization and additional flags
@@ -578,47 +591,34 @@ pub fn run_ns(
         );
     };
 
-    let mut combined_stdout = String::new();
-    let mut combined_stderr = String::new();
+    let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    let project_path_owned = project_path.clone();
+    let build_config_owned = build_config.clone();
 
-    // Handle ns clean if requested
-    if let Some(config) = &build_config {
-        if config.clean {
-            let clean_args = ["clean"];
-            match run_resolved(&cli, &clean_args, Some(&project_path)) {
-                Ok(res) => {
-                    combined_stdout.push_str(&res.stdout);
-                    combined_stderr.push_str(&res.stderr);
-                    if res.status_code != Some(0) {
-                        return Ok(CommandResult {
-                            status_code: res.status_code,
-                            stdout: combined_stdout,
-                            stderr: combined_stderr,
-                        });
-                    }
-                    combined_stdout.push_str("\n--- Clean completed, starting build ---\n");
-                }
-                Err(e) => return Err(format!("Clean failed: {}", e)),
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<ProcessState>();
+
+        // Handle ns clean if requested
+        if let Some(config) = &build_config_owned {
+            if config.clean {
+                let _ = window.emit("create-project-log", LogPayload { message: "Starting clean build...\n".to_string() });
+                let clean_args = ["clean"];
+                let _ = run_resolved_streaming(&window, state.clone(), &cli, &clean_args, Some(&project_path_owned));
+                let _ = window.emit("create-project-log", LogPayload { message: "\n--- Clean completed, starting build ---\n".to_string() });
             }
         }
-    }
 
-    let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    match run_resolved(&cli, &args_refs, Some(&project_path)) {
-        Ok(res) => {
-            combined_stdout.push_str(&res.stdout);
-            combined_stderr.push_str(&res.stderr);
-            Ok(CommandResult {
-                status_code: res.status_code,
-                stdout: combined_stdout,
-                stderr: combined_stderr,
-            })
-        }
-        Err(e) => Err(e),
-    }
+        let args_str: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
+        run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
-use tauri::Emitter;
+use tauri::{Emitter, State, Manager};
+use std::sync::Mutex;
+
+pub struct ProcessState(pub Mutex<Option<std::process::Child>>);
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -630,6 +630,7 @@ pub struct LogPayload {
 
 pub fn run_resolved_streaming(
     window: &tauri::Window,
+    state: State<'_, ProcessState>,
     cli: &ResolvedCli,
     args: &[&str],
     cwd: Option<&str>,
@@ -657,6 +658,12 @@ pub fn run_resolved_streaming(
     let stdout = child.stdout.take().unwrap();
     let stderr = child.stderr.take().unwrap();
 
+    // Store child in state
+    {
+        let mut lock = state.0.lock().unwrap();
+        *lock = Some(child);
+    }
+
     let window_clone = window.clone();
     let stdout_thread = std::thread::spawn(move || {
         let mut reader = stdout;
@@ -683,15 +690,48 @@ pub fn run_resolved_streaming(
         }
     });
 
-    let status = child.wait().map_err(|e| e.to_string())?;
+    // Wait for child to finish
+    let status = {
+        let mut lock = state.0.lock().unwrap();
+        if let Some(mut child) = lock.take() {
+            let res = child.wait().map_err(|e| e.to_string());
+            res
+        } else {
+            return Err("Process was terminated".to_string());
+        }
+    };
+
     let _ = stdout_thread.join();
     let _ = stderr_thread.join();
+
+    let status = status?;
 
     Ok(CommandResult {
         status_code: status.code(),
         stdout: "Logs sent via events".to_string(),
         stderr: "".to_string(),
     })
+}
+
+#[tauri::command]
+pub async fn stop_ns_command(state: State<'_, ProcessState>) -> Result<(), String> {
+    let mut lock = state.0.lock().unwrap();
+    if let Some(child) = lock.take() {
+        #[cfg(target_os = "windows")]
+        {
+            // On Windows, taskkill /F /T /PID is better for killing process trees
+            let pid = child.id();
+            let _ = Command::new("taskkill")
+                .args(["/F", "/T", "/PID", &pid.to_string()])
+                .output();
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let mut child = child;
+            let _ = child.kill();
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -745,8 +785,9 @@ pub async fn create_ns_project(
     
     // Run in a separate thread to avoid blocking the Tauri async runtime
     tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<ProcessState>();
         let args_refs: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
-        run_resolved_streaming(&window, &cli, &args_refs, Some(&parent_path))
+        run_resolved_streaming(&window, state, &cli, &args_refs, Some(&parent_path))
     })
     .await
     .map_err(|e| e.to_string())?

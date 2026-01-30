@@ -643,8 +643,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
     }
     setError("");
     setIsSuccess(false);
-    setIsTerminalVisible(true);
-    setIsTerminalExpanded(true);
     props.onCreate({ name, parentPath, flavor, template, platform });
   };
 
@@ -1081,100 +1079,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
       {/* Background Masking when Creating */}
       {props.isCreating && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-[45] animate-in fade-in duration-300" />
-      )}
-
-      {/* Terminal Bottom Sheet */}
-      {isTerminalVisible && (
-        <div
-          className={`fixed z-50 transition-all duration-500 ease-in-out terminal-container left-1/2 -translate-x-1/2 w-[90%] max-w-4xl ${
-            isTerminalExpanded
-              ? "bottom-0 h-[500px] rounded-t-2xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
-              : "bottom-8 h-12 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
-          } bg-[#1e1e1e] border border-white/10 flex flex-col overflow-hidden`}
-        >
-          {/* Header / Grabber */}
-          <div
-            className="bg-[#2d2d2d] px-6 py-3 flex items-center justify-between cursor-pointer border-b border-white/5 hover:bg-[#333] transition-colors h-12"
-            onClick={() => setIsTerminalExpanded(!isTerminalExpanded)}
-          >
-            <div className="flex items-center gap-3">
-              <FiTerminal className="text-success w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-white/70">
-                Terminal Output - {name || "Project"}
-              </span>
-              {props.isCreating && (
-                <span className="loading loading-spinner loading-xs text-success ml-2"></span>
-              )}
-            </div>
-            <div className="flex items-center gap-4">
-              {isSuccess && (
-                <button
-                  className="btn btn-success btn-sm gap-2 animate-pulse hover:animate-none shadow-lg shadow-success/20 px-4"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleGoToProject();
-                  }}
-                >
-                  <FiCheckCircle className="w-4 h-4" />
-                  <span className="font-bold">Open Project</span>
-                </button>
-              )}
-              <button
-                className="btn btn-ghost btn-xs text-white/40 hover:text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsTerminalExpanded(!isTerminalExpanded);
-                }}
-              >
-                {isTerminalExpanded ? (
-                  <FiChevronDown className="w-4 h-4" />
-                ) : (
-                  <FiChevronUp className="w-4 h-4" />
-                )}
-              </button>
-              {!props.isCreating && (
-                <button
-                  className="btn btn-ghost btn-xs text-white/40 hover:text-error"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsTerminalVisible(false);
-                    // Also reset success state when closing terminal manually
-                    if (isSuccess) setIsSuccess(false);
-                  }}
-                >
-                  <FiX className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-          {/* Terminal Content */}
-          <div
-            ref={terminalRef}
-            className={`flex-1 p-6 overflow-y-auto font-mono text-xs text-green-400/90 custom-scrollbar bg-black/40 transition-all duration-300 ${
-              isTerminalExpanded
-                ? "opacity-100 visible"
-                : "opacity-0 invisible h-0"
-            }`}
-          >
-            {props.isCreating ? (
-              <pre className="whitespace-pre-wrap break-all leading-relaxed pb-8">
-                {typingText}
-                <span className="inline-block w-2 h-4 bg-green-400/50 animate-pulse ml-1 align-middle"></span>
-              </pre>
-            ) : props.logs ? (
-              <pre className="whitespace-pre-wrap break-all leading-relaxed pb-8">
-                {props.logs}
-              </pre>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-white/20 gap-3">
-                <FiCheckCircle className="w-8 h-8 opacity-20" />
-                <span className="uppercase tracking-[0.2em] text-[10px]">
-                  Process Completed
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
       )}
 
       {/* Toast Notification */}

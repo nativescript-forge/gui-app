@@ -2,6 +2,9 @@ mod commands;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+use std::sync::Mutex;
+use commands::ns::ProcessState;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations = vec![Migration {
@@ -20,6 +23,7 @@ pub fn run() {
     }];
 
     tauri::Builder::default()
+        .manage(ProcessState(Mutex::new(None)))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
@@ -38,6 +42,7 @@ pub fn run() {
             commands::ns::run_ns,
             commands::ns::create_ns_project,
             commands::ns::get_adb_devices,
+            commands::ns::stop_ns_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
