@@ -169,6 +169,18 @@ function App() {
   */
 
   useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      // Allow context menu only for input/textarea elements if needed,
+      // but usually we prevent it globally for Tauri apps to feel native.
+      e.preventDefault();
+    };
+    document.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      document.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, []);
+
+  useEffect(() => {
     const unlisten = listen<{ message: string }>(
       "create-project-log",
       (event) => {
