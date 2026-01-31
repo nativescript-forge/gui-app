@@ -33,6 +33,7 @@ import { DashboardPage } from "./pages/app-mode/DashboardPage";
 import { PluginsPage } from "./pages/app-mode/PluginsPage";
 import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
 import { ConfigPage } from "./pages/app-mode/ConfigPage";
+import { ResourcesPage } from "./pages/app-mode/ResourcesPage";
 import { SettingsPage } from "./pages/main/SettingsPage";
 import { ActivityPage } from "./pages/main/ActivityPage";
 import {
@@ -83,6 +84,8 @@ function App() {
     doctor: string;
     packageManager: string;
   } | null>(null);
+  const [isRefreshingSystemReport, setIsRefreshingSystemReport] =
+    useState(false);
 
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [activeProjectPath, setActiveProjectPath] = useState<string | null>(
@@ -100,6 +103,7 @@ function App() {
     null,
   );
   const [actionsRunning, setActionsRunning] = useState(false);
+  const [currentAction, setCurrentAction] = useState<string | null>(null);
   const [buildOutputPath, setBuildOutputPath] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [logText, setLogText] = useState<string>("");
@@ -298,6 +302,7 @@ function App() {
   }
 
   async function runBackgroundChecks(currentDb: Database) {
+    setIsRefreshingSystemReport(true);
     try {
       const report = await invoke<{
         info: string;
@@ -327,6 +332,8 @@ function App() {
       logActivity("system", "System health checks failed", "error", {
         error: String(err),
       });
+    } finally {
+      setIsRefreshingSystemReport(false);
     }
   }
 
@@ -639,12 +646,33 @@ function App() {
     }
   }
 
+  async function runSettingsCommand(
+    command: string,
+    args: Record<string, any>,
+  ) {
+    setLogText("");
+    setIsTerminalVisible(true);
+    setActionsRunning(true);
+    setCurrentAction("settings");
+    try {
+      await invoke(command, args);
+    } catch (err) {
+      console.error(`Command ${command} failed:`, err);
+      setLogText((prev) => prev + `\nError: ${err}\n`);
+    } finally {
+      setActionsRunning(false);
+      setCurrentAction(null);
+    }
+  }
+
   async function openInFileManager(path: string) {
     await openPath(path);
   }
 
   async function runDoctor() {
     setDoctorLoading(true);
+    setActionsRunning(true);
+    setCurrentAction("doctor");
     const startTime = Date.now();
     // If we have an active project, go to app-doctor, else maybe stay on home doctor if it existed?
     // User wants doctor in Application context.
@@ -676,6 +704,8 @@ function App() {
       console.error("Doctor failed:", err);
     } finally {
       setDoctorLoading(false);
+      setActionsRunning(false);
+      setCurrentAction(null);
     }
   }
 
@@ -705,12 +735,20 @@ function App() {
       | "info"
       | "update"
       | "migrate"
-      | "package-manager",
+      | "package-manager"
+      | "plugin-add"
+      | "plugin-remove"
+      | "resources-update"
+      | "resources-generate-splashes"
+      | "resources-generate-icons",
     deviceId?: string,
     buildConfig?: { platform?: "android" | "ios"; [key: string]: any },
-  ) {
-    if (!actionsProjectPath) return;
+    sourcePath?: string,
+    backgroundColor?: string,
+  ): Promise<string> {
+    if (!actionsProjectPath) return "";
     setActionsRunning(true);
+    setCurrentAction(action);
     setBuildOutputPath(null);
     setLogText("");
     setIsTerminalVisible(true);
@@ -725,6 +763,8 @@ function App() {
         action,
         deviceId,
         buildConfig,
+        sourcePath,
+        backgroundColor,
       })) as CommandResult;
 
       const duration = Date.now() - startTime;
@@ -756,6 +796,7 @@ function App() {
           "error",
         );
       }
+      return action;
     } catch (e) {
       const duration = Date.now() - startTime;
       logActivity(
@@ -783,35 +824,65 @@ function App() {
       } else {
         showToast(`Error: ${errMsg}`, "error");
       }
+      return "";
     } finally {
       setActionsRunning(false);
+      setCurrentAction(null);
     }
   }
 
   async function runNpm(args: string[], cwd?: string) {
+    if (!actionsProjectPath && !cwd) return;
     setActionsRunning(true);
-    setLogText("");
+    setCurrentAction("npm");
     setIsTerminalVisible(true);
+    setLogText("");
+    const path = cwd || actionsProjectPath || "";
+    const projectName = path.split(/[\\/]/).pop() || "Project";
+    const startTime = Date.now();
 
     try {
       const result = (await invoke("run_npm", {
+        projectPath: path,
         args,
-        cwd,
       })) as CommandResult;
 
+      const duration = Date.now() - startTime;
+      logActivity(
+        "system",
+        `NPM ${args.join(" ")} on ${projectName} (${formatDuration(duration)})`,
+        "success",
+        {
+          args,
+          duration_ms: duration,
+          command: result.command,
+        },
+      );
       if (result.statusCode === 0) {
-        showToast("NPM command completed successfully", "success");
+        showToast(`NPM ${args[0]} completed successfully`, "success");
       } else {
         showToast(
-          `NPM command failed with exit code ${result.statusCode}`,
+          `NPM ${args[0]} failed with exit code ${result.statusCode}`,
           "error",
         );
       }
     } catch (e) {
-      setLogText((prev) => prev + `\nError: ${String(e)}`);
-      showToast(`Error: ${String(e)}`, "error");
+      const duration = Date.now() - startTime;
+      logActivity(
+        "system",
+        `NPM ${args.join(" ")} on ${projectName} (${formatDuration(duration)})`,
+        "error",
+        {
+          args,
+          duration_ms: duration,
+          error: String(e),
+        },
+      );
+      console.error("NPM failed:", e);
+      showToast(`NPM failed: ${e}`, "error");
     } finally {
       setActionsRunning(false);
+      setCurrentAction(null);
     }
   }
 
@@ -972,26 +1043,59 @@ function App() {
             logFilter={logFilter}
             setLogFilter={setLogFilter}
             onOpenBuildModal={() => setIsBuildModalOpen(true)}
-            onRunAction={(action, deviceId, buildConfig) => {
-              runAction(action, deviceId, buildConfig);
+            onRunAction={async (action, deviceId, buildConfig) => {
+              await runAction(action, deviceId, buildConfig);
             }}
+            currentAction={currentAction}
             onRunNpm={runNpm}
+            setRoute={setRoute}
           />
         )}
 
         {/* Application Tools */}
-        {route === "app-plugins" && <PluginsPage />}
+        {route === "app-plugins" && (
+          <PluginsPage
+            projectPath={actionsProjectPath}
+            onInstall={(pluginName) =>
+              runAction("plugin-add", undefined, undefined, pluginName)
+            }
+            onUninstall={(pluginName) =>
+              runAction("plugin-remove", undefined, undefined, pluginName)
+            }
+            isRunning={actionsRunning}
+          />
+        )}
+        {route === "app-resources" && (
+          <ResourcesPage
+            projectPath={actionsProjectPath}
+            running={actionsRunning}
+            currentAction={currentAction}
+            onRunAction={async (action, sourcePath, backgroundColor) => {
+              await runAction(
+                action,
+                undefined,
+                undefined,
+                sourcePath,
+                backgroundColor,
+              );
+            }}
+          />
+        )}
         {route === "app-permissions" && <PermissionsPage />}
         {route === "app-config" && <ConfigPage />}
         {route === "settings" && (
           <SettingsPage
             db={db}
             systemReport={systemReport}
+            isRefreshingSystemReport={isRefreshingSystemReport}
             onRefreshSystemReport={async () => {
               if (db) await runBackgroundChecks(db);
             }}
             onBack={() => setRoute("home")}
             onClearLogs={clearLogs}
+            onRunCommand={async (cmd, args) => {
+              await runSettingsCommand(cmd, args);
+            }}
             showToast={showToast}
           />
         )}

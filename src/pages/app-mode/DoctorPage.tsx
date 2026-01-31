@@ -17,10 +17,12 @@ function statusBadge(status: DoctorCheck["status"]) {
 export function DoctorPage(props: DoctorPageProps) {
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>
-          <div className="text-2xl font-bold">Forge Doctor</div>
-          <div className="text-sm opacity-70">Check your development toolchain health</div>
+          <div className="text-3xl font-extrabold">Forge Doctor</div>
+          <div className="text-sm opacity-50 uppercase tracking-widest mt-1">
+            Check your development toolchain health
+          </div>
         </div>
         <button
           type="button"

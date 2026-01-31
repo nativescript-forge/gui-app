@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import type { ProjectRow, BuildConfig } from "../../app/types";
+import type { ProjectRow, BuildConfig, Route } from "../../app/types";
 import {
   FiCopy,
   FiPlay,
@@ -23,6 +23,7 @@ import {
   FiGlobe,
   FiSettings,
   FiCommand,
+  FiLayers,
   FiX,
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
@@ -56,11 +57,18 @@ export type DashboardPageProps = {
       | "info"
       | "update"
       | "migrate"
-      | "package-manager",
+      | "package-manager"
+      | "resources-update"
+      | "resources-generate-splashes"
+      | "resources-generate-icons",
     deviceId?: string,
     buildConfig?: BuildConfig,
-  ) => void;
-  onRunNpm: (args: string[], cwd?: string) => void;
+    sourcePath?: string,
+    backgroundColor?: string,
+  ) => Promise<string | void>;
+  onRunNpm: (args: string[], cwd?: string) => Promise<void>;
+  currentAction: string | null;
+  setRoute: (route: Route) => void;
 };
 
 export function DashboardPage(props: DashboardPageProps) {
@@ -75,6 +83,7 @@ export function DashboardPage(props: DashboardPageProps) {
     onOpenBuildModal,
     onRunAction,
     onRunNpm,
+    currentAction,
   } = props;
   const [nodeModulesExist, setNodeModulesExist] = useState<boolean | null>(
     null,
@@ -360,53 +369,53 @@ export function DashboardPage(props: DashboardPageProps) {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunAction("doctor")}
                 >
-                  <FiShield className="w-4 h-4 text-info" />
+                  <FiShield className="w-4 h-4 text-info group-hover:text-primary-content transition-colors" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">Doctor</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Check system configuration
                     </div>
                   </div>
                 </button>
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunAction("info")}
                 >
-                  <FiInfo className="w-4 h-4 text-primary" />
+                  <FiInfo className="w-4 h-4 text-primary group-hover:text-primary-content transition-colors" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">CLI Info</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Version information
                     </div>
                   </div>
                 </button>
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunAction("update")}
                 >
-                  <FiRefreshCw className="w-4 h-4 text-success" />
+                  <FiRefreshCw className="w-4 h-4 text-success group-hover:text-primary-content transition-colors" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">Update Project</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Update runtimes & modules
                     </div>
                   </div>
                 </button>
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunAction("migrate")}
                 >
-                  <FiArrowUpCircle className="w-4 h-4 text-warning" />
+                  <FiArrowUpCircle className="w-4 h-4 text-warning group-hover:text-primary-content transition-colors" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">Migrate</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Migrate dependencies
                     </div>
                   </div>
@@ -422,27 +431,27 @@ export function DashboardPage(props: DashboardPageProps) {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunAction("package-manager")}
                 >
-                  <FiCommand className="w-4 h-4 opacity-70" />
+                  <FiCommand className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-primary-content transition-all" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">Pkg Manager</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Current package manager
                     </div>
                   </div>
                 </button>
                 <button
-                  className="btn btn-outline border-base-300 hover:bg-base-300 justify-start gap-3 rounded-xl h-auto py-3"
+                  className="group btn btn-outline border-base-300 hover:bg-primary hover:border-primary hover:text-primary-content justify-start gap-3 rounded-xl h-auto py-3 transition-all duration-300"
                   disabled={props.running}
                   onClick={() => props.onRunNpm(["config", "get", "proxy"])}
                 >
-                  <FiGlobe className="w-4 h-4 opacity-70" />
+                  <FiGlobe className="w-4 h-4 opacity-70 group-hover:opacity-100 group-hover:text-primary-content transition-all" />
                   <div className="text-left">
                     <div className="font-bold text-[12px]">Proxy Settings</div>
-                    <div className="text-[9px] opacity-50 font-normal">
+                    <div className="text-[9px] opacity-50 font-normal group-hover:opacity-100">
                       Display proxy config
                     </div>
                   </div>
@@ -524,11 +533,14 @@ export function DashboardPage(props: DashboardPageProps) {
                   in your project directory to install dependencies.
                 </p>
                 <button
-                  onClick={() => onRunAction("install")}
+                  onClick={async () => {
+                    await onRunAction("install");
+                    checkProjectHealth();
+                  }}
                   disabled={running}
                   className="btn btn-error btn-xs w-fit text-[10px] h-7 min-h-0"
                 >
-                  {running ? (
+                  {running && currentAction === "install" ? (
                     <span className="loading loading-spinner loading-xs"></span>
                   ) : (
                     <FiDownload className="w-3 h-3" />
@@ -554,7 +566,7 @@ export function DashboardPage(props: DashboardPageProps) {
                   disabled={running}
                   className="btn btn-warning btn-xs w-fit text-[10px] h-7 min-h-0"
                 >
-                  {running ? (
+                  {running && currentAction === "npm" ? (
                     <span className="loading loading-spinner loading-xs"></span>
                   ) : (
                     <FiRefreshCw className="w-3 h-3" />
@@ -591,11 +603,31 @@ export function DashboardPage(props: DashboardPageProps) {
             </h3>
             <div className="grid grid-cols-1 gap-3">
               <button
+                className="btn btn-ghost bg-base-200/50 hover:bg-primary/10 hover:text-primary justify-start gap-3 rounded-2xl h-auto py-4 px-5 border-none"
+                onClick={() => props.setRoute("app-resources")}
+              >
+                <FiLayers className="w-4 h-4" />
+                <div className="text-left">
+                  <div className="font-bold text-xs">App Resources</div>
+                  <div className="text-[10px] opacity-50 font-normal">
+                    Icons, Splashscreens & Structure
+                  </div>
+                </div>
+              </button>
+
+              <button
                 className="btn btn-ghost bg-base-200/50 hover:bg-error/10 hover:text-error justify-start gap-3 rounded-2xl h-auto py-4 px-5 border-none"
                 disabled={props.running}
-                onClick={() => props.onRunAction("clean")}
+                onClick={async () => {
+                  await props.onRunAction("clean");
+                  checkProjectHealth();
+                }}
               >
-                <FiRefreshCw className="w-4 h-4" />
+                {props.running && props.currentAction === "clean" ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  <FiRefreshCw className="w-4 h-4" />
+                )}
                 <div className="text-left">
                   <div className="font-bold text-xs">Clean Project</div>
                   <div className="text-[10px] opacity-50 font-normal">

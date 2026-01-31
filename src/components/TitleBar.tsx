@@ -36,9 +36,27 @@ interface TitleBarProps {
   setRoute: (route: Route) => void;
   currentRoute: Route;
   onRunAction: (
-    action: "run-android" | "run-ios" | "debug-android" | "debug-ios" | "build",
+    action:
+      | "run-android"
+      | "run-ios"
+      | "debug-android"
+      | "debug-ios"
+      | "build"
+      | "clean"
+      | "install"
+      | "doctor"
+      | "info"
+      | "update"
+      | "migrate"
+      | "package-manager"
+      | "resources-update"
+      | "resources-generate-splashes"
+      | "resources-generate-icons",
     deviceId?: string,
-  ) => void;
+    buildConfig?: any,
+    sourcePath?: string,
+    backgroundColor?: string,
+  ) => Promise<string | void>;
   actionsRunning: boolean;
   brandIconSrc: string;
   theme: Theme;

@@ -7,6 +7,7 @@ export type Route =
   | "app-plugins"
   | "app-permissions"
   | "app-config"
+  | "app-resources"
   | "activity"
   | "settings";
 

@@ -19,9 +19,11 @@ type SettingsPageProps = {
     doctor: string;
     packageManager: string;
   } | null;
+  isRefreshingSystemReport?: boolean;
   onRefreshSystemReport: () => Promise<void>;
   onBack: () => void;
   onClearLogs: () => Promise<void>;
+  onRunCommand: (command: string, args: Record<string, any>) => Promise<void>;
   showToast: (
     message: string,
     type: "info" | "success" | "error" | "warning",
@@ -31,9 +33,11 @@ type SettingsPageProps = {
 export function SettingsPage({
   db,
   systemReport,
+  isRefreshingSystemReport,
   onRefreshSystemReport,
   onBack,
   onClearLogs,
+  onRunCommand,
   showToast,
 }: SettingsPageProps) {
   const [clearing, setClearing] = useState(false);
@@ -49,13 +53,6 @@ export function SettingsPage({
       try {
         const pms = await invoke<string[]>("detect_available_package_managers");
         setAvailablePMs(pms);
-
-        // Parse current PM from report
-        const currentPMText = systemReport?.packageManager?.trim() || "";
-        const match = currentPMText.match(/(npm|yarn|pnpm|bun)/i);
-        if (match) {
-          setSelectedPM(match[1].toLowerCase());
-        }
       } catch (err) {
         console.error("Failed to detect package managers:", err);
       } finally {
@@ -63,22 +60,32 @@ export function SettingsPage({
       }
     }
     loadAvailablePMs();
+  }, []);
+
+  // Sync selected PM when system report changes (e.g. after saving)
+  useEffect(() => {
+    const currentPMText = systemReport?.packageManager?.trim() || "";
+    const match = currentPMText.match(/(npm|yarn|pnpm|bun)/i);
+    if (match) {
+      setSelectedPM(match[1].toLowerCase());
+    }
   }, [systemReport]);
 
   const handleUpdatePM = async () => {
     if (!selectedPM) return;
     setUpdatingPM(true);
     try {
-      await invoke("set_ns_package_manager", { pm: selectedPM });
-      await onRefreshSystemReport();
+      await onRunCommand("set_ns_package_manager", { pm: selectedPM });
+      setUpdatingPM(false);
       showToast(
         `Default package manager set to ${selectedPM.toUpperCase()}`,
         "success",
       );
+      // Refresh system report in background to update the "Currently: ..." display
+      await onRefreshSystemReport();
     } catch (err) {
       console.error("Failed to update package manager:", err);
       showToast(`Failed to update package manager: ${err}`, "error");
-    } finally {
       setUpdatingPM(false);
     }
   };
@@ -145,13 +152,18 @@ export function SettingsPage({
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-30">
                       Currently:
                     </span>
-                    <span className="badge badge-sm badge-ghost font-bold text-[10px] uppercase">
-                      {(() => {
-                        const pm = systemReport?.packageManager?.trim() || "";
-                        const match = pm.match(/(npm|yarn|pnpm|bun)/i);
-                        return match ? match[1] : "...";
-                      })()}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="badge badge-sm badge-ghost font-bold text-[10px] uppercase">
+                        {(() => {
+                          const pm = systemReport?.packageManager?.trim() || "";
+                          const match = pm.match(/(npm|yarn|pnpm|bun)/i);
+                          return match ? match[1] : "...";
+                        })()}
+                      </span>
+                      {isRefreshingSystemReport && (
+                        <span className="loading loading-spinner loading-[10px] opacity-40"></span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -181,12 +193,17 @@ export function SettingsPage({
                   <button
                     onClick={handleUpdatePM}
                     disabled={updatingPM || !selectedPM || detecting}
-                    className={`btn btn-primary btn-sm rounded-xl gap-2 min-w-[80px] ${updatingPM ? "loading" : ""}`}
+                    className="btn btn-primary btn-sm rounded-xl px-6 gap-2 min-w-[160px]"
                   >
-                    {!updatingPM && (
+                    {updatingPM ? (
+                      <>
+                        <span className="loading loading-spinner loading-xs"></span>
+                        <span>Saving...</span>
+                      </>
+                    ) : (
                       <>
                         <FiSave className="w-3.5 h-3.5" />
-                        <span>Save</span>
+                        <span>Save Changes</span>
                       </>
                     )}
                   </button>

@@ -14,6 +14,7 @@ import {
   FiSettings,
   FiTerminal,
   FiChevronDown,
+  FiLayers,
 } from "react-icons/fi";
 import type { ProjectRow, Route, Theme } from "../app/types";
 
@@ -40,6 +41,19 @@ type AppShellProps = {
   activeProjectPath: string | null;
   onSelectProject: (path: string | null) => void;
   onOpenBuildModal: () => void;
+};
+
+const getFrameworkColor = (framework: string | null) => {
+  const f = framework?.toLowerCase() || "";
+  if (f.includes("angular"))
+    return "bg-red-500/10 text-red-500 border-red-500/20";
+  if (f.includes("vue"))
+    return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+  if (f.includes("react"))
+    return "bg-blue-500/10 text-blue-500 border-blue-500/20";
+  if (f.includes("svelte"))
+    return "bg-orange-500/10 text-orange-500 border-orange-500/20";
+  return "bg-base-300 text-base-content/70 border-base-content/10";
 };
 
 export function AppShell(props: AppShellProps) {
@@ -79,6 +93,7 @@ export function AppShell(props: AppShellProps) {
 
   const appSidebarItems: SidebarItem[] = [
     { id: "app-actions", label: "App Dashboard", icon: FiGrid },
+    { id: "app-resources", label: "App Resources", icon: FiLayers },
     { id: "app-config", label: "Project Config", icon: FiSettings },
     { id: "app-doctor", label: "Health Check", icon: FiActivity },
     { id: "app-plugins", label: "Install Plugin", icon: FiPackage },
@@ -146,16 +161,16 @@ export function AppShell(props: AppShellProps) {
             </div>
 
             {/* Navigation */}
-            <div className="flex-1 px-4 py-6 pb-24 space-y-8 overflow-y-auto">
+            <div className="flex-1 px-4 py-6 pb-24 space-y-8 overflow-y-auto overflow-x-hidden">
               {/* Context Switcher (Only in App Mode) */}
               {props.isAppMode && (
                 <div className="space-y-3">
                   <button
                     onClick={() => props.setRoute("home")}
-                    className="btn btn-ghost btn-sm w-full justify-start gap-2 text-primary hover:bg-primary/10"
+                    className="btn btn-ghost btn-sm w-full justify-start gap-2 text-primary hover:bg-primary/10 transition-colors duration-200"
                   >
                     <FiChevronLeft className="h-4 w-4" />
-                    <span>Back to Home</span>
+                    <span className="font-bold">Back to Home</span>
                   </button>
 
                   <div className="p-3 rounded-2xl bg-base-200/50 border border-base-300">
@@ -166,36 +181,75 @@ export function AppShell(props: AppShellProps) {
                       <div
                         tabIndex={0}
                         role="button"
-                        className="select select-ghost select-sm w-full font-bold flex items-center justify-between px-2 h-auto min-h-[2rem]"
+                        className="btn btn-ghost btn-sm w-full font-bold flex items-center justify-between px-2 h-auto min-h-[2.5rem] bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30"
                       >
-                        <span className="truncate pr-2">
-                          {props.projects.find(
-                            (p) => p.path === props.activeProjectPath,
-                          )?.name || "Select Project"}
-                        </span>
+                        <div className="flex items-center gap-2 truncate">
+                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--p),0.5)]" />
+                          <div className="flex flex-col items-start truncate">
+                            <span className="truncate text-xs">
+                              {props.projects.find(
+                                (p) => p.path === props.activeProjectPath,
+                              )?.name || "Select Project"}
+                            </span>
+                            {props.activeProjectPath && (
+                              <span
+                                className={`text-[7px] font-black uppercase leading-none mt-0.5 px-1 py-[1px] rounded-[2px] border-[0.5px] tracking-wider ${getFrameworkColor(props.projects.find((p) => p.path === props.activeProjectPath)?.framework || null)}`}
+                              >
+                                {props.projects.find(
+                                  (p) => p.path === props.activeProjectPath,
+                                )?.framework || "Plain"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                         <FiChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
                       </div>
                       <ul
                         tabIndex={0}
-                        className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-64 mt-2"
+                        className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-[calc(100%+1.5rem)] -left-3 mt-2 animate-in fade-in zoom-in-95 duration-200"
                       >
+                        <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-base-200 mb-1">
+                          Select Application
+                        </div>
                         {props.projects.map((p) => (
                           <li key={p.path}>
                             <button
-                              onClick={() => props.onSelectProject(p.path)}
-                              className={
+                              onClick={(e) => {
+                                props.onSelectProject(p.path);
+                                (e.currentTarget.closest(".dropdown") as any)
+                                  ?.querySelector("[tabindex='0']")
+                                  ?.blur();
+                              }}
+                              className={`flex items-center gap-3 py-3 rounded-lg ${
                                 props.activeProjectPath === p.path
-                                  ? "active"
-                                  : ""
-                              }
+                                  ? "bg-primary/10 text-primary font-bold"
+                                  : "hover:bg-base-200"
+                              }`}
                             >
-                              <FiPackage className="w-4 h-4" />
-                              <span className="truncate">{p.name}</span>
+                              <div
+                                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                  props.activeProjectPath === p.path
+                                    ? "bg-primary text-primary-content"
+                                    : "bg-base-200 opacity-50"
+                                }`}
+                              >
+                                <FiPackage className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col items-start overflow-hidden">
+                                <span className="truncate text-sm w-full">
+                                  {p.name}
+                                </span>
+                                <span
+                                  className={`text-[7px] font-black px-2 py-[0px] rounded-[2px] border-[0.5px] uppercase tracking-wider mt-0.5 ${getFrameworkColor(p.framework)}`}
+                                >
+                                  {p.framework || "Plain"}
+                                </span>
+                              </div>
                             </button>
                           </li>
                         ))}
                         {props.projects.length === 0 && (
-                          <li className="disabled text-xs p-2 text-center opacity-50 italic">
+                          <li className="disabled text-xs p-4 text-center opacity-50 italic">
                             No projects added
                           </li>
                         )}

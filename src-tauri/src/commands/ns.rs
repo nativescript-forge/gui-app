@@ -105,9 +105,18 @@ pub async fn detect_available_package_managers() -> Vec<String> {
 }
 
 #[tauri::command]
-pub async fn set_ns_package_manager(pm: String) -> Result<CommandResult, String> {
+pub async fn set_ns_package_manager(
+    window: tauri::Window,
+    pm: String
+) -> Result<CommandResult, String> {
     let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
-    run_resolved(&cli, &["package-manager", "set", &pm], None)
+    
+    // Run in a separate thread to avoid blocking the Tauri async runtime
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<ProcessState>();
+        let args = ["package-manager", "set", &pm];
+        run_resolved_streaming(&window, state, &cli, &args, None)
+    }).await.map_err(|e| e.to_string())?
 }
 
 #[derive(Clone)]
@@ -223,6 +232,30 @@ fn first_existing_in_dirs(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
 }
 
 pub fn resolve_cli() -> Option<ResolvedCli> {
+    // 1. Try common direct paths first (Fast Path)
+    #[cfg(target_os = "windows")]
+    {
+        let common_npm_paths = [
+            env::var("APPDATA").ok().map(|p| PathBuf::from(p).join("npm")),
+            env::var("LOCALAPPDATA").ok().map(|p| PathBuf::from(p).join("npm")),
+        ];
+
+        for path in common_npm_paths.into_iter().flatten() {
+            for name in ["ns.cmd", "nativescript.cmd"] {
+                let candidate = path.join(name);
+                if candidate.is_file() {
+                    let path_str = candidate.to_string_lossy().to_string();
+                    return Some(ResolvedCli {
+                        launcher: "cmd".to_string(),
+                        base_args: vec!["/C".to_string(), path_str.clone()],
+                        display: format!("cmd /C {}", path_str),
+                    });
+                }
+            }
+        }
+    }
+
+    // 2. If not found in common paths, do the full search (Slow Path)
     let dirs = path_dirs();
 
     // On Windows, we should prioritize .cmd files for npm-installed binaries
@@ -553,6 +586,8 @@ pub async fn run_ns(
     action: String,
     device_id: Option<String>,
     build_config: Option<BuildConfig>,
+    source_path: Option<String>,
+    background_color: Option<String>,
 ) -> Result<CommandResult, String> {
     let mut args: Vec<String> = match action.as_str() {
         "run-android" => vec!["run".to_string(), "android".to_string()],
@@ -566,6 +601,57 @@ pub async fn run_ns(
         "update" => vec!["update".to_string()],
         "migrate" => vec!["migrate".to_string()],
         "package-manager" => vec!["package-manager".to_string()],
+        "plugin-add" => {
+            let mut p_args = vec!["plugin".to_string(), "add".to_string()];
+            if let Some(name) = &source_path {
+                if !name.is_empty() {
+                    p_args.push(name.clone());
+                }
+            }
+            p_args
+        }
+        "plugin-remove" => {
+            let mut p_args = vec!["plugin".to_string(), "remove".to_string()];
+            if let Some(name) = &source_path {
+                if !name.is_empty() {
+                    p_args.push(name.clone());
+                }
+            }
+            p_args
+        }
+        "resources-update" => vec!["resources".to_string(), "update".to_string()],
+        "resources-generate-splashes" => {
+            let mut res_args = vec![
+                "resources".to_string(),
+                "generate".to_string(),
+                "splashes".to_string(),
+            ];
+            if let Some(path) = &source_path {
+                if !path.is_empty() {
+                    res_args.push(path.clone());
+                }
+            }
+            if let Some(color) = &background_color {
+                if !color.is_empty() {
+                    res_args.push("--background".to_string());
+                    res_args.push(color.clone());
+                }
+            }
+            res_args
+        }
+        "resources-generate-icons" => {
+            let mut res_args = vec![
+                "resources".to_string(),
+                "generate".to_string(),
+                "icons".to_string(),
+            ];
+            if let Some(path) = &source_path {
+                if !path.is_empty() {
+                    res_args.push(path.clone());
+                }
+            }
+            res_args
+        }
         "build" => {
             if let Some(config) = &build_config {
                 let mut b_args = vec!["build".to_string(), config.platform.clone()];
@@ -837,17 +923,37 @@ pub fn run_resolved_streaming(
 pub async fn get_ns_report() -> Result<NsReport, String> {
     let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
 
-    let info = run_resolved(&cli, &["info"], None)
-        .map(|r| r.stdout + &r.stderr)
-        .unwrap_or_else(|e| e);
+    // Execute commands in parallel for better performance using Tauri's async runtime
+    let info_handle = {
+        let cli = cli.clone();
+        tauri::async_runtime::spawn(async move {
+            run_resolved(&cli, &["info"], None)
+                .map(|r| r.stdout + &r.stderr)
+                .unwrap_or_else(|e| e)
+        })
+    };
 
-    let doctor = run_resolved(&cli, &["doctor"], None)
-        .map(|r| r.stdout + &r.stderr)
-        .unwrap_or_else(|e| e);
+    let doctor_handle = {
+        let cli = cli.clone();
+        tauri::async_runtime::spawn(async move {
+            run_resolved(&cli, &["doctor"], None)
+                .map(|r| r.stdout + &r.stderr)
+                .unwrap_or_else(|e| e)
+        })
+    };
 
-    let package_manager = run_resolved(&cli, &["package-manager"], None)
-        .map(|r| r.stdout + &r.stderr)
-        .unwrap_or_else(|e| e);
+    let pm_handle = {
+        let cli = cli.clone();
+        tauri::async_runtime::spawn(async move {
+            run_resolved(&cli, &["package-manager"], None)
+                .map(|r| r.stdout + &r.stderr)
+                .unwrap_or_else(|e| e)
+        })
+    };
+
+    let info = info_handle.await.unwrap_or_else(|_| "Failed to join info thread".to_string());
+    let doctor = doctor_handle.await.unwrap_or_else(|_| "Failed to join doctor thread".to_string());
+    let package_manager = pm_handle.await.unwrap_or_else(|_| "Failed to join package-manager thread".to_string());
 
     Ok(NsReport {
         info,
