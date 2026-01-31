@@ -92,7 +92,7 @@ export function AppShell(props: AppShellProps) {
   ];
 
   const appSidebarItems: SidebarItem[] = [
-    { id: "app-actions", label: "App Dashboard", icon: FiGrid },
+    { id: "app-actions", label: "Dashboard", icon: FiGrid },
     { id: "app-resources", label: "App Resources", icon: FiLayers },
     { id: "app-config", label: "Project Config", icon: FiSettings },
     { id: "app-doctor", label: "Health Check", icon: FiActivity },

@@ -17,7 +17,7 @@ import {
 } from "react-icons/fi";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
-import { exists } from "@tauri-apps/plugin-fs";
+import { exists, readFile } from "@tauri-apps/plugin-fs";
 
 type ActionType =
   | "resources-update"
@@ -41,11 +41,20 @@ export function ResourcesPage({
   currentAction,
   onRunAction,
 }: ResourcesPageProps) {
-  const [sourcePath, setSourcePath] = useState<string>("");
+  const [iconSourcePath, setIconSourcePath] = useState<string>("");
+  const [splashSourcePath, setSplashSourcePath] = useState<string>("");
   const [backgroundColor, setBackgroundColor] = useState<string>("#000000");
   const [selectedAction, setSelectedAction] = useState<ActionType>(
     "resources-generate-icons",
   );
+
+  const sourcePath =
+    selectedAction === "resources-generate-icons"
+      ? iconSourcePath
+      : selectedAction === "resources-generate-splashes"
+        ? splashSourcePath
+        : "";
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentAssets, setCurrentAssets] = useState<{
@@ -104,17 +113,39 @@ export function ResourcesPage({
   }, [projectPath]);
 
   useEffect(() => {
-    if (sourcePath) {
-      try {
-        setPreviewUrl(convertFileSrc(sourcePath));
-        setError(null);
-      } catch (err) {
-        console.error("Failed to convert file src:", err);
+    const loadPreview = async () => {
+      if (sourcePath) {
+        try {
+          // Using readFile and creating a blob URL is more reliable than convertFileSrc
+          // when dealing with arbitrary system paths on Windows due to protocol permissions.
+          const contents = await readFile(sourcePath);
+          const blob = new Blob([contents], { type: "image/png" }); // Assuming PNG for icons
+          const url = URL.createObjectURL(blob);
+
+          console.log("Source Path:", sourcePath);
+          console.log("Preview URL (Blob):", url);
+
+          setPreviewUrl(url);
+          setError(null);
+
+          // Clean up the blob URL when path changes or component unmounts
+          return () => URL.revokeObjectURL(url);
+        } catch (err) {
+          console.error("Failed to load preview image:", err);
+          // Fallback to convertFileSrc if readFile fails
+          try {
+            const url = convertFileSrc(sourcePath);
+            setPreviewUrl(url);
+          } catch (e) {
+            setPreviewUrl(null);
+          }
+        }
+      } else {
         setPreviewUrl(null);
       }
-    } else {
-      setPreviewUrl(null);
-    }
+    };
+
+    loadPreview();
   }, [sourcePath]);
 
   const handlePickFile = async () => {
@@ -130,7 +161,11 @@ export function ResourcesPage({
         ],
       });
       if (selected && typeof selected === "string") {
-        setSourcePath(selected);
+        if (selectedAction === "resources-generate-icons") {
+          setIconSourcePath(selected);
+        } else if (selectedAction === "resources-generate-splashes") {
+          setSplashSourcePath(selected);
+        }
       }
     } catch (err) {
       console.error("Failed to open dialog:", err);
@@ -432,7 +467,7 @@ export function ResourcesPage({
                       {selectedAction === "resources-generate-icons" && (
                         <div className="flex flex-col items-center gap-8">
                           <div className="flex flex-col items-center gap-4">
-                            <div className="w-40 h-40 rounded-[24%] overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-4 border-white">
+                            <div className="w-40 h-40 rounded-[24%] overflow-hidden border-4 border-white">
                               <img
                                 src={previewUrl}
                                 className="w-full h-full object-cover"
@@ -444,7 +479,7 @@ export function ResourcesPage({
                             </div>
                           </div>
                           <div className="flex flex-col items-center gap-4">
-                            <div className="w-32 h-32 rounded-full overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.15)] border-4 border-white">
+                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white">
                               <img
                                 src={previewUrl}
                                 className="w-full h-full object-cover"
@@ -489,7 +524,7 @@ export function ResourcesPage({
                                   <div className="w-full max-w-[160px] animate-in fade-in zoom-in-75 duration-700">
                                     <img
                                       src={previewUrl}
-                                      className="w-full h-auto object-contain drop-shadow-[0_10px_30px_rgba(0,0,0,0.3)]"
+                                      className="w-full h-auto object-contain"
                                       alt="Splash Preview"
                                     />
                                   </div>

@@ -1,5 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
 import type { ProjectRow, BuildConfig, Route } from "../../app/types";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
+import { readFile } from "@tauri-apps/plugin-fs";
 import {
   FiCopy,
   FiPlay,
@@ -28,7 +31,6 @@ import {
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { invoke } from "@tauri-apps/api/core";
 
 export type DashboardPageProps = {
   projects: ProjectRow[];
@@ -90,6 +92,51 @@ export function DashboardPage(props: DashboardPageProps) {
   );
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [showSystemModal, setShowSystemModal] = useState(false);
+  const [projectIcon, setProjectIcon] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProjectIcon = async () => {
+      if (!props.projectPath) return;
+
+      const iconPaths = [
+        "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
+        "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
+        "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+      ];
+
+      for (const relPath of iconPaths) {
+        try {
+          const fullPath = await join(props.projectPath, relPath);
+          // Check if file exists using invoke
+          const exists = await invoke("check_directory_exists", {
+            path: fullPath,
+          }).catch(() => false);
+
+          if (exists) {
+            try {
+              const contents = await readFile(fullPath);
+              const blob = new Blob([contents], { type: "image/png" });
+              const assetUrl = URL.createObjectURL(blob);
+              setProjectIcon(assetUrl);
+              return;
+            } catch (readErr) {
+              console.error("Failed to read icon file:", readErr);
+              // Fallback to convertFileSrc
+              const assetUrl = convertFileSrc(fullPath);
+              setProjectIcon(assetUrl);
+              return;
+            }
+          }
+        } catch (e) {
+          console.error("Error fetching icon for", relPath, e);
+        }
+      }
+      setProjectIcon(null);
+    };
+    fetchProjectIcon();
+  }, [props.projectPath]);
 
   const activeProject = useMemo(() => {
     return props.projects.find((p) => p.path === props.projectPath);
@@ -185,8 +232,21 @@ export function DashboardPage(props: DashboardPageProps) {
               <FiPackage className="w-48 h-48" />
             </div>
 
-            <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center text-primary flex-shrink-0">
-              <FiPackage className="w-10 h-10" />
+            <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center text-primary flex-shrink-0 overflow-hidden">
+              {projectIcon ? (
+                <img
+                  src={projectIcon}
+                  alt="Project Icon"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    // If image fails to load, hide it and fallback to icon
+                    (e.target as HTMLImageElement).style.display = "none";
+                    setProjectIcon(null);
+                  }}
+                />
+              ) : (
+                <FiPackage className="w-10 h-10" />
+              )}
             </div>
 
             <div className="flex-1 space-y-4 z-10">
@@ -199,9 +259,14 @@ export function DashboardPage(props: DashboardPageProps) {
                     {activeProject?.framework || "NativeScript"}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-base-content/40 font-medium">
-                  <FiFolder className="w-3 h-3" />
-                  <span className="truncate max-w-md">{props.projectPath}</span>
+                <div className="flex items-center gap-2 text-sm text-base-content/40 font-medium w-full">
+                  <FiFolder className="w-3 h-3 shrink-0" />
+                  <span
+                    className="break-all cursor-help"
+                    title={props.projectPath || ""}
+                  >
+                    {props.projectPath}
+                  </span>
                   <button
                     onClick={() => copyToClipboard(props.projectPath!)}
                     className="btn btn-ghost btn-xs btn-circle"

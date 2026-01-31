@@ -3,7 +3,7 @@ use std::process::Command;
 
 #[tauri::command]
 pub fn check_directory_exists(path: String) -> bool {
-    Path::new(&path).exists() && Path::new(&path).is_dir()
+    Path::new(&path).exists()
 }
 
 #[tauri::command]

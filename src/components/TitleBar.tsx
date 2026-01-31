@@ -13,6 +13,7 @@ import {
   FiRefreshCw,
   FiAlertCircle,
   FiPackage,
+  FiLogOut,
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import type { ProjectRow, Route, Theme, AdbDevice } from "../app/types";
@@ -106,7 +107,9 @@ export function TitleBar({
     }
   }, [currentRoute]);
 
-  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const selectedDevice = devices.find(
+    (d) => d.id === selectedDeviceId && d.platform === platform,
+  );
 
   const handleRun = () => {
     const action = platform === "android" ? "run-android" : "run-ios";
@@ -119,6 +122,7 @@ export function TitleBar({
   };
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
   const [appInfo, setAppInfo] = useState({
     name: "NS Forge",
     version: "1.0.0",
@@ -176,12 +180,32 @@ export function TitleBar({
     }
   };
 
-  const handleClose = async (e: React.MouseEvent) => {
+  const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setShowExitModal(true);
+  };
+
+  const confirmExit = async () => {
     try {
-      await appWindow.close();
+      const win = getCurrentWindow();
+      // First try a graceful close
+      await win.close();
+
+      // If the window is still alive (some OS/conditions), force destroy
+      // This is a safety measure if close() is ignored or blocked
+      setTimeout(async () => {
+        try {
+          await win.destroy();
+        } catch (e) {
+          // ignore error if already closed
+        }
+      }, 300);
     } catch (err) {
       console.error("Failed to close window:", err);
+      // Fallback to direct destroy if close() throws
+      try {
+        await getCurrentWindow().destroy();
+      } catch (e) {}
     }
   };
 
@@ -257,39 +281,6 @@ export function TitleBar({
       >
         {currentRoute.startsWith("app-") && (
           <div className="flex items-center gap-2" data-tauri-drag-region>
-            {/* Quick Run Buttons */}
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
-              <button
-                onClick={handleRun}
-                disabled={actionsRunning}
-                className="px-2 py-1 hover:bg-white/10 rounded text-success transition-colors flex items-center gap-1.5 group disabled:opacity-30"
-                title="Run Project"
-              >
-                {actionsRunning ? (
-                  <FiLoader className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FiPlay className="w-3.5 h-3.5" />
-                )}
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                  Run
-                </span>
-              </button>
-              <div className="w-[1px] h-4 bg-white/10 mx-0.5"></div>
-              <button
-                onClick={handleDebug}
-                disabled={actionsRunning}
-                className="px-2 py-1 hover:bg-white/10 rounded text-info transition-colors flex items-center gap-1.5 group disabled:opacity-30"
-                title="Debug Project"
-              >
-                <FiCpu className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                  Debug
-                </span>
-              </button>
-            </div>
-
-            <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
-
             {/* Platform & Device Selector */}
             <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
               {/* Platform Toggle */}
@@ -440,6 +431,41 @@ export function TitleBar({
               </div>
             </div>
 
+            {/* Quick Run Buttons */}
+            <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
+              <button
+                onClick={handleRun}
+                disabled={actionsRunning || !selectedDevice}
+                className="px-2 py-1 hover:bg-white/10 rounded text-success transition-colors flex items-center gap-1.5 group disabled:opacity-30"
+                title={
+                  !selectedDevice ? "Select a device first" : "Run Project"
+                }
+              >
+                {actionsRunning ? (
+                  <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FiPlay className="w-3.5 h-3.5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                  Run
+                </span>
+              </button>
+              <div className="w-[1px] h-4 bg-white/10 mx-0.5"></div>
+              <button
+                onClick={handleDebug}
+                disabled={actionsRunning || !selectedDevice}
+                className="px-2 py-1 hover:bg-white/10 rounded text-info transition-colors flex items-center gap-1.5 group disabled:opacity-30"
+                title={
+                  !selectedDevice ? "Select a device first" : "Debug Project"
+                }
+              >
+                <FiCpu className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                  Debug
+                </span>
+              </button>
+            </div>
+
             <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
 
             {/* Build Button */}
@@ -489,6 +515,41 @@ export function TitleBar({
         brandIconSrc={brandIconSrc}
         appInfo={appInfo}
       />
+      {/* Exit Confirmation Modal */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="modal-box border border-white/10 bg-[#1e1e1e] shadow-2xl max-w-sm">
+            <div className="flex items-center gap-4 mb-4 text-error">
+              <div className="p-3 rounded-full bg-error/10">
+                <FiLogOut className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-lg text-white">Exit Application</h3>
+            </div>
+            <p className="py-2 text-white/70">
+              Are you sure you want to close{" "}
+              <b className="text-white">NativeScript Forge</b>?
+            </p>
+            <div className="modal-action">
+              <button
+                className="btn btn-ghost btn-sm text-white/50 hover:text-white"
+                onClick={() => setShowExitModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-error btn-sm px-6"
+                onClick={confirmExit}
+              >
+                Exit
+              </button>
+            </div>
+          </div>
+          <div
+            className="fixed inset-0 -z-10"
+            onClick={() => setShowExitModal(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
