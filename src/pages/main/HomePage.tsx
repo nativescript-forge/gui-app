@@ -384,7 +384,7 @@ export function HomePage(props: HomePageProps) {
 
             {/* System Health */}
             <div
-              className="group flex-1 p-4 flex items-center gap-4 hover:bg-base-200/20 transition-colors cursor-pointer"
+              className="group flex-1 p-4 flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 hover:bg-base-200/20 transition-colors cursor-pointer"
               onClick={() => setShowSystemModal(true)}
               role="button"
               tabIndex={0}
@@ -417,7 +417,7 @@ export function HomePage(props: HomePageProps) {
                   System Health
                 </div>
                 <div
-                  className={`font-bold text-sm truncate ${
+                  className={`font-bold text-sm leading-tight whitespace-normal break-words ${
                     props.systemReport?.doctor
                       ?.toLowerCase()
                       .includes("no issues")
@@ -432,9 +432,9 @@ export function HomePage(props: HomePageProps) {
                     : "Review Needed"}
                 </div>
               </div>
-              <div className="text-[10px] font-bold uppercase tracking-widest opacity-20 group-hover:opacity-60 transition-opacity shrink-0">
+              {/* <div className="hidden lg:block text-[10px] font-bold uppercase tracking-widest opacity-20 group-hover:opacity-60 transition-opacity shrink-0 self-end md:self-auto">
                 View Report
-              </div>
+              </div> */}
             </div>
 
             {/* Actions */}

@@ -862,7 +862,7 @@ function App() {
 
     try {
       const result = (await invoke("run_npm", {
-        projectPath: path,
+        cwd: path,
         args,
       })) as CommandResult;
 

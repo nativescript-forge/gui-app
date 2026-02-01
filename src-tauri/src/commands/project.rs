@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -36,6 +37,18 @@ fn read_package_json(project_path: &str) -> Option<serde_json::Value> {
     let package_json_path = project_file(project_path, "package.json");
     let contents = fs::read_to_string(package_json_path).ok()?;
     serde_json::from_str(&contents).ok()
+}
+
+fn read_package_json_required(project_path: &str) -> Result<serde_json::Value, String> {
+    let package_json_path = project_file(project_path, "package.json");
+    let contents = fs::read_to_string(&package_json_path).map_err(|e| {
+        format!(
+            "Failed to read package.json at {}: {}",
+            package_json_path.to_string_lossy(),
+            e
+        )
+    })?;
+    serde_json::from_str(&contents).map_err(|e| format!("Invalid package.json: {}", e))
 }
 
 fn get_dep_version(pkg: &serde_json::Value, key: &str) -> Option<String> {
@@ -232,6 +245,31 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
 #[tauri::command]
 pub fn analyze_project(project_path: String) -> Result<ProjectAnalysis, String> {
     Ok(analyze_project_path(&project_path))
+}
+
+#[tauri::command]
+pub fn get_project_packages(project_path: String) -> Result<BTreeMap<String, String>, String> {
+    let pkg = read_package_json_required(&project_path)?;
+
+    let mut out = BTreeMap::new();
+
+    if let Some(deps) = pkg.get("dependencies").and_then(|v| v.as_object()) {
+        for (k, v) in deps.iter() {
+            if let Some(s) = v.as_str() {
+                out.insert(k.to_string(), s.to_string());
+            }
+        }
+    }
+
+    if let Some(dev_deps) = pkg.get("devDependencies").and_then(|v| v.as_object()) {
+        for (k, v) in dev_deps.iter() {
+            if let Some(s) = v.as_str() {
+                out.entry(k.to_string()).or_insert_with(|| s.to_string());
+            }
+        }
+    }
+
+    Ok(out)
 }
 
 fn should_skip_dir(path: &Path) -> bool {

@@ -17,9 +17,9 @@ export function AboutModal({
 
   return (
     <div className="modal modal-open">
-      <div className="modal-box bg-[#1e1e1e] border border-white/10 max-w-sm">
+      <div className="modal-box bg-base-100 border border-base-300 max-w-sm text-base-content">
         <div className="flex flex-col items-center text-center gap-4">
-          <div className="w-20 h-20 rounded-2xl bg-white/5 flex items-center justify-center p-4 border border-white/5">
+          <div className="w-20 h-20 rounded-2xl bg-base-200/50 flex items-center justify-center p-4 border border-base-300">
             <img
               src={brandIconSrc}
               alt="Logo"
@@ -44,7 +44,7 @@ export function AboutModal({
                   href="https://www.kang-cahya.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[11px] opacity-40 hover:opacity-100 transition-opacity"
+                  className="flex items-center gap-1.5 text-[11px] opacity-50 hover:opacity-100 transition-opacity"
                   title="Web / Blog"
                 >
                   <FiGlobe className="w-3.5 h-3.5" />
@@ -54,7 +54,7 @@ export function AboutModal({
                   href="https://github.com/dyazincahya"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[11px] opacity-40 hover:opacity-100 transition-opacity"
+                  className="flex items-center gap-1.5 text-[11px] opacity-50 hover:opacity-100 transition-opacity"
                   title="GitHub"
                 >
                   <FiGithub className="w-3.5 h-3.5" />
@@ -66,7 +66,7 @@ export function AboutModal({
         </div>
         <div className="modal-action justify-center mt-8">
           <button
-            className="btn btn-sm px-8 rounded-full bg-white/5 hover:bg-white/10 border-white/10 text-white font-normal"
+            className="btn btn-sm btn-primary px-8 rounded-full font-normal"
             onClick={onClose}
           >
             Close
@@ -74,7 +74,7 @@ export function AboutModal({
         </div>
       </div>
       <div
-        className="modal-backdrop bg-black/60 backdrop-blur-sm"
+        className="modal-backdrop bg-base-900/60 backdrop-blur-sm"
         onClick={onClose}
       >
         <button className="cursor-default">close</button>

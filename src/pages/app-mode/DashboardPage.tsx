@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import type { ProjectRow, BuildConfig, Route } from "../../app/types";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
@@ -93,6 +93,26 @@ export function DashboardPage(props: DashboardPageProps) {
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [projectIcon, setProjectIcon] = useState<string | null>(null);
+  const packageCheckRunIdRef = useRef(0);
+  const [projectPackages, setProjectPackages] = useState<
+    Record<string, string>
+  >({});
+  const [packageChecks, setPackageChecks] = useState<
+    Record<
+      string,
+      {
+        currentRange: string;
+        latest: string | null;
+        status: "loading" | "upToDate" | "outdated" | "error";
+      }
+    >
+  >({});
+  const [checkingPackages, setCheckingPackages] = useState(false);
+  const [updatingPackages, setUpdatingPackages] = useState<
+    Record<string, boolean>
+  >({});
+  const [bulkUpdatingPackages, setBulkUpdatingPackages] = useState(false);
+  const [packageJsonError, setPackageJsonError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProjectIcon = async () => {
@@ -178,6 +198,152 @@ export function DashboardPage(props: DashboardPageProps) {
     await writeText(text);
   };
 
+  const normalizeSemver = (input: string | null | undefined) => {
+    if (!input) return null;
+    const match = input.match(/(\d+)\.(\d+)\.(\d+)/);
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2]), Number(match[3])] as const;
+  };
+
+  const compareSemver = (
+    a: readonly [number, number, number] | null,
+    b: readonly [number, number, number] | null,
+  ) => {
+    if (!a || !b) return 0;
+    if (a[0] !== b[0]) return a[0] - b[0];
+    if (a[1] !== b[1]) return a[1] - b[1];
+    return a[2] - b[2];
+  };
+
+  const getLatestFromRegistry = async (packageName: string) => {
+    const url = `https://registry.npmjs.org/${encodeURIComponent(packageName)}`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/vnd.npm.install-v1+json" },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = (await res.json()) as {
+      "dist-tags"?: { latest?: string };
+    };
+    return json["dist-tags"]?.latest || null;
+  };
+
+  const loadAndCheckProjectPackages = async (path: string) => {
+    const runId = ++packageCheckRunIdRef.current;
+    setCheckingPackages(true);
+    setProjectPackages({});
+    setPackageChecks({});
+    setPackageJsonError(null);
+
+    try {
+      const all = (await invoke("get_project_packages", {
+        projectPath: path,
+      })) as Record<string, string>;
+      setProjectPackages(all);
+
+      const names = Object.keys(all).sort((a, b) => a.localeCompare(b));
+      setPackageChecks(
+        Object.fromEntries(
+          names.map((name) => [
+            name,
+            { currentRange: all[name], latest: null, status: "loading" },
+          ]),
+        ),
+      );
+
+      const queue = [...names];
+      const workerCount = Math.min(8, queue.length);
+      const workers = Array.from({ length: workerCount }).map(async () => {
+        while (queue.length > 0) {
+          const name = queue.shift();
+          if (!name) break;
+          try {
+            const latest = await getLatestFromRegistry(name);
+            if (packageCheckRunIdRef.current !== runId) return;
+            setPackageChecks((prev) => {
+              const current = prev[name]?.currentRange ?? all[name] ?? "";
+              const currentSemver = normalizeSemver(current);
+              const latestSemver = normalizeSemver(latest);
+              const isOutdated =
+                latest != null &&
+                currentSemver != null &&
+                latestSemver != null &&
+                compareSemver(currentSemver, latestSemver) < 0;
+              return {
+                ...prev,
+                [name]: {
+                  currentRange: current,
+                  latest,
+                  status: isOutdated ? "outdated" : "upToDate",
+                },
+              };
+            });
+          } catch {
+            if (packageCheckRunIdRef.current !== runId) return;
+            setPackageChecks((prev) => {
+              const current = prev[name]?.currentRange ?? all[name] ?? "";
+              return {
+                ...prev,
+                [name]: {
+                  currentRange: current,
+                  latest: null,
+                  status: "error",
+                },
+              };
+            });
+          }
+        }
+      });
+
+      await Promise.all(workers);
+    } catch (err) {
+      console.error("Failed to check project packages:", err);
+      if (packageCheckRunIdRef.current === runId) {
+        setPackageJsonError(String(err));
+      }
+    } finally {
+      if (packageCheckRunIdRef.current === runId) {
+        setCheckingPackages(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!props.projectPath) return;
+    loadAndCheckProjectPackages(props.projectPath);
+  }, [props.projectPath]);
+
+  const updateSinglePackage = async (packageName: string) => {
+    if (!props.projectPath) return;
+    if (props.running) return;
+    setUpdatingPackages((prev) => ({ ...prev, [packageName]: true }));
+    try {
+      await onRunNpm(["install", `${packageName}@latest`], props.projectPath);
+      await loadAndCheckProjectPackages(props.projectPath);
+    } finally {
+      setUpdatingPackages((prev) => ({ ...prev, [packageName]: false }));
+    }
+  };
+
+  const updateAllOutdatedPackages = async (packageNames: string[]) => {
+    if (!props.projectPath) return;
+    if (props.running) return;
+    if (packageNames.length === 0) return;
+    setBulkUpdatingPackages(true);
+    try {
+      for (const name of packageNames) {
+        setUpdatingPackages((prev) => ({ ...prev, [name]: true }));
+        try {
+          await onRunNpm(["install", `${name}@latest`], props.projectPath);
+        } finally {
+          setUpdatingPackages((prev) => ({ ...prev, [name]: false }));
+        }
+      }
+      await loadAndCheckProjectPackages(props.projectPath);
+    } finally {
+      setBulkUpdatingPackages(false);
+    }
+  };
+
   const projectPlatforms = useMemo(() => {
     if (!activeProject?.platforms) return [];
     return activeProject.platforms
@@ -190,6 +356,28 @@ export function DashboardPage(props: DashboardPageProps) {
     // Simple check: if it doesn't contain "9." it's likely outdated (NativeScript 8 or older)
     return !activeProject.nativescript_version.includes("9.");
   }, [activeProject]);
+
+  const corePackages = useMemo(() => {
+    return ["@nativescript/core", "@nativescript/android", "@nativescript/ios"];
+  }, []);
+
+  const outdatedPackages = useMemo(() => {
+    return Object.entries(packageChecks)
+      .filter(([, v]) => v.status === "outdated")
+      .map(([name]) => name)
+      .sort((a, b) => a.localeCompare(b));
+  }, [packageChecks]);
+
+  const packagesHealth = useMemo(() => {
+    if (checkingPackages) return "checking";
+    if (Object.keys(packageChecks).length === 0) return "unknown";
+    if (outdatedPackages.length > 0) return "outdated";
+    const anyErrors = Object.values(packageChecks).some(
+      (v) => v.status === "error",
+    );
+    if (anyErrors) return "partial";
+    return "healthy";
+  }, [checkingPackages, packageChecks, outdatedPackages]);
 
   if (!props.projectPath) {
     <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
@@ -705,60 +893,248 @@ export function DashboardPage(props: DashboardPageProps) {
 
           <div className="bg-base-100 border border-base-200 rounded-3xl p-6">
             <h3 className="text-sm font-black uppercase tracking-widest opacity-40 mb-6">
-              System Environment
+              Project Environment
             </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs">
-                <span className="opacity-50">NS CLI</span>
-                <span className="font-mono bg-base-200 px-2 py-0.5 rounded text-[10px]">
-                  {props.systemReport?.info?.match(
-                    /(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i,
-                  )?.[1] ||
-                    props.systemReport?.info?.match(/([\d.]+)/)?.[1] ||
-                    "..."}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="opacity-50">Pkg Manager</span>
-                <span className="font-bold text-[10px] uppercase">
-                  {(() => {
-                    const pm = props.systemReport?.packageManager?.trim() || "";
-                    // Match npm, yarn, or pnpm specifically, or get the last word
-                    const match = pm.match(/(npm|yarn|pnpm|bun)/i);
-                    if (match) return match[1];
-                    const words = pm.split(/\s+/);
-                    const lastWord = words[words.length - 1]?.replace(
-                      /\.$/,
-                      "",
-                    );
-                    return lastWord || "...";
-                  })()}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="opacity-50">Health Status</span>
-                <span
-                  className={`badge badge-xs text-[9px] h-4 ${
-                    props.systemReport?.doctor
-                      ?.toLowerCase()
-                      .includes("no issues")
+            <div className="flex items-center justify-between text-xs mb-4">
+              <span className="opacity-50">Packages</span>
+              <span
+                className={`badge badge-xs text-[9px] h-4 ${
+                  packageJsonError
+                    ? "badge-error"
+                    : packagesHealth === "healthy"
                       ? "badge-success"
-                      : "badge-warning"
-                  }`}
-                >
-                  {props.systemReport?.doctor
-                    ?.toLowerCase()
-                    .includes("no issues")
-                    ? "Healthy"
-                    : "Review Needed"}
+                      : packagesHealth === "outdated"
+                        ? "badge-warning"
+                        : packagesHealth === "partial"
+                          ? "badge-info"
+                          : "badge-ghost"
+                }`}
+              >
+                {packageJsonError
+                  ? "Error"
+                  : packagesHealth === "checking"
+                    ? "Checking"
+                    : packagesHealth === "healthy"
+                      ? "Healthy"
+                      : packagesHealth === "outdated"
+                        ? "Outdated"
+                        : packagesHealth === "partial"
+                          ? "Partial"
+                          : "Unknown"}
+              </span>
+            </div>
+            {packageJsonError && (
+              <div className="text-[10px] opacity-60 bg-error/5 border border-error/10 rounded-xl px-3 py-2 mb-4">
+                Failed to read package.json for this project.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] font-bold uppercase tracking-widest opacity-40">
+                  Project Packages
+                </div>
+                <span className="text-[10px] opacity-40">
+                  {Object.keys(projectPackages).length > 0
+                    ? `${Object.keys(projectPackages).length} total`
+                    : checkingPackages
+                      ? "Loading…"
+                      : "—"}
                 </span>
               </div>
+
+              <div className="space-y-2">
+                {corePackages.map((name) => {
+                  const currentRange = projectPackages[name] ?? null;
+                  const check = packageChecks[name];
+                  const isLoading =
+                    checkingPackages || check?.status === "loading";
+                  const isOutdated = check?.status === "outdated";
+                  const isUpdating = updatingPackages[name] || false;
+                  const disableUpdate =
+                    props.running || isUpdating || bulkUpdatingPackages;
+
+                  return (
+                    <div
+                      key={name}
+                      className="flex items-center justify-between gap-2 bg-base-200/50 rounded-xl px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold truncate">
+                          {name}
+                        </div>
+                        <div className="text-[10px] opacity-60 font-mono truncate">
+                          {currentRange ? (
+                            isLoading ? (
+                              "Checking…"
+                            ) : check?.latest ? (
+                              `${currentRange} → ${check.latest}`
+                            ) : (
+                              currentRange
+                            )
+                          ) : (
+                            <span className="opacity-50">Not installed</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isLoading && currentRange ? (
+                          <span className="loading loading-spinner loading-xs opacity-60"></span>
+                        ) : currentRange ? (
+                          <span
+                            className={`badge badge-xs text-[9px] h-4 ${
+                              check?.status === "upToDate"
+                                ? "badge-success"
+                                : check?.status === "outdated"
+                                  ? "badge-warning"
+                                  : check?.status === "error"
+                                    ? "badge-error"
+                                    : "badge-ghost"
+                            }`}
+                          >
+                            {check?.status === "upToDate"
+                              ? "OK"
+                              : check?.status === "outdated"
+                                ? "New"
+                                : check?.status === "error"
+                                  ? "Err"
+                                  : "..."}
+                          </span>
+                        ) : (
+                          <span className="badge badge-xs text-[9px] h-4 badge-ghost">
+                            ---
+                          </span>
+                        )}
+
+                        {isOutdated && currentRange && (
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-primary h-7 min-h-0 text-[10px]"
+                            disabled={disableUpdate}
+                            onClick={() => updateSinglePackage(name)}
+                          >
+                            {isUpdating ? (
+                              <span className="loading loading-spinner loading-xs"></span>
+                            ) : (
+                              "Update"
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {Object.keys(projectPackages).length > 0 && (
+                <details className="rounded-xl bg-base-200/30 px-3 py-2">
+                  <summary className="cursor-pointer text-[10px] font-bold uppercase tracking-widest opacity-50 select-none">
+                    Other Packages{" "}
+                    {checkingPackages
+                      ? "(checking)"
+                      : `(${outdatedPackages.filter((n) => !corePackages.includes(n)).length} outdated)`}
+                  </summary>
+
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[10px] opacity-60">
+                        {checkingPackages
+                          ? "Version check in progress"
+                          : outdatedPackages.filter(
+                                (n) => !corePackages.includes(n),
+                              ).length > 0
+                            ? "Some packages are not up to date"
+                            : "All packages are up to date"}
+                      </div>
+                      {!checkingPackages &&
+                        outdatedPackages.filter(
+                          (n) => !corePackages.includes(n),
+                        ).length > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-xs btn-primary h-7 min-h-0 text-[10px]"
+                            disabled={
+                              props.running ||
+                              bulkUpdatingPackages ||
+                              outdatedPackages.filter(
+                                (n) => !corePackages.includes(n),
+                              ).length === 0
+                            }
+                            onClick={() =>
+                              updateAllOutdatedPackages(
+                                outdatedPackages.filter(
+                                  (n) => !corePackages.includes(n),
+                                ),
+                              )
+                            }
+                          >
+                            {bulkUpdatingPackages ? (
+                              <span className="loading loading-spinner loading-xs"></span>
+                            ) : (
+                              "Update All"
+                            )}
+                          </button>
+                        )}
+                    </div>
+
+                    <div className="max-h-40 overflow-auto space-y-2 pr-1">
+                      {outdatedPackages
+                        .filter((n) => !corePackages.includes(n))
+                        .slice(0, 30)
+                        .map((name) => {
+                          const check = packageChecks[name];
+                          const isUpdating = updatingPackages[name] || false;
+                          const disableUpdate =
+                            props.running || isUpdating || bulkUpdatingPackages;
+                          return (
+                            <div
+                              key={name}
+                              className="flex items-center justify-between gap-2 bg-base-100/70 border border-base-200 rounded-xl px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-[11px] font-bold truncate">
+                                  {name}
+                                </div>
+                                <div className="text-[10px] opacity-60 font-mono truncate">
+                                  {(projectPackages[name] ?? "?") +
+                                    (check?.latest ? ` → ${check.latest}` : "")}
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-xs btn-outline h-7 min-h-0 text-[10px]"
+                                disabled={disableUpdate}
+                                onClick={() => updateSinglePackage(name)}
+                              >
+                                {isUpdating ? (
+                                  <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                  "Update"
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
+
+                      {!checkingPackages &&
+                        outdatedPackages.filter(
+                          (n) => !corePackages.includes(n),
+                        ).length === 0 && (
+                          <div className="text-[10px] opacity-40 italic py-2">
+                            No outdated packages detected.
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                </details>
+              )}
             </div>
             <button
               onClick={() => setShowSystemModal(true)}
               className="btn btn-ghost btn-block btn-xs mt-6 text-[10px] opacity-60 hover:opacity-100"
             >
-              View Full Report
+              View Project Report
             </button>
           </div>
         </div>
@@ -811,21 +1187,21 @@ export function DashboardPage(props: DashboardPageProps) {
         </div>
       </div>
 
-      {/* Full System Report Modal */}
+      {/* Full Project Environment Report Modal */}
       {showSystemModal && (
         <div className="modal modal-open">
           <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden border border-base-300 shadow-2xl rounded-3xl">
             <div className="p-6 border-b border-base-200 flex items-center justify-between bg-base-200/50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                  <FiCpu className="w-5 h-5" />
+                  <FiPackage className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-black text-lg">
-                    System Environment Report
+                    Project Environment Report
                   </h3>
                   <p className="text-xs opacity-50">
-                    NativeScript CLI Diagnostics
+                    Package versions from package.json vs NPM
                   </p>
                 </div>
               </div>
@@ -839,30 +1215,164 @@ export function DashboardPage(props: DashboardPageProps) {
             <div className="flex-1 overflow-y-auto p-6 space-y-8">
               <section>
                 <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
-                  <FiInfo className="w-3 h-3" /> CLI Information
+                  <FiInfo className="w-3 h-3" /> Summary
                 </h4>
-                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
-                  {props.systemReport?.info || "No information available."}
-                </pre>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-base-300/30 border border-base-300 rounded-2xl p-4">
+                    <div className="text-[10px] opacity-50">Packages</div>
+                    <div className="text-sm font-bold">
+                      {Object.keys(projectPackages).length}
+                    </div>
+                  </div>
+                  <div className="bg-base-300/30 border border-base-300 rounded-2xl p-4">
+                    <div className="text-[10px] opacity-50">Outdated</div>
+                    <div className="text-sm font-bold">
+                      {outdatedPackages.length}
+                    </div>
+                  </div>
+                  <div className="bg-base-300/30 border border-base-300 rounded-2xl p-4">
+                    <div className="text-[10px] opacity-50">Status</div>
+                    <div className="text-sm font-bold">
+                      {packageJsonError
+                        ? "Error"
+                        : checkingPackages
+                          ? "Checking"
+                          : packagesHealth === "healthy"
+                            ? "Healthy"
+                            : packagesHealth === "outdated"
+                              ? "Outdated"
+                              : packagesHealth === "partial"
+                                ? "Partial"
+                                : "Unknown"}
+                    </div>
+                  </div>
+                </div>
               </section>
 
               <section>
                 <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
-                  <FiShield className="w-3 h-3" /> Doctor Results
+                  <FiPackage className="w-3 h-3" /> Packages
                 </h4>
-                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
-                  {props.systemReport?.doctor || "No doctor results available."}
-                </pre>
-              </section>
+                {packageJsonError ? (
+                  <div className="bg-error/5 border border-error/10 rounded-2xl p-4 text-sm opacity-70">
+                    Failed to read package.json for this project.
+                  </div>
+                ) : (
+                  <>
+                    {outdatedPackages.length > 0 && (
+                      <div className="flex justify-end mb-3">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary rounded-xl"
+                          disabled={
+                            props.running ||
+                            bulkUpdatingPackages ||
+                            checkingPackages ||
+                            outdatedPackages.length === 0
+                          }
+                          onClick={() =>
+                            updateAllOutdatedPackages(outdatedPackages)
+                          }
+                        >
+                          {bulkUpdatingPackages ? (
+                            <span className="loading loading-spinner loading-sm"></span>
+                          ) : (
+                            <FiArrowUpCircle className="w-4 h-4" />
+                          )}
+                          Update All Outdated
+                        </button>
+                      </div>
+                    )}
 
-              <section>
-                <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
-                  <FiPackage className="w-3 h-3" /> Package Manager
-                </h4>
-                <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
-                  {props.systemReport?.packageManager ||
-                    "No information available."}
-                </pre>
+                    <div className="space-y-2">
+                      {Object.keys(projectPackages)
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((name) => {
+                          const currentRange = projectPackages[name] ?? null;
+                          const check = packageChecks[name];
+                          const isLoading =
+                            checkingPackages || check?.status === "loading";
+                          const isOutdated = check?.status === "outdated";
+                          const isUpdating = updatingPackages[name] || false;
+                          const disableUpdate =
+                            props.running || isUpdating || bulkUpdatingPackages;
+
+                          return (
+                            <div
+                              key={name}
+                              className="flex items-center justify-between gap-3 bg-base-300/30 border border-base-300 rounded-2xl px-4 py-3"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-[12px] font-bold truncate">
+                                  {name}
+                                </div>
+                                <div className="text-[11px] opacity-60 font-mono truncate">
+                                  {currentRange ? (
+                                    isLoading ? (
+                                      "Checking…"
+                                    ) : check?.latest ? (
+                                      `${currentRange} → ${check.latest}`
+                                    ) : (
+                                      currentRange
+                                    )
+                                  ) : (
+                                    <span className="opacity-50">
+                                      Not installed
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {isLoading && currentRange ? (
+                                  <span className="loading loading-spinner loading-xs opacity-60"></span>
+                                ) : currentRange ? (
+                                  <span
+                                    className={`badge badge-xs text-[9px] h-4 ${
+                                      check?.status === "upToDate"
+                                        ? "badge-success"
+                                        : check?.status === "outdated"
+                                          ? "badge-warning"
+                                          : check?.status === "error"
+                                            ? "badge-error"
+                                            : "badge-ghost"
+                                    }`}
+                                  >
+                                    {check?.status === "upToDate"
+                                      ? "OK"
+                                      : check?.status === "outdated"
+                                        ? "New"
+                                        : check?.status === "error"
+                                          ? "Err"
+                                          : "..."}
+                                  </span>
+                                ) : (
+                                  <span className="badge badge-xs text-[9px] h-4 badge-ghost">
+                                    ---
+                                  </span>
+                                )}
+
+                                {isOutdated && currentRange && (
+                                  <button
+                                    type="button"
+                                    className="btn btn-xs btn-primary h-7 min-h-0 text-[10px]"
+                                    disabled={disableUpdate}
+                                    onClick={() => updateSinglePackage(name)}
+                                  >
+                                    {isUpdating ? (
+                                      <span className="loading loading-spinner loading-xs"></span>
+                                    ) : (
+                                      "Update"
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </>
+                )}
               </section>
             </div>
             <div className="p-6 border-t border-base-200 bg-base-200/30 flex justify-end">

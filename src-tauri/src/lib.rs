@@ -88,6 +88,7 @@ pub fn run() {
             commands::fs::reveal_in_explorer,
             commands::fs::check_directory_exists,
             commands::project::analyze_project,
+            commands::project::get_project_packages,
             commands::project::discover_projects,
             commands::ns::doctor_checks,
             commands::ns::get_ns_report,
