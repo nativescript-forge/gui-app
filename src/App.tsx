@@ -759,7 +759,9 @@ function App() {
       | "plugin-remove"
       | "resources-update"
       | "resources-generate-splashes"
-      | "resources-generate-icons",
+      | "resources-generate-icons"
+      | "platform-add-android"
+      | "platform-add-ios",
     deviceId?: string,
     buildConfig?: { platform?: "android" | "ios"; [key: string]: any },
     sourcePath?: string,
@@ -809,6 +811,14 @@ function App() {
       );
       if (result.statusCode === 0) {
         showToast(`${action.toUpperCase()} completed successfully`, "success");
+        // If it was a platform add, we should probably refresh the project list or data
+        if (action.startsWith("platform-add")) {
+          // Re-fetch projects to update platform list in database
+          const projectsData = await db?.select<ProjectRow[]>(
+            "SELECT * FROM projects ORDER BY last_opened DESC",
+          );
+          if (projectsData) setProjects(projectsData);
+        }
       } else {
         showToast(
           `${action.toUpperCase()} failed with exit code ${result.statusCode}`,
@@ -1060,9 +1070,6 @@ function App() {
             setProjectPath={setActionsProjectPath}
             running={actionsRunning}
             systemReport={systemReport}
-            logText={logText}
-            logFilter={logFilter}
-            setLogFilter={setLogFilter}
             onOpenBuildModal={() => setIsBuildModalOpen(true)}
             onRunAction={async (action, deviceId, buildConfig) => {
               await runAction(action, deviceId, buildConfig);

@@ -84,7 +84,37 @@ export function TitleBar({
   const [devices, setDevices] = useState<AdbDevice[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [platform, setPlatform] = useState<"android" | "ios">("android");
+  const [platform, setPlatform] = useState<"android" | "ios" | null>(null);
+  const [projectPackages, setProjectPackages] = useState<
+    Record<string, string>
+  >({});
+
+  useEffect(() => {
+    const fetchPackages = async () => {
+      if (!activeProjectPath) return;
+      try {
+        const pkgs = (await invoke("get_project_packages", {
+          projectPath: activeProjectPath,
+        })) as Record<string, string>;
+        setProjectPackages(pkgs);
+
+        // Auto-switch platform if only one is available
+        const hasAndroid = !!pkgs["@nativescript/android"];
+        const hasIos = !!pkgs["@nativescript/ios"];
+        if (hasAndroid && !hasIos) setPlatform("android");
+        else if (!hasAndroid && hasIos) setPlatform("ios");
+        else if (!hasAndroid && !hasIos) setPlatform(null);
+        else if (hasAndroid && hasIos && platform === null)
+          setPlatform("android");
+      } catch (e) {
+        console.error("Failed to fetch project packages in TitleBar:", e);
+      }
+    };
+    fetchPackages();
+  }, [activeProjectPath]);
+
+  const hasAndroidPackage = !!projectPackages["@nativescript/android"];
+  const hasIosPackage = !!projectPackages["@nativescript/ios"];
 
   const scanDevices = async () => {
     setScanning(true);
@@ -112,11 +142,13 @@ export function TitleBar({
   );
 
   const handleRun = () => {
+    if (!platform) return;
     const action = platform === "android" ? "run-android" : "run-ios";
     onRunAction(action, selectedDeviceId || undefined);
   };
 
   const handleDebug = () => {
+    if (!platform) return;
     const action = platform === "android" ? "debug-android" : "debug-ios";
     onRunAction(action, selectedDeviceId || undefined);
   };
@@ -285,38 +317,60 @@ export function TitleBar({
             <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
               {/* Platform Toggle */}
               <div className="flex bg-black/20 rounded p-0.5">
-                <button
-                  onClick={() => setPlatform("android")}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
-                    platform === "android"
-                      ? "bg-success/20 text-success shadow-sm"
-                      : "text-white/40 hover:text-white/60"
-                  }`}
-                  title="Android"
+                <div
+                  className="tooltip tooltip-bottom"
+                  data-tip={
+                    hasAndroidPackage
+                      ? "Select Android Platform"
+                      : "Android platform not installed"
+                  }
                 >
-                  <SiAndroid className="w-3 h-3" />
-                  {platform === "android" && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      Android
-                    </span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setPlatform("ios")}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
-                    platform === "ios"
-                      ? "bg-info/20 text-info shadow-sm"
-                      : "text-white/40 hover:text-white/60"
-                  }`}
-                  title="iOS"
+                  <button
+                    onClick={() => hasAndroidPackage && setPlatform("android")}
+                    disabled={!hasAndroidPackage}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
+                      platform === "android" && hasAndroidPackage
+                        ? "bg-success/20 text-success shadow-sm"
+                        : hasAndroidPackage
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-white/10 cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    <SiAndroid className="w-3 h-3" />
+                    {platform === "android" && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        Android
+                      </span>
+                    )}
+                  </button>
+                </div>
+                <div
+                  className="tooltip tooltip-bottom"
+                  data-tip={
+                    hasIosPackage
+                      ? "Select iOS Platform"
+                      : "iOS platform not installed"
+                  }
                 >
-                  <SiApple className="w-3 h-3" />
-                  {platform === "ios" && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider">
-                      iOS
-                    </span>
-                  )}
-                </button>
+                  <button
+                    onClick={() => hasIosPackage && setPlatform("ios")}
+                    disabled={!hasIosPackage}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
+                      platform === "ios" && hasIosPackage
+                        ? "bg-info/20 text-info shadow-sm"
+                        : hasIosPackage
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-white/10 cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    <SiApple className="w-3 h-3" />
+                    {platform === "ios" && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider">
+                        iOS
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Device Dropdown */}
@@ -352,17 +406,22 @@ export function TitleBar({
                     <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
                       Devices
                     </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        scanDevices();
-                      }}
-                      className={`p-1 hover:bg-white/10 rounded ${
-                        scanning ? "animate-spin" : ""
-                      }`}
+                    <div
+                      className="tooltip tooltip-left"
+                      data-tip="Scan for connected devices"
                     >
-                      <FiRefreshCw className="w-3 h-3" />
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          scanDevices();
+                        }}
+                        className={`p-1 hover:bg-white/10 rounded ${
+                          scanning ? "animate-spin" : ""
+                        }`}
+                      >
+                        <FiRefreshCw className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="divider my-0 opacity-10"></div>
@@ -433,37 +492,67 @@ export function TitleBar({
 
             {/* Quick Run Buttons */}
             <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
-              <button
-                onClick={handleRun}
-                disabled={actionsRunning || !selectedDevice}
-                className="px-2 py-1 hover:bg-white/10 rounded text-success transition-colors flex items-center gap-1.5 group disabled:opacity-30"
-                title={
-                  !selectedDevice ? "Select a device first" : "Run Project"
+              <div
+                className="tooltip tooltip-bottom"
+                data-tip={
+                  !selectedDevice
+                    ? "Select a device first"
+                    : (platform === "android" && !hasAndroidPackage) ||
+                        (platform === "ios" && !hasIosPackage)
+                      ? `Platform ${platform} not installed`
+                      : "Run Project"
                 }
               >
-                {actionsRunning ? (
-                  <FiLoader className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FiPlay className="w-3.5 h-3.5" />
-                )}
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                  Run
-                </span>
-              </button>
+                <button
+                  onClick={handleRun}
+                  disabled={
+                    actionsRunning ||
+                    !selectedDevice ||
+                    !platform ||
+                    (platform === "android" && !hasAndroidPackage) ||
+                    (platform === "ios" && !hasIosPackage)
+                  }
+                  className="px-2 py-1 hover:bg-white/10 rounded text-success transition-colors flex items-center gap-1.5 group disabled:opacity-30 w-full"
+                >
+                  {actionsRunning ? (
+                    <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <FiPlay className="w-3.5 h-3.5" />
+                  )}
+                  <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                    Run
+                  </span>
+                </button>
+              </div>
               <div className="w-[1px] h-4 bg-white/10 mx-0.5"></div>
-              <button
-                onClick={handleDebug}
-                disabled={actionsRunning || !selectedDevice}
-                className="px-2 py-1 hover:bg-white/10 rounded text-info transition-colors flex items-center gap-1.5 group disabled:opacity-30"
-                title={
-                  !selectedDevice ? "Select a device first" : "Debug Project"
+              <div
+                className="tooltip tooltip-bottom"
+                data-tip={
+                  !selectedDevice
+                    ? "Select a device first"
+                    : (platform === "android" && !hasAndroidPackage) ||
+                        (platform === "ios" && !hasIosPackage)
+                      ? `Platform ${platform} not installed`
+                      : "Debug Project"
                 }
               >
-                <FiCpu className="w-3.5 h-3.5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                  Debug
-                </span>
-              </button>
+                <button
+                  onClick={handleDebug}
+                  disabled={
+                    actionsRunning ||
+                    !selectedDevice ||
+                    !platform ||
+                    (platform === "android" && !hasAndroidPackage) ||
+                    (platform === "ios" && !hasIosPackage)
+                  }
+                  className="px-2 py-1 hover:bg-white/10 rounded text-info transition-colors flex items-center gap-1.5 group disabled:opacity-30 w-full"
+                >
+                  <FiCpu className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                    Debug
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div className="w-[1px] h-6 bg-white/10 mx-1"></div>

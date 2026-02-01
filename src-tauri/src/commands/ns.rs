@@ -601,6 +601,8 @@ pub async fn run_ns(
         "update" => vec!["update".to_string()],
         "migrate" => vec!["migrate".to_string()],
         "package-manager" => vec!["package-manager".to_string()],
+        "platform-add-android" => vec!["platform".to_string(), "add".to_string(), "android".to_string()],
+        "platform-add-ios" => vec!["platform".to_string(), "add".to_string(), "ios".to_string()],
         "plugin-add" => {
             let mut p_args = vec!["plugin".to_string(), "add".to_string()];
             if let Some(name) = &source_path {
