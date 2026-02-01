@@ -86,10 +86,14 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             commands::fs::reveal_in_explorer,
-            commands::fs::check_directory_exists,
+            commands::fs::path_exists,
+            commands::fs::read_text_file,
+            commands::fs::write_text_file,
             commands::project::analyze_project,
             commands::project::get_project_packages,
             commands::project::discover_projects,
+            commands::project::read_ns_config,
+            commands::project::write_ns_config,
             commands::ns::doctor_checks,
             commands::ns::get_ns_report,
             commands::ns::detect_available_package_managers,

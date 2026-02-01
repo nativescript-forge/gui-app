@@ -12,7 +12,7 @@ import {
   FiPackage,
   FiPlus,
   FiSettings,
-  FiTerminal,
+  FiSmartphone,
   FiChevronDown,
   FiLayers,
 } from "react-icons/fi";
@@ -93,9 +93,9 @@ export function AppShell(props: AppShellProps) {
 
   const appSidebarItems: SidebarItem[] = [
     { id: "app-actions", label: "Dashboard", icon: FiGrid },
-    { id: "app-resources", label: "App Resources", icon: FiLayers },
+    { id: "app-resources", label: "Resource Config", icon: FiLayers },
     { id: "app-config", label: "Project Config", icon: FiSettings },
-    { id: "app-doctor", label: "Health Check", icon: FiActivity },
+    { id: "app-platform-config", label: "Platform Config", icon: FiSmartphone },
     { id: "app-plugins", label: "Install Plugin", icon: FiPackage },
     { id: "app-permissions", label: "Manage Permission", icon: FiKey },
   ];

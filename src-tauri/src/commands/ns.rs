@@ -73,30 +73,7 @@ pub async fn detect_available_package_managers() -> Vec<String> {
     let pms = vec!["npm", "yarn", "pnpm", "bun"];
 
     for pm in pms {
-        let mut found = false;
-
-        // Try raw command first (handles .exe on Windows via PATHEXT)
-        if std::process::Command::new(pm)
-            .arg("--version")
-            .output()
-            .is_ok()
-        {
-            found = true;
-        }
-
-        // If not found and on Windows, try .cmd specifically
-        if !found && cfg!(windows) {
-            let cmd = format!("{}.cmd", pm);
-            if std::process::Command::new(&cmd)
-                .arg("--version")
-                .output()
-                .is_ok()
-            {
-                found = true;
-            }
-        }
-
-        if found {
+        if run_command(pm, &["--version"], None).is_ok() {
             available.push(pm.to_string());
         }
     }
@@ -131,19 +108,57 @@ pub fn run_command(
     args: &[&str],
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
-    let mut cmd = Command::new(program);
-    cmd.args(args);
-    if let Some(cwd) = cwd {
-        cmd.current_dir(cwd);
+    #[cfg(target_os = "windows")]
+    {
+        // Try raw command first
+        let mut cmd = Command::new(program);
+        cmd.args(args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+
+        if let Ok(output) = cmd.output() {
+            return Ok(CommandResult {
+                status_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                command: Some(format!("{} {}", program, args.join(" "))),
+            });
+        }
+
+        // If failed, try with cmd /C
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C");
+        cmd.arg(program);
+        cmd.args(args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        Ok(CommandResult {
+            status_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+        })
     }
 
-    let output = cmd.output().map_err(|e| e.to_string())?;
-    Ok(CommandResult {
-        status_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        command: Some(format!("{} {}", program, args.join(" "))),
-    })
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut cmd = Command::new(program);
+        cmd.args(args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        Ok(CommandResult {
+            status_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            command: Some(format!("{} {}", program, args.join(" "))),
+        })
+    }
 }
 
 pub fn run_command_vec(
@@ -151,19 +166,57 @@ pub fn run_command_vec(
     args: Vec<String>,
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
-    let mut cmd = Command::new(program);
-    cmd.args(&args);
-    if let Some(cwd) = cwd {
-        cmd.current_dir(cwd);
+    #[cfg(target_os = "windows")]
+    {
+        // Try raw command first
+        let mut cmd = Command::new(program);
+        cmd.args(&args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+
+        if let Ok(output) = cmd.output() {
+            return Ok(CommandResult {
+                status_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                command: Some(format!("{} {}", program, args.join(" "))),
+            });
+        }
+
+        // If failed, try with cmd /C
+        let mut cmd = Command::new("cmd");
+        cmd.arg("/C");
+        cmd.arg(program);
+        cmd.args(&args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        Ok(CommandResult {
+            status_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+        })
     }
 
-    let output = cmd.output().map_err(|e| e.to_string())?;
-    Ok(CommandResult {
-        status_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        command: Some(format!("{} {}", program, args.join(" "))),
-    })
+    #[cfg(not(target_os = "windows"))]
+    {
+        let mut cmd = Command::new(program);
+        cmd.args(&args);
+        if let Some(cwd) = cwd {
+            cmd.current_dir(cwd);
+        }
+
+        let output = cmd.output().map_err(|e| e.to_string())?;
+        Ok(CommandResult {
+            status_code: output.status.code(),
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            command: Some(format!("{} {}", program, args.join(" "))),
+        })
+    }
 }
 
 pub fn run_resolved(
@@ -260,9 +313,9 @@ pub fn resolve_cli() -> Option<ResolvedCli> {
 
     // On Windows, we should prioritize .cmd files for npm-installed binaries
     #[cfg(target_os = "windows")]
-    let names = ["ns.cmd", "ns.exe", "nativescript.cmd", "nativescript.exe"];
+    let names = ["ns.cmd", "ns.exe", "nativescript.cmd", "nativescript.exe", "tns.cmd", "tns.exe"];
     #[cfg(not(target_os = "windows"))]
-    let names = ["ns", "nativescript"];
+    let names = ["ns", "nativescript", "tns"];
 
     // First, try to find the executable in PATH without spawning it
     if let Some(path) = first_existing_in_dirs(&dirs, &names) {
@@ -305,6 +358,14 @@ pub fn resolve_cli() -> Option<ResolvedCli> {
             launcher: "nativescript".to_string(),
             base_args: Vec::new(),
             display: "nativescript".to_string(),
+        });
+    }
+
+    if run_command("tns", &["--version"], None).is_ok() {
+        return Some(ResolvedCli {
+            launcher: "tns".to_string(),
+            base_args: Vec::new(),
+            display: "tns".to_string(),
         });
     }
 

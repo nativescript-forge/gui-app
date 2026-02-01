@@ -480,7 +480,7 @@ export function TitleBar({
                   <div className="divider my-1 opacity-10"></div>
                   <li>
                     <button
-                      onClick={() => setRoute("app-doctor")}
+                      onClick={() => setRoute("app-platform-config")}
                       className="text-[11px] text-primary hover:bg-primary/10 py-2"
                     >
                       ADB not found? Check Doctor

@@ -24,7 +24,7 @@ type ActionType =
   | "resources-generate-splashes"
   | "resources-generate-icons";
 
-type ResourcesPageProps = {
+type ResourceConfigPageProps = {
   projectPath: string | null;
   running: boolean;
   currentAction: string | null;
@@ -35,12 +35,12 @@ type ResourcesPageProps = {
   ) => Promise<string | void>;
 };
 
-export function ResourcesPage({
+export function ResourceConfigPage({
   projectPath,
   running,
   currentAction,
   onRunAction,
-}: ResourcesPageProps) {
+}: ResourceConfigPageProps) {
   const [iconSourcePath, setIconSourcePath] = useState<string>("");
   const [splashSourcePath, setSplashSourcePath] = useState<string>("");
   const [backgroundColor, setBackgroundColor] = useState<string>("#000000");
@@ -212,7 +212,7 @@ export function ResourcesPage({
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>
           <h2 className="text-3xl font-extrabold flex items-center gap-3">
-            App Resources
+            Resource Config
           </h2>
           <p className="text-sm opacity-50 uppercase tracking-widest mt-1">
             Manage assets and structure for {projectName}

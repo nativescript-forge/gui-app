@@ -28,12 +28,12 @@ import { TitleBar } from "./components/TitleBar";
 // Pages
 import { HomePage } from "./pages/main/HomePage";
 import { ProjectsPage } from "./pages/main/ProjectsPage";
-import { DoctorPage } from "./pages/app-mode/DoctorPage";
+import { PlatformConfigPage } from "./pages/app-mode/PlatformConfigPage";
 import { DashboardPage } from "./pages/app-mode/DashboardPage";
 import { PluginsPage } from "./pages/app-mode/PluginsPage";
 import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
-import { ConfigPage } from "./pages/app-mode/ConfigPage";
-import { ResourcesPage } from "./pages/app-mode/ResourcesPage";
+import { ProjectConfigPage } from "./pages/app-mode/ProjectConfigPage";
+import { ResourceConfigPage } from "./pages/app-mode/ResourceConfigPage";
 import { SettingsPage } from "./pages/main/SettingsPage";
 import { ActivityPage } from "./pages/main/ActivityPage";
 import {
@@ -230,7 +230,7 @@ function App() {
     const missingPaths: string[] = [];
 
     for (const project of rows) {
-      const exists = await invoke("check_directory_exists", {
+      const exists = await invoke("path_exists", {
         path: project.path,
       });
       if (exists) {
@@ -564,6 +564,7 @@ function App() {
     try {
       await upsertProject(db, analysis);
       await refreshProjects(db);
+      showToast(`Project ${analysis.name} imported successfully!`, "success");
       logActivity("project", `Imported project: ${analysis.name}`, "success", {
         path: analysis.path,
       });
@@ -693,10 +694,10 @@ function App() {
     setActionsRunning(true);
     setCurrentAction("doctor");
     const startTime = Date.now();
-    // If we have an active project, go to app-doctor, else maybe stay on home doctor if it existed?
+    // If we have an active project, go to app-platform-config, else maybe stay on home doctor if it existed?
     // User wants doctor in Application context.
     if (activeProjectPath) {
-      setRoute("app-doctor");
+      setRoute("app-platform-config");
     } else {
       // Fallback for home context if needed, but user said doctor is in Application Page.
       // For now let's assume if they click doctor from home, it opens the last active or first project.
@@ -704,7 +705,7 @@ function App() {
         const path = activeProjectPath || projects[0].path;
         setActiveProjectPath(path);
         setActionsProjectPath(path);
-        setRoute("app-doctor");
+        setRoute("app-platform-config");
       }
     }
 
@@ -1058,12 +1059,8 @@ function App() {
           />
         )}
 
-        {route === "app-doctor" && (
-          <DoctorPage
-            checks={doctorChecks}
-            loading={doctorLoading}
-            onRunChecks={runDoctor}
-          />
+        {route === "app-platform-config" && (
+          <PlatformConfigPage projectPath={actionsProjectPath} />
         )}
 
         {route === "app-actions" && (
@@ -1097,7 +1094,7 @@ function App() {
           />
         )}
         {route === "app-resources" && (
-          <ResourcesPage
+          <ResourceConfigPage
             projectPath={actionsProjectPath}
             running={actionsRunning}
             currentAction={currentAction}
@@ -1113,7 +1110,9 @@ function App() {
           />
         )}
         {route === "app-permissions" && <PermissionsPage />}
-        {route === "app-config" && <ConfigPage />}
+        {route === "app-config" && (
+          <ProjectConfigPage projectPath={activeProjectPath} />
+        )}
         {route === "settings" && (
           <SettingsPage
             db={db}

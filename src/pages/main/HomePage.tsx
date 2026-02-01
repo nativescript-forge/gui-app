@@ -204,8 +204,13 @@ export function HomePage(props: HomePageProps) {
     <div className="mx-auto max-w-6xl">
       <div className="card bg-base-100 shadow-none border border-base-200 overflow-hidden relative">
         <button
-          onClick={() => setIsHeroExpanded(!isHeroExpanded)}
-          className="btn btn-ghost btn-xs absolute top-4 right-4 z-10 opacity-40 hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsHeroExpanded(!isHeroExpanded);
+          }}
+          className={`absolute right-4 z-10 opacity-40 hover:opacity-100 flex items-center justify-center transition-all ${
+            isHeroExpanded ? "top-4" : "top-1/2 -translate-y-1/2"
+          } w-7 h-7 rounded-lg bg-base-200 hover:bg-base-300 text-base-content`}
           title={isHeroExpanded ? "Collapse" : "Expand"}
         >
           {isHeroExpanded ? (

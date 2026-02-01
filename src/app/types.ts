@@ -2,11 +2,11 @@ export type Route =
   | "home"
   | "create"
   | "projects"
-  | "app-doctor"
   | "app-actions"
   | "app-plugins"
   | "app-permissions"
   | "app-config"
+  | "app-platform-config"
   | "app-resources"
   | "activity"
   | "settings";
@@ -103,3 +103,107 @@ export type BuildConfig = {
   compileSdk?: string;
   copyTo?: string;
 };
+
+// NativeScript Config Types
+export interface IConfigPlatform {
+  id?: string;
+  discardUncaughtJsExceptions?: boolean;
+}
+
+export interface IOSSPMPackageBase {
+  name: string;
+  libs: string[];
+  targets?: string[];
+}
+
+export interface IOSRemoteSPMPackage extends IOSSPMPackageBase {
+  repositoryURL: string;
+  version: string;
+}
+
+export interface IOSLocalSPMPackage extends IOSSPMPackageBase {
+  path: string;
+}
+
+export type IOSSPMPackage = IOSRemoteSPMPackage | IOSLocalSPMPackage;
+
+export interface IConfigIOS extends IConfigPlatform {
+  SPMPackages?: Array<IOSSPMPackage>;
+  NativeSource?: Array<{
+    name: string;
+    path: string;
+  }>;
+}
+
+export interface IConfigVisionOS extends IConfigIOS {}
+
+export interface IConfigAndroid extends IConfigPlatform {
+  v8Flags?: string;
+  codeCache?: boolean;
+  heapSnapshotScript?: string;
+  SnapshotFile?: string;
+  profilerOutputDir?: string;
+  gcThrottleTime?: number;
+  markingMode?: string;
+  handleTimeZoneChanges?: boolean;
+  maxLogcatObjectSize?: number;
+  forceLog?: boolean;
+  memoryCheckInterval?: number;
+  freeMemoryRatio?: number;
+  enableLineBreakpoints?: boolean;
+  enableMultithreadedJavascript?: boolean;
+}
+
+export interface IConfigCLI {
+  packageManager: "yarn" | "pnpm" | "npm";
+  pathsToClean?: string[];
+  additionalPathsToClean?: string[];
+}
+
+export interface IConfigHook {
+  type: string;
+  script: string;
+}
+
+export interface IConfigEmbedProps {
+  hostProjectPath?: string;
+  hostProjectModuleName?: string;
+}
+
+export interface IConfigEmbed extends IConfigEmbedProps {
+  ios?: IConfigEmbedProps;
+  android?: IConfigEmbedProps;
+}
+
+export interface ISecurityConfig {
+  allowRemoteModules: boolean;
+  remoteModuleAllowlist?: string[];
+}
+
+export type BundlerType = "webpack" | "vite";
+
+export interface NativeScriptConfig {
+  id?: string;
+  main?: string;
+  appPath?: string;
+  appResourcesPath?: string;
+  shared?: boolean;
+  previewAppSchema?: string;
+  overridePods?: string;
+  projectName?: string;
+  embed?: IConfigEmbed;
+  webpackConfigPath?: string;
+  bundlerConfigPath?: string;
+  bundler?: BundlerType;
+  logScriptLoading?: boolean;
+  showErrorDisplay?: boolean;
+  ios?: IConfigIOS;
+  visionos?: IConfigVisionOS;
+  android?: IConfigAndroid;
+  profiling?: string;
+  cssParser?: "rework" | "nativescript" | "css-tree";
+  ignoredNativeDependencies?: string[];
+  cli?: IConfigCLI;
+  hooks?: IConfigHook[];
+  security?: ISecurityConfig;
+}

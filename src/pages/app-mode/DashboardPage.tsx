@@ -125,7 +125,7 @@ export function DashboardPage(props: DashboardPageProps) {
         try {
           const fullPath = await join(props.projectPath, relPath);
           // Check if file exists using invoke
-          const exists = await invoke("check_directory_exists", {
+          const exists = await invoke<boolean>("path_exists", {
             path: fullPath,
           }).catch(() => false);
 
@@ -182,7 +182,7 @@ export function DashboardPage(props: DashboardPageProps) {
     setCheckingHealth(true);
     try {
       // Check if node_modules exists
-      const exists = (await invoke("check_directory_exists", {
+      const exists = (await invoke("path_exists", {
         path: `${props.projectPath}/node_modules`,
       })) as boolean;
       setNodeModulesExist(exists);

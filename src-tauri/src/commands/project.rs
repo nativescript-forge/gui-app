@@ -334,3 +334,20 @@ pub fn discover_projects(
 
     Ok(results)
 }
+
+#[tauri::command]
+pub fn read_ns_config(project_path: String) -> Result<String, String> {
+    let config_path = Path::new(&project_path).join("nativescript.config.ts");
+    if !config_path.exists() {
+        return Err("nativescript.config.ts not found".to_string());
+    }
+
+    fs::read_to_string(config_path).map_err(|e| format!("Failed to read config: {}", e))
+}
+
+#[tauri::command]
+pub fn write_ns_config(project_path: String, content: String) -> Result<(), String> {
+    let config_path = Path::new(&project_path).join("nativescript.config.ts");
+    fs::write(config_path, content).map_err(|e| format!("Failed to write config: {}", e))
+}
+
