@@ -290,14 +290,6 @@ export function TitleBar({
 
           <RunMenu activeProject={activeProject} setRoute={setRoute} />
 
-          {/* Dashboard */}
-          <button
-            onClick={() => setRoute("app-actions")}
-            className={`px-3 h-10 flex items-center hover:bg-white/5 cursor-default transition-colors text-[13px] font-medium ${currentRoute === "app-actions" ? "text-primary bg-primary/5" : "text-white/80 hover:text-white"}`}
-          >
-            Dashboard
-          </button>
-
           <HelpMenu
             setRoute={setRoute}
             onOpenDoctor={onOpenDoctor}

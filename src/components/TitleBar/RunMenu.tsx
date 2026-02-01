@@ -16,13 +16,6 @@ export function RunMenu({ activeProject, setRoute }: RunMenuProps) {
 
   return (
     <div className="dropdown dropdown-bottom">
-      <div
-        tabIndex={0}
-        role="button"
-        className="px-3 h-10 flex items-center hover:bg-white/5 focus:bg-white/10 cursor-default transition-colors text-[13px] text-white/80 hover:text-white"
-      >
-        Run
-      </div>
       <ul
         tabIndex={0}
         className="dropdown-content z-[100] menu p-1 shadow-2xl bg-[#252525] border border-white/10 rounded-md w-52 mt-0 text-[12px]"
