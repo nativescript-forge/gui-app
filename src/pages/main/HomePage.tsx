@@ -49,6 +49,7 @@ type HomePageProps = {
   onOpenProject: (projectPath: string) => void;
   onOpenFolder: (projectPath: string) => void;
   onRunNpm?: (args: string[], cwd?: string) => Promise<void>;
+  onRefreshSystemReport?: () => Promise<void>;
 };
 
 export function HomePage(props: HomePageProps) {
@@ -67,19 +68,42 @@ export function HomePage(props: HomePageProps) {
       ? null
       : (props.projects.find((p) => p.path === activeProjectPath) ?? null);
 
+  const [latestNpmVersion, setLatestNpmVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchLatestVersion() {
+      try {
+        const res = await fetch(
+          "https://registry.npmjs.org/nativescript/latest",
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setLatestNpmVersion(data.version);
+        }
+      } catch (err) {
+        console.error("Failed to fetch latest NS version:", err);
+      }
+    }
+    fetchLatestVersion();
+  }, []);
+
   const versions = useMemo(() => {
     const info = props.systemReport?.info || "";
     const doctor = props.systemReport?.doctor || "";
     const combined = info + " " + doctor;
 
+    // Default extraction
+    let current =
+      info.match(/(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i)?.[1] ||
+      info.match(/([\d.]+)/)?.[1] ||
+      null;
+
     // Try to find "X.X.X -> Y.Y.Y"
     const updateMatch = combined.match(/([\d.]+)\s*->\s*([\d.]+)/);
-    if (updateMatch) {
-      return {
-        current: updateMatch[1],
-        latest: updateMatch[2],
-        hasUpdate: true,
-      };
+    let latest = latestNpmVersion || (updateMatch ? updateMatch[2] : null);
+
+    if (updateMatch && !current) {
+      current = updateMatch[1];
     }
 
     // Try to find "Update available X.X.X... latest is Y.Y.Y"
@@ -87,22 +111,23 @@ export function HomePage(props: HomePageProps) {
       /update available.*?([\d.]+).*?latest.*?([\d.]+)/i,
     );
     if (altMatch) {
-      return { current: altMatch[1], latest: altMatch[2], hasUpdate: true };
+      if (!current) current = altMatch[1];
+      if (!latest) latest = altMatch[2];
     }
 
-    // Default extraction
-    const current =
-      info.match(/(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i)?.[1] ||
-      info.match(/([\d.]+)/)?.[1] ||
-      "N/A";
-
     const hasUpdate =
+      current === null ||
+      (current && latest && current !== latest) ||
       doctor.toLowerCase().includes("update available") ||
       info.toLowerCase().includes("new version") ||
       combined.includes("->");
 
-    return { current, latest: null, hasUpdate };
-  }, [props.systemReport]);
+    return {
+      current: current || "Not Installed",
+      latest: latest,
+      hasUpdate,
+    };
+  }, [props.systemReport, latestNpmVersion]);
 
   const hasUpdate = versions.hasUpdate;
 
@@ -111,22 +136,29 @@ export function HomePage(props: HomePageProps) {
     setIsUpgrading(true);
     try {
       // Use npm as default for global upgrade or detect from systemReport
-      const pm = props.systemReport?.packageManager
-        ?.toLowerCase()
-        .includes("pnpm")
+      const pmStr = props.systemReport?.packageManager?.toLowerCase() || "";
+      const pm = pmStr.includes("pnpm")
         ? "pnpm"
-        : props.systemReport?.packageManager?.toLowerCase().includes("yarn")
+        : pmStr.includes("yarn")
           ? "yarn"
-          : "npm";
+          : pmStr.includes("bun")
+            ? "bun"
+            : "npm";
 
-      let args = ["install", "-g", "nativescript"];
-      if (pm === "yarn") args = ["global", "add", "nativescript"];
-      if (pm === "pnpm") args = ["add", "-g", "nativescript"];
+      let args = ["install", "-g", "nativescript@latest"];
+      if (pm === "yarn") args = ["global", "add", "nativescript@latest"];
+      if (pm === "pnpm") args = ["add", "-g", "nativescript@latest"];
+      if (pm === "bun") args = ["add", "-g", "nativescript@latest"];
 
       if (props.onRunNpm) {
         // Run global upgrade. We can pass a dummy or specific path if needed,
         // but runNpm handles it if we pass cwd.
         await props.onRunNpm(args, "");
+
+        // Refresh system report after successful upgrade
+        if (props.onRefreshSystemReport) {
+          await props.onRefreshSystemReport();
+        }
       } else {
         console.warn("onRunNpm not provided to HomePage");
       }
@@ -343,13 +375,17 @@ export function HomePage(props: HomePageProps) {
                   NS CLI Version
                 </div>
                 <div className="font-bold text-sm truncate flex items-center gap-2">
-                  {hasUpdate && versions.latest ? (
+                  {versions.current === "Not Installed" ? (
+                    <span className="text-error animate-pulse">
+                      Not Installed
+                    </span>
+                  ) : hasUpdate && versions.latest ? (
                     <>
-                      <span className="opacity-50 line-through text-[11px]">
+                      <span className="text-error line-through text-[11px]">
                         v{versions.current}
                       </span>
                       <FiArrowRight className="h-3 w-3 opacity-30" />
-                      <span className="text-primary">v{versions.latest}</span>
+                      <span className="text-success">v{versions.latest}</span>
                     </>
                   ) : (
                     <span>v{versions.current}</span>
@@ -450,7 +486,9 @@ export function HomePage(props: HomePageProps) {
                   ) : (
                     <FiRefreshCw className="h-3.5 w-3.5" />
                   )}
-                  Upgrade CLI
+                  {versions.current === "Not Installed"
+                    ? "Install CLI"
+                    : "Upgrade CLI"}
                 </button>
               ) : (
                 <div className="flex items-center justify-center gap-2 text-success text-[11px] font-bold uppercase tracking-wider bg-success/10 py-2 px-4 rounded-lg">

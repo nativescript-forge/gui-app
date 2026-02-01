@@ -408,76 +408,6 @@ export function PluginsPage({
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-          {activeTab === "marketplace" && (
-            <div className="flex bg-base-200 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
-              <button
-                onClick={() => setPluginSource("awesome")}
-                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  pluginSource === "awesome"
-                    ? "bg-base-100 shadow-sm text-primary"
-                    : "opacity-50 hover:opacity-100"
-                }`}
-              >
-                Awesome
-              </button>
-              <button
-                onClick={() => setPluginSource("market")}
-                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  pluginSource === "market"
-                    ? "bg-base-100 shadow-sm text-primary"
-                    : "opacity-50 hover:opacity-100"
-                }`}
-              >
-                Market
-              </button>
-              <button
-                onClick={() => setPluginSource("npm")}
-                className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                  pluginSource === "npm"
-                    ? "bg-base-100 shadow-sm text-primary"
-                    : "opacity-50 hover:opacity-100"
-                }`}
-              >
-                NPM
-              </button>
-            </div>
-          )}
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <button
-              onClick={fetchAll}
-              disabled={loading}
-              className="btn btn-ghost btn-sm btn-square"
-              title="Refresh all data"
-            >
-              <FiRefreshCw
-                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-              />
-            </button>
-            <div className="relative flex-1 md:w-80">
-              {loading || isSearchingNpm ? (
-                <span className="loading loading-spinner loading-xs absolute left-3 top-1/2 -translate-y-1/2 opacity-30"></span>
-              ) : (
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
-              )}
-              <input
-                className="input input-bordered w-full pl-10 bg-base-100 focus:border-primary/50 transition-all"
-                placeholder={
-                  activeTab === "marketplace"
-                    ? pluginSource === "awesome"
-                      ? "Search awesome plugins..."
-                      : "Search NativeScript market..."
-                    : "Search installed plugins..."
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
         <div className="tabs tabs-boxed bg-base-200/50 p-1 w-fit">
           <button
             className={`tab tab-sm md:tab-md px-6 rounded-lg transition-all mr-1 ${
@@ -501,22 +431,94 @@ export function PluginsPage({
             {Object.keys(installedPackages).filter(isNsPlugin).length})
           </button>
         </div>
+      </div>
 
-        {activeTab === "marketplace" && pluginSource === "awesome" && (
-          <div className="flex items-center gap-3">
-            <select
-              className="select select-bordered select-sm rounded-xl bg-base-100 focus:border-primary/50 transition-all font-bold min-w-[180px]"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-            >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat === "All" ? "All Categories" : cat}
-                </option>
-              ))}
-            </select>
+      <div className="bg-base-200/20 p-4 rounded-2xl border border-base-content/5 mb-8">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="w-full md:w-auto">
+            {activeTab === "marketplace" && (
+              <div className="flex bg-base-200 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
+                <button
+                  onClick={() => setPluginSource("awesome")}
+                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pluginSource === "awesome"
+                      ? "bg-base-100 shadow-sm text-primary"
+                      : "opacity-50 hover:opacity-100"
+                  }`}
+                >
+                  Awesome
+                </button>
+                <button
+                  onClick={() => setPluginSource("market")}
+                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pluginSource === "market"
+                      ? "bg-base-100 shadow-sm text-primary"
+                      : "opacity-50 hover:opacity-100"
+                  }`}
+                >
+                  Market
+                </button>
+                <button
+                  onClick={() => setPluginSource("npm")}
+                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                    pluginSource === "npm"
+                      ? "bg-base-100 shadow-sm text-primary"
+                      : "opacity-50 hover:opacity-100"
+                  }`}
+                >
+                  NPM
+                </button>
+              </div>
+            )}
           </div>
-        )}
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            {activeTab === "marketplace" && pluginSource === "awesome" && (
+              <select
+                className="select select-bordered select-sm rounded-xl bg-base-100 focus:border-primary/50 transition-all font-bold min-w-[150px]"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat === "All" ? "All Categories" : cat}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <button
+              onClick={fetchAll}
+              disabled={loading}
+              className="btn btn-ghost btn-sm btn-square rounded-xl bg-base-100"
+              title="Refresh all data"
+            >
+              <FiRefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+            </button>
+
+            <div className="relative flex-1 md:w-72">
+              {loading || isSearchingNpm ? (
+                <span className="loading loading-spinner loading-xs absolute left-3 top-1/2 -translate-y-1/2 opacity-30"></span>
+              ) : (
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" />
+              )}
+              <input
+                className="input input-bordered input-sm w-full pl-10 bg-base-100 rounded-xl focus:border-primary/50 transition-all"
+                placeholder={
+                  activeTab === "marketplace"
+                    ? pluginSource === "awesome"
+                      ? "Search awesome plugins..."
+                      : "Search NativeScript market..."
+                    : "Search installed plugins..."
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {activeTab === "marketplace" ? (

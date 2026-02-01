@@ -1027,6 +1027,9 @@ function App() {
             onOpenProject={handleOpenActions}
             onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
             onRunNpm={runNpm}
+            onRefreshSystemReport={async () => {
+              if (db) await runBackgroundChecks(db);
+            }}
           />
         )}
 
