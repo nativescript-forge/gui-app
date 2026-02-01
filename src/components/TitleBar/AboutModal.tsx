@@ -1,3 +1,5 @@
+import { FiGithub, FiGlobe } from "react-icons/fi";
+
 interface AboutModalProps {
   show: boolean;
   onClose: () => void;
@@ -32,11 +34,33 @@ export function AboutModal({
 
             <div className="mt-6 space-y-2">
               <p className="text-sm opacity-80">
-                A professional IDE for NativeScript development.
+                Visual toolkit for NativeScript developers
               </p>
               <p className="text-[13px] opacity-50 italic">
                 Created by Kang Cahya
               </p>
+              <div className="flex items-center justify-center gap-4 mt-4">
+                <a
+                  href="https://www.kang-cahya.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-[11px] opacity-40 hover:opacity-100 transition-opacity"
+                  title="Web / Blog"
+                >
+                  <FiGlobe className="w-3.5 h-3.5" />
+                  <span>kang-cahya.com</span>
+                </a>
+                <a
+                  href="https://github.com/dyazincahya"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-[11px] opacity-40 hover:opacity-100 transition-opacity"
+                  title="GitHub"
+                >
+                  <FiGithub className="w-3.5 h-3.5" />
+                  <span>dyazincahya</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>

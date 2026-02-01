@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { ProjectRow, ActivityLog } from "../../app/types";
 import { parsePlatforms } from "../../app/platforms";
 import { shortenPath } from "../../app/utils";
@@ -25,6 +25,8 @@ import {
   FiClock,
   FiCheckCircle,
   FiAlertCircle,
+  FiRefreshCw,
+  FiInfo,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 import Database from "@tauri-apps/plugin-sql";
@@ -33,6 +35,11 @@ type HomePageProps = {
   logoSrc: string;
   projects: ProjectRow[];
   db: Database | null;
+  systemReport: {
+    info: string;
+    doctor: string;
+    packageManager: string;
+  } | null;
   lastActivityTime?: number;
   onAddProject: () => void;
   onCreateProject: () => void;
@@ -41,6 +48,7 @@ type HomePageProps = {
   onViewAllActivities?: () => void;
   onOpenProject: (projectPath: string) => void;
   onOpenFolder: (projectPath: string) => void;
+  onRunNpm?: (args: string[], cwd?: string) => Promise<void>;
 };
 
 export function HomePage(props: HomePageProps) {
@@ -51,11 +59,83 @@ export function HomePage(props: HomePageProps) {
     const saved = localStorage.getItem("ns-forge-hero-expanded");
     return saved !== null ? JSON.parse(saved) : true;
   });
+  const [showSystemModal, setShowSystemModal] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
 
   const activeProject =
     activeProjectPath == null
       ? null
       : (props.projects.find((p) => p.path === activeProjectPath) ?? null);
+
+  const versions = useMemo(() => {
+    const info = props.systemReport?.info || "";
+    const doctor = props.systemReport?.doctor || "";
+    const combined = info + " " + doctor;
+
+    // Try to find "X.X.X -> Y.Y.Y"
+    const updateMatch = combined.match(/([\d.]+)\s*->\s*([\d.]+)/);
+    if (updateMatch) {
+      return {
+        current: updateMatch[1],
+        latest: updateMatch[2],
+        hasUpdate: true,
+      };
+    }
+
+    // Try to find "Update available X.X.X... latest is Y.Y.Y"
+    const altMatch = combined.match(
+      /update available.*?([\d.]+).*?latest.*?([\d.]+)/i,
+    );
+    if (altMatch) {
+      return { current: altMatch[1], latest: altMatch[2], hasUpdate: true };
+    }
+
+    // Default extraction
+    const current =
+      info.match(/(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i)?.[1] ||
+      info.match(/([\d.]+)/)?.[1] ||
+      "N/A";
+
+    const hasUpdate =
+      doctor.toLowerCase().includes("update available") ||
+      info.toLowerCase().includes("new version") ||
+      combined.includes("->");
+
+    return { current, latest: null, hasUpdate };
+  }, [props.systemReport]);
+
+  const hasUpdate = versions.hasUpdate;
+
+  const handleUpgrade = async () => {
+    if (isUpgrading) return;
+    setIsUpgrading(true);
+    try {
+      // Use npm as default for global upgrade or detect from systemReport
+      const pm = props.systemReport?.packageManager
+        ?.toLowerCase()
+        .includes("pnpm")
+        ? "pnpm"
+        : props.systemReport?.packageManager?.toLowerCase().includes("yarn")
+          ? "yarn"
+          : "npm";
+
+      let args = ["install", "-g", "nativescript"];
+      if (pm === "yarn") args = ["global", "add", "nativescript"];
+      if (pm === "pnpm") args = ["add", "-g", "nativescript"];
+
+      if (props.onRunNpm) {
+        // Run global upgrade. We can pass a dummy or specific path if needed,
+        // but runNpm handles it if we pass cwd.
+        await props.onRunNpm(args, "");
+      } else {
+        console.warn("onRunNpm not provided to HomePage");
+      }
+    } catch (err) {
+      console.error("Upgrade failed:", err);
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem(
@@ -109,10 +189,16 @@ export function HomePage(props: HomePageProps) {
               Welcome to <br className="sm:hidden" />
               <span className="text-primary">NativeScript Forge</span>
             </h1>
-            <p className="text-lg md:text-xl opacity-70 leading-relaxed mb-8 max-w-3xl">
-              Your ultimate desktop companion for NativeScript development.
-              Effortlessly manage projects, maintain toolchain health, and
-              execute CLI actions through a refined, high-performance interface.
+            <p className="text-sm md:text-base opacity-70 leading-relaxed mb-8 max-w-4xl">
+              NativeScript Forge is a community-built development studio
+              designed to simplify, visualize, and control the NativeScript
+              development workflow. It provides developers with a unified
+              graphical interface to manage projects, environments, plugins,
+              builds, and platform configurations—without replacing the
+              NativeScript CLI. NativeScript Forge focuses on transparency,
+              safety, and productivity, helping developers reduce setup
+              friction, avoid common pitfalls, and stay in control of complex
+              NativeScript projects.
             </p>
 
             <div className="flex flex-col sm:flex-row flex-wrap justify-start gap-3 mb-10">
@@ -243,6 +329,140 @@ export function HomePage(props: HomePageProps) {
         )}
       </div>
 
+      {/* System Environment Section - Single Card */}
+      <div className="card bg-base-100 border border-base-200 shadow-sm mb-12 overflow-hidden mt-5">
+        <div className="card-body p-0">
+          <div className="flex flex-col md:flex-row items-stretch divide-y md:divide-y-0 md:divide-x divide-base-200">
+            {/* CLI Version */}
+            <div className="flex-1 p-4 flex items-center gap-4 hover:bg-base-200/20 transition-colors">
+              <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                <FiPackage className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-0.5">
+                  NS CLI Version
+                </div>
+                <div className="font-bold text-sm truncate flex items-center gap-2">
+                  {hasUpdate && versions.latest ? (
+                    <>
+                      <span className="opacity-50 line-through text-[11px]">
+                        v{versions.current}
+                      </span>
+                      <FiArrowRight className="h-3 w-3 opacity-30" />
+                      <span className="text-primary">v{versions.latest}</span>
+                    </>
+                  ) : (
+                    <span>v{versions.current}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Package Manager */}
+            <div className="flex-1 p-4 flex items-center gap-4 hover:bg-base-200/20 transition-colors">
+              <div className="p-3 rounded-2xl bg-secondary/10 text-secondary">
+                <FiCpu className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-0.5">
+                  Package Manager
+                </div>
+                <div className="font-bold text-sm truncate uppercase">
+                  {(() => {
+                    const pm = props.systemReport?.packageManager?.trim() || "";
+                    const match = pm.match(/(npm|yarn|pnpm|bun)/i);
+                    if (match) return match[1];
+                    // Fallback to simpler check if regex fails
+                    if (pm.toLowerCase().includes("pnpm")) return "pnpm";
+                    if (pm.toLowerCase().includes("yarn")) return "yarn";
+                    if (pm.toLowerCase().includes("bun")) return "bun";
+                    return "npm";
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* System Health */}
+            <div
+              className="group flex-1 p-4 flex items-center gap-4 hover:bg-base-200/20 transition-colors cursor-pointer"
+              onClick={() => setShowSystemModal(true)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setShowSystemModal(true);
+                }
+              }}
+            >
+              <div
+                className={`p-3 rounded-2xl ${
+                  props.systemReport?.doctor
+                    ?.toLowerCase()
+                    .includes("no issues")
+                    ? "bg-success/10 text-success"
+                    : "bg-warning/10 text-warning"
+                }`}
+              >
+                {props.systemReport?.doctor
+                  ?.toLowerCase()
+                  .includes("no issues") ? (
+                  <FiCheckCircle className="h-5 w-5" />
+                ) : (
+                  <FiAlertCircle className="h-5 w-5" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-0.5">
+                  System Health
+                </div>
+                <div
+                  className={`font-bold text-sm truncate ${
+                    props.systemReport?.doctor
+                      ?.toLowerCase()
+                      .includes("no issues")
+                      ? "text-success"
+                      : "text-warning"
+                  }`}
+                >
+                  {props.systemReport?.doctor
+                    ?.toLowerCase()
+                    .includes("no issues")
+                    ? "Healthy"
+                    : "Review Needed"}
+                </div>
+              </div>
+              <div className="text-[10px] font-bold uppercase tracking-widest opacity-20 group-hover:opacity-60 transition-opacity shrink-0">
+                View Report
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 bg-base-200/30 flex flex-col sm:flex-row md:flex-col justify-center gap-2 min-w-[200px]">
+              {hasUpdate ? (
+                <button
+                  onClick={handleUpgrade}
+                  disabled={isUpgrading}
+                  className="btn btn-primary btn-sm flex-1 font-bold text-[11px] gap-2"
+                >
+                  {isUpgrading ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    <FiRefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Upgrade CLI
+                </button>
+              ) : (
+                <div className="flex items-center justify-center gap-2 text-success text-[11px] font-bold uppercase tracking-wider bg-success/10 py-2 px-4 rounded-lg">
+                  <FiCheckCircle className="h-3.5 w-3.5" />
+                  Up to Date
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between mb-6 mt-12">
         <h2 className="text-2xl font-bold">Recent Projects</h2>
         <button
@@ -261,19 +481,38 @@ export function HomePage(props: HomePageProps) {
             activeProject ? "lg:col-span-7 xl:col-span-8" : "lg:col-span-12"
           }
         >
-          {props.projects.length === 0 ? (
-            <div className="alert bg-base-100 border-base-200 rounded-box p-6 shadow-sm flex flex-col items-center py-12 text-center">
-              <FiFolderPlus className="h-12 w-12 opacity-10 mb-4" />
-              <span className="opacity-60 italic text-sm">
-                Your project library is empty. Click "Add Project" to begin your
-                journey.
-              </span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {[...props.projects]
+          <div className="flex flex-col gap-4">
+            {props.projects.length === 0 ? (
+              <div className="card bg-base-100 border border-base-200 border-dashed shadow-sm p-12 md:p-20 text-center flex flex-col items-center gap-6">
+                <div className="p-6 rounded-full bg-base-200/50">
+                  <FiSearch className="h-12 w-12 opacity-10" />
+                </div>
+                <div className="max-w-xs">
+                  <h3 className="text-lg font-bold mb-1">No Projects Found</h3>
+                  <p className="text-sm opacity-40 italic">
+                    Your library is empty. Add an existing project or create a
+                    new one to get started.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={props.onAddProject}
+                  >
+                    Add Project
+                  </button>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={props.onCreateProject}
+                  >
+                    Create New
+                  </button>
+                </div>
+              </div>
+            ) : (
+              [...props.projects]
                 .sort((a, b) => (b.last_opened || 0) - (a.last_opened || 0))
-                .slice(0, 5)
+                .slice(0, 6)
                 .map((p) => {
                   const isActive = p.path === activeProjectPath;
                   return (
@@ -288,7 +527,6 @@ export function HomePage(props: HomePageProps) {
                     >
                       <div className="card-body p-0">
                         <div className="flex flex-col md:flex-row">
-                          {/* Project Info */}
                           <div
                             className={`p-5 flex-1 transition-colors ${
                               isActive
@@ -316,8 +554,8 @@ export function HomePage(props: HomePageProps) {
                                 {p.name}
                               </h3>
                             </div>
-                            <div className="flex items-center gap-2 text-sm opacity-60 font-mono min-w-0 mb-4">
-                              <FiFolderPlus className="h-3.5 w-3.5 shrink-0" />
+                            <div className="flex items-center gap-2 text-xs opacity-50 font-mono min-w-0 mb-4">
+                              <FiFolderPlus className="h-3 w-3 shrink-0" />
                               <span className="truncate" title={p.path}>
                                 {shortenPath(p.path)}
                               </span>
@@ -366,14 +604,14 @@ export function HomePage(props: HomePageProps) {
                       </div>
                     </div>
                   );
-                })}
-            </div>
-          )}
+                })
+            )}
+          </div>
         </div>
 
         {activeProject && (
           <div className="lg:col-span-5 xl:col-span-4">
-            <div className="card bg-base-100 border border-base-200 shadow-sm sticky top-6">
+            <div className="card bg-base-100 border border-base-200 shadow-sm lg:sticky lg:top-6">
               <div className="card-body">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2">
@@ -599,6 +837,80 @@ export function HomePage(props: HomePageProps) {
           </div>
         )}
       </div>
+
+      {renderSystemModal()}
     </div>
   );
+
+  function renderSystemModal() {
+    if (!showSystemModal) return null;
+    return (
+      <div className="modal modal-open">
+        <div className="modal-box w-11/12 max-w-4xl h-[80vh] flex flex-col p-0 overflow-hidden border border-base-300 shadow-2xl rounded-3xl">
+          <div className="p-6 border-b border-base-200 flex items-center justify-between bg-base-200/50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                <FiCpu className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-black text-lg">
+                  System Environment Report
+                </h3>
+                <p className="text-xs opacity-50">
+                  NativeScript CLI Diagnostics
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowSystemModal(false)}
+              className="btn btn-ghost btn-sm btn-circle"
+            >
+              <FiX className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <section>
+              <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                <FiInfo className="w-3 h-3" /> CLI Information
+              </h4>
+              <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                {props.systemReport?.info || "No information available."}
+              </pre>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                <FiShield className="w-3 h-3" /> Doctor Results
+              </h4>
+              <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                {props.systemReport?.doctor || "No doctor results available."}
+              </pre>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-black uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
+                <FiPackage className="w-3 h-3" /> Package Manager
+              </h4>
+              <pre className="bg-base-300/50 p-4 rounded-2xl text-[11px] font-mono whitespace-pre-wrap leading-relaxed border border-base-300">
+                {props.systemReport?.packageManager ||
+                  "No information available."}
+              </pre>
+            </section>
+          </div>
+          <div className="p-6 border-t border-base-200 bg-base-200/30 flex justify-end">
+            <button
+              onClick={() => setShowSystemModal(false)}
+              className="btn btn-primary rounded-xl px-8"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+        <div
+          className="modal-backdrop bg-base-900/60 backdrop-blur-sm"
+          onClick={() => setShowSystemModal(false)}
+        ></div>
+      </div>
+    );
+  }
 }

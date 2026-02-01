@@ -168,6 +168,13 @@ function App() {
   }, [route]);
   */
 
+  // Reset active project overview when entering projects page
+  useEffect(() => {
+    if (route === "projects") {
+      setActiveProjectPath(null);
+    }
+  }, [route]);
+
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       // Allow context menu only for input/textarea elements if needed,
@@ -353,7 +360,7 @@ function App() {
     try {
       const currentDb = await Database.load("sqlite:nsforge.db");
       setDb(currentDb);
-      await refreshProjects(currentDb, true);
+      await refreshProjects(currentDb, false);
 
       // Load existing system report
       const savedReport = await currentDb.select<
@@ -621,7 +628,7 @@ function App() {
         await refreshProjects(db);
         setActiveProjectPath(projectPath);
         setActionsProjectPath(projectPath);
-        setRoute("projects");
+        setRoute("app-actions");
       } else {
         logActivity(
           "create-project",
@@ -1000,6 +1007,7 @@ function App() {
             logoSrc={logoSrc}
             projects={projects}
             db={db}
+            systemReport={systemReport}
             lastActivityTime={lastActivityTime}
             onAddProject={browseAndAddProject}
             onCreateProject={() => setRoute("create")}
@@ -1008,6 +1016,7 @@ function App() {
             onViewAllActivities={() => setRoute("activity")}
             onOpenProject={handleOpenActions}
             onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+            onRunNpm={runNpm}
           />
         )}
 
