@@ -21,7 +21,7 @@ A list of core features designed to streamline and simplify the NativeScript app
   - [x] Create New Project
   - [x] Add Existing Project
   - [x] Scan Project Folder
- 
+
 - [x] **Activity Log**
 - [x] **Settings**
 
@@ -30,27 +30,27 @@ A list of core features designed to streamline and simplify the NativeScript app
 ## App Mode Page
 
 - [ ] **Dashboard**
-  - [ ] Additional widgets and summaries *(TBD)*
+  - [ ] Additional widgets and summaries _(TBD)_
 
 - [ ] **Resource Configuration**
-  - [ ] Manage application resources *(TBD)*
+  - [ ] Manage application resources _(TBD)_
 
 - [ ] **Project Configuration**
-  - [ ] Project-level settings *(TBD)*
+  - [ ] Project-level settings _(TBD)_
 
 - [ ] **Platform Configuration**
-  - [ ] Platform-specific settings (Android / iOS) *(TBD)*
+  - [ ] Platform-specific settings (Android / iOS) _(TBD)_
 
 - [ ] **Plugin Management**
-  - [ ] Install, update, and remove plugins *(TBD)*
+  - [ ] Install, update, and remove plugins _(TBD)_
 
 - [ ] **Permission Management**
-  - [ ] Manage platform permissions *(TBD)*
+  - [ ] Manage platform permissions _(TBD)_
 
 - [ ] **Build App**
   - [ ] Android
   - [ ] iOS
-  - [ ] VisionOS 
+  - [ ] VisionOS
 - [ ] **Run App**
   - [ ] Android
   - [ ] iOS
@@ -64,5 +64,6 @@ A list of core features designed to streamline and simplify the NativeScript app
 ---
 
 ### Notes
-- *(TBD)* indicates features that are still in the planning phase and will be detailed later.
-- This structure can be used as a **[roadmap](https://github.com/dyazincahya/NS-Forge/blob/main/ROADMAPS.md)**, **planning document**, or **development reference**.
+
+- _(TBD)_ indicates features that are still in the planning phase and will be detailed later.
+- This structure can be used as a **[roadmap](https://github.com/dyazincahya/NS-Forge/blob/main/TEMP-ROADMAPS.md)**, **planning document**, or **development reference**.
