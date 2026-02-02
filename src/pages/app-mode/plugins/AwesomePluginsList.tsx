@@ -1,9 +1,4 @@
-import {
-  FiPackage,
-  FiDownload,
-  FiCheckCircle,
-  FiExternalLink,
-} from "react-icons/fi";
+import { FiDownload, FiCheckCircle, FiExternalLink } from "react-icons/fi";
 
 interface Plugin {
   name: string;

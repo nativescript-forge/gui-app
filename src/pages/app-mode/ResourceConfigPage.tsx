@@ -2,18 +2,16 @@ import React, { useState, useEffect } from "react";
 import {
   FiImage,
   FiLayout,
-  FiArrowLeft,
   FiInfo,
-  FiLayers,
   FiFile,
   FiSettings,
   FiCheckCircle,
   FiUploadCloud,
   FiAlertCircle,
-  FiSmartphone,
   FiClock,
   FiWifi,
   FiBattery,
+  FiSmartphone,
 } from "react-icons/fi";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";

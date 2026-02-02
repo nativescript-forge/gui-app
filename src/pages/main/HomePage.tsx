@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import type { ProjectRow, ActivityLog } from "../../app/types";
+import type { ProjectRow } from "../../app/types";
 import { parsePlatforms } from "../../app/platforms";
 import { shortenPath } from "../../app/utils";
 import {
@@ -21,7 +21,6 @@ import {
   FiPackage,
   FiCalendar,
   FiShield,
-  FiActivity,
   FiClock,
   FiCheckCircle,
   FiAlertCircle,

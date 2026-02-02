@@ -1,19 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   FiActivity,
-  FiClock,
   FiCheckCircle,
   FiAlertCircle,
   FiInfo,
   FiSearch,
-  FiTrash2,
   FiFilter,
-  FiTerminal,
   FiActivity as FiAction,
   FiSettings,
   FiPlus,
   FiPackage,
-  FiKey,
   FiChevronDown,
 } from "react-icons/fi";
 import Database from "@tauri-apps/plugin-sql";

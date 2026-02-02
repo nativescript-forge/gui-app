@@ -5,7 +5,6 @@ import { join } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
 import {
   FiCopy,
-  FiPlay,
   FiCheckCircle,
   FiChevronDown,
   FiPackage,
@@ -14,7 +13,6 @@ import {
   FiBox,
   FiFolder,
   FiActivity,
-  FiHardDrive,
   FiRefreshCw,
   FiAlertTriangle,
   FiInfo,
@@ -22,8 +20,6 @@ import {
   FiDownload,
   FiShield,
   FiArrowUpCircle,
-  FiGlobe,
-  FiSettings,
   FiCommand,
   FiLayers,
   FiX,
@@ -73,11 +69,7 @@ export type DashboardPageProps = {
 
 export function DashboardPage(props: DashboardPageProps) {
   const {
-    projects,
-    projectPath,
-    setProjectPath,
     running,
-    onOpenBuildModal,
     onRunAction,
     onRunNpm,
     currentAction,

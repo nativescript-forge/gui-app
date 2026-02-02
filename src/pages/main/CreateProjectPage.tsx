@@ -5,11 +5,8 @@ import {
   FiPackage,
   FiLayers,
   FiCheckCircle,
-  FiTerminal,
   FiCopy,
   FiCode,
-  FiChevronUp,
-  FiChevronDown,
   FiX,
   FiZap,
 } from "react-icons/fi";
@@ -367,8 +364,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
     "android" | "ios" | "vision"
   >("android");
 
-  const [isTerminalExpanded, setIsTerminalExpanded] = useState(true);
-  const [isTerminalVisible, setIsTerminalVisible] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<"success" | "error">("error");
@@ -383,16 +378,13 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  // Track if creation was successful to show "Go to Project" button
-  const [isSuccess, setIsSuccess] = useState(false);
-
   // Auto-scroll terminal
   const terminalRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (terminalRef.current && isTerminalExpanded) {
+    if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [props.logs, isTerminalExpanded]);
+  }, [props.logs]);
 
   // Monitor isCreating to detect when it finishes successfully
   const lastIsCreating = useRef(props.isCreating);
@@ -403,7 +395,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
         !props.logs.toLowerCase().includes("fail") &&
         !props.logs.toLowerCase().includes("error")
       ) {
-        setIsSuccess(true);
         // Reset form inputs for next project immediately when success is detected
         // Note: We keep parentPath as it's common to create multiple projects in the same folder
         setName("");
@@ -416,36 +407,8 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
     lastIsCreating.current = props.isCreating;
   }, [props.isCreating, props.logs]);
 
-  const handleGoToProject = () => {
-    // Add a small delay for transition effect
-    const terminal = document.querySelector(".terminal-container");
-    if (terminal) {
-      terminal.classList.add("scale-95", "opacity-0");
-    }
-
-    setTimeout(() => {
-      if (props.onProjectCreated) {
-        props.onProjectCreated();
-      }
-    }, 300);
-  };
-
   const selectedTemplate = TEMPLATES.find((t) => t.id === template);
   const selectedFlavor = FLAVORS.find((f) => f.id === flavor);
-
-  // Typing animation for terminal
-  const [typingText, setTypingText] = useState("");
-  const creatingMessages = [
-    "Initializing NativeScript CLI",
-    "Fetching project templates",
-    "Configuring project structure",
-    "Installing dependencies (this may take a while)",
-    `Setting up flavor: ${selectedFlavor?.label || flavor}`,
-    `Applying template: ${selectedTemplate?.label || template}`,
-    "Preparing workspace",
-    "Generating assets",
-    "Finalizing project configuration",
-  ];
 
   const handlePlatformChange = (p: "standard" | "vision") => {
     setPlatform(p);
@@ -501,54 +464,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
 
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    let timer: any;
-    if (props.isCreating) {
-      let msgIndex = 0;
-      let charIndex = 0;
-      let dotCount = 0;
-
-      const type = () => {
-        const currentMsg = creatingMessages[msgIndex];
-        if (!currentMsg) return;
-
-        if (charIndex < currentMsg.length) {
-          // CAPTURE character BEFORE incrementing charIndex to avoid closure issue
-          const charToType = currentMsg[charIndex];
-          setTypingText((prev) => prev + (charToType || ""));
-          charIndex++;
-          timer = setTimeout(type, 30);
-        } else if (msgIndex < creatingMessages.length - 1) {
-          // For intermediate messages: Add 3 dots then move to next message
-          if (dotCount < 3) {
-            setTypingText((prev) => prev + ".");
-            dotCount++;
-            timer = setTimeout(type, 500);
-          } else {
-            // Pause then move to next message
-            timer = setTimeout(() => {
-              msgIndex++;
-              charIndex = 0;
-              dotCount = 0;
-              setTypingText((prev) => prev + "\n> ");
-              type();
-            }, 1000);
-          }
-        } else {
-          // For the LAST message: Keep adding dots indefinitely (1 dot per second)
-          setTypingText((prev) => prev + ".");
-          timer = setTimeout(type, 1000);
-        }
-      };
-
-      setTypingText("> ");
-      timer = setTimeout(type, 100);
-    } else {
-      setTypingText("");
-    }
-    return () => clearTimeout(timer);
-  }, [props.isCreating, flavor, template]); // flavor and template are dependencies for creatingMessages
 
   const filteredFlavors = FLAVORS.filter((f) =>
     TEMPLATES.some(
@@ -642,7 +557,6 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
       return;
     }
     setError("");
-    setIsSuccess(false);
     props.onCreate({ name, parentPath, flavor, template, platform });
   };
 

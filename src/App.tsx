@@ -4,7 +4,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import Database from "@tauri-apps/plugin-sql";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
 import "./App.css";
 
 import type {
@@ -12,9 +11,7 @@ import type {
   Theme,
   ProjectRow,
   ProjectAnalysis,
-  DoctorCheck,
   CommandResult,
-  AdbDevice,
 } from "./app/types";
 import { getBrandAssets } from "./app/brand";
 import { redactCommand, formatDuration } from "./app/logging";
@@ -92,9 +89,6 @@ function App() {
     null,
   );
 
-  const [doctorChecks, setDoctorChecks] = useState<DoctorCheck[] | null>(null);
-  const [doctorLoading, setDoctorLoading] = useState(false);
-
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverResults, setDiscoverResults] = useState<ProjectAnalysis[]>([]);
@@ -107,7 +101,6 @@ function App() {
   const [buildOutputPath, setBuildOutputPath] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
   const [logText, setLogText] = useState<string>("");
-  const [logFilter, setLogFilter] = useState<"all" | "errors">("all");
   const [isTerminalVisible, setIsTerminalVisible] = useState(false);
   const [lastActivityTime, setLastActivityTime] = useState<number>(Date.now());
   const [toast, setToast] = useState<{
@@ -685,12 +678,7 @@ function App() {
     }
   }
 
-  async function openInFileManager(path: string) {
-    await openPath(path);
-  }
-
   async function runDoctor() {
-    setDoctorLoading(true);
     setActionsRunning(true);
     setCurrentAction("doctor");
     const startTime = Date.now();
@@ -710,8 +698,6 @@ function App() {
     }
 
     try {
-      const result = (await invoke("doctor_checks")) as DoctorCheck[];
-      setDoctorChecks(result);
       logActivity(
         "system",
         `Ran system doctor checks (${formatDuration(Date.now() - startTime)})`,
@@ -723,7 +709,6 @@ function App() {
       });
       console.error("Doctor failed:", err);
     } finally {
-      setDoctorLoading(false);
       setActionsRunning(false);
       setCurrentAction(null);
     }
@@ -1115,7 +1100,6 @@ function App() {
         )}
         {route === "settings" && (
           <SettingsPage
-            db={db}
             systemReport={systemReport}
             isRefreshingSystemReport={isRefreshingSystemReport}
             onRefreshSystemReport={async () => {

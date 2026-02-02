@@ -8,12 +8,10 @@ import {
   FiPackage,
   FiSave,
 } from "react-icons/fi";
-import Database from "@tauri-apps/plugin-sql";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 type SettingsPageProps = {
-  db: Database | null;
   systemReport: {
     info: string;
     doctor: string;
@@ -31,7 +29,6 @@ type SettingsPageProps = {
 };
 
 export function SettingsPage({
-  db,
   systemReport,
   isRefreshingSystemReport,
   onRefreshSystemReport,
