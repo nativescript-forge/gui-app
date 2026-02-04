@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from "react";
 import type { IconType } from "react-icons";
 import { getVersion, getName } from "@tauri-apps/api/app";
+import { invoke } from "@tauri-apps/api/core";
 import {
   FiActivity,
   FiChevronLeft,
@@ -45,15 +46,11 @@ type AppShellProps = {
 
 const getFrameworkColor = (framework: string | null) => {
   const f = framework?.toLowerCase() || "";
-  if (f.includes("angular"))
-    return "bg-red-500/10 text-red-500 border-red-500/20";
-  if (f.includes("vue"))
-    return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
-  if (f.includes("react"))
-    return "bg-blue-500/10 text-blue-500 border-blue-500/20";
-  if (f.includes("svelte"))
-    return "bg-orange-500/10 text-orange-500 border-orange-500/20";
-  return "bg-base-300 text-base-content/70 border-base-content/10";
+  if (f.includes("angular")) return "text-red-500";
+  if (f.includes("vue")) return "text-emerald-500";
+  if (f.includes("react")) return "text-blue-500";
+  if (f.includes("svelte")) return "text-orange-500";
+  return "text-base-content/50";
 };
 
 export function AppShell(props: AppShellProps) {
@@ -61,6 +58,7 @@ export function AppShell(props: AppShellProps) {
     name: "NS-Forge",
     version: "0.1.0",
   });
+  const [projectIcons, setProjectIcons] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -73,6 +71,30 @@ export function AppShell(props: AppShellProps) {
     };
     fetchInfo();
   }, []);
+
+  useEffect(() => {
+    async function fetchAllIcons() {
+      const newIcons: Record<string, string> = {};
+      await Promise.all(
+        props.projects.map(async (p) => {
+          try {
+            const iconData = await invoke<string>("get_project_icon", {
+              path: p.path,
+            });
+            if (iconData) {
+              newIcons[p.path] = iconData;
+            }
+          } catch (err) {
+            // Silently fail, will use default icon
+          }
+        }),
+      );
+      setProjectIcons((prev) => ({ ...prev, ...newIcons }));
+    }
+    if (props.projects.length > 0) {
+      fetchAllIcons();
+    }
+  }, [props.projects]);
 
   const homeSidebarItems: SidebarItem[] = [
     { id: "home", label: "Home", icon: FiHome },
@@ -173,88 +195,104 @@ export function AppShell(props: AppShellProps) {
                     <span className="font-bold">Back to Home</span>
                   </button>
 
-                  <div className="p-3 rounded-2xl bg-base-200/50 border border-base-300">
-                    <div className="text-[9px] font-black uppercase tracking-[0.2em] opacity-50 mb-2 px-1">
-                      Current Application
-                    </div>
-                    <div className="dropdown w-full">
-                      <div
-                        tabIndex={0}
-                        role="button"
-                        className="btn btn-ghost btn-sm w-full font-bold flex items-center justify-between px-2 h-auto min-h-[2.5rem] bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30"
-                      >
-                        <div className="flex items-center gap-2 truncate">
+                  <div className="dropdown w-full">
+                    <div
+                      tabIndex={0}
+                      role="button"
+                      className="btn btn-ghost btn-sm w-full font-bold flex items-center justify-between px-2 h-auto min-h-[2.8rem] bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30"
+                    >
+                      <div className="flex items-center gap-3 truncate">
+                        {props.activeProjectPath &&
+                        projectIcons[props.activeProjectPath] ? (
+                          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-base-300">
+                            <img
+                              src={projectIcons[props.activeProjectPath]}
+                              className="w-full h-full object-cover"
+                              alt="Project Icon"
+                            />
+                          </div>
+                        ) : (
                           <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--p),0.5)]" />
-                          <div className="flex flex-col items-start truncate">
-                            <span className="truncate text-xs">
+                        )}
+                        <div className="flex flex-col items-start truncate">
+                          <span className="truncate text-xs font-bold">
+                            {props.projects.find(
+                              (p) => p.path === props.activeProjectPath,
+                            )?.name || "Select Project"}
+                          </span>
+                          {props.activeProjectPath && (
+                            <span
+                              className={`text-[8px] font-black uppercase leading-none mt-1 tracking-wider ${getFrameworkColor(props.projects.find((p) => p.path === props.activeProjectPath)?.framework || null)}`}
+                            >
                               {props.projects.find(
                                 (p) => p.path === props.activeProjectPath,
-                              )?.name || "Select Project"}
+                              )?.framework || "Plain"}
                             </span>
-                            {props.activeProjectPath && (
-                              <span
-                                className={`text-[7px] font-black uppercase leading-none mt-0.5 px-1 py-[1px] rounded-[2px] border-[0.5px] tracking-wider ${getFrameworkColor(props.projects.find((p) => p.path === props.activeProjectPath)?.framework || null)}`}
-                              >
-                                {props.projects.find(
-                                  (p) => p.path === props.activeProjectPath,
-                                )?.framework || "Plain"}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
-                        <FiChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
                       </div>
-                      <ul
-                        tabIndex={0}
-                        className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-[calc(100%+1.5rem)] -left-3 mt-2 animate-in fade-in zoom-in-95 duration-200"
-                      >
-                        <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-base-200 mb-1">
-                          Select Application
-                        </div>
-                        {props.projects.map((p) => (
-                          <li key={p.path}>
-                            <button
-                              onClick={(e) => {
-                                props.onSelectProject(p.path);
-                                (e.currentTarget.closest(".dropdown") as any)
-                                  ?.querySelector("[tabindex='0']")
-                                  ?.blur();
-                              }}
-                              className={`flex items-center gap-3 py-3 rounded-lg ${
+                      <FiChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
+                    </div>
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-[calc(100%+1.5rem)] -left-3 mt-2 animate-in fade-in zoom-in-95 duration-200"
+                    >
+                      <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-base-200 mb-1">
+                        Select Application
+                      </div>
+                      {props.projects.map((p) => (
+                        <li key={p.path}>
+                          <button
+                            onClick={(e) => {
+                              props.onSelectProject(p.path);
+                              (e.currentTarget.closest(".dropdown") as any)
+                                ?.querySelector("[tabindex='0']")
+                                ?.blur();
+                            }}
+                            className={`flex items-center gap-3 py-3 rounded-lg ${
+                              props.activeProjectPath === p.path
+                                ? "bg-primary/10 text-primary font-bold"
+                                : "hover:bg-base-200"
+                            }`}
+                          >
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0 ${
                                 props.activeProjectPath === p.path
-                                  ? "bg-primary/10 text-primary font-bold"
-                                  : "hover:bg-base-200"
+                                  ? "bg-primary text-primary-content"
+                                  : "bg-base-200"
                               }`}
                             >
-                              <div
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                  props.activeProjectPath === p.path
-                                    ? "bg-primary text-primary-content"
-                                    : "bg-base-200 opacity-50"
-                                }`}
+                              {projectIcons[p.path] ? (
+                                <img
+                                  src={projectIcons[p.path]}
+                                  className="w-full h-full object-cover"
+                                  alt={p.name}
+                                />
+                              ) : (
+                                <FiPackage
+                                  className={`w-4 h-4 ${props.activeProjectPath === p.path ? "text-primary-content" : "opacity-50"}`}
+                                />
+                              )}
+                            </div>
+                            <div className="flex flex-col items-start overflow-hidden">
+                              <span className="truncate text-sm w-full ">
+                                {p.name}
+                              </span>
+                              <span
+                                className={`text-[8px] font-black uppercase tracking-wider mt-1 ${getFrameworkColor(p.framework)}`}
                               >
-                                <FiPackage className="w-4 h-4" />
-                              </div>
-                              <div className="flex flex-col items-start overflow-hidden">
-                                <span className="truncate text-sm w-full">
-                                  {p.name}
-                                </span>
-                                <span
-                                  className={`text-[7px] font-black px-2 py-[0px] rounded-[2px] border-[0.5px] uppercase tracking-wider mt-0.5 ${getFrameworkColor(p.framework)}`}
-                                >
-                                  {p.framework || "Plain"}
-                                </span>
-                              </div>
-                            </button>
-                          </li>
-                        ))}
-                        {props.projects.length === 0 && (
-                          <li className="disabled text-xs p-4 text-center opacity-50 italic">
-                            No projects added
-                          </li>
-                        )}
-                      </ul>
-                    </div>
+                                {p.framework || "Plain"}
+                              </span>
+                            </div>
+                          </button>
+                        </li>
+                      ))}
+                      {props.projects.length === 0 && (
+                        <li className="disabled text-xs p-4 text-center opacity-50 italic">
+                          No projects added
+                        </li>
+                      )}
+                    </ul>
                   </div>
                 </div>
               )}

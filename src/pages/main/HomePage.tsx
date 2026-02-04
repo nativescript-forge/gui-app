@@ -91,7 +91,22 @@ function ProjectCard({
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    const menuWidth = 192; // w-48 = 12rem = 192px
+    const menuHeight = 200; // Estimated max height
+    let x = e.clientX;
+    let y = e.clientY;
+
+    // Flip horizontally if overflow
+    if (x + menuWidth > window.innerWidth) {
+      x = x - menuWidth;
+    }
+
+    // Flip vertically if overflow
+    if (y + menuHeight > window.innerHeight) {
+      y = y - menuHeight;
+    }
+
+    setContextMenu({ x, y });
   };
 
   useEffect(() => {
