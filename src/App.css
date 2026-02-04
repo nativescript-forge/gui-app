@@ -7,5 +7,60 @@
   body,
   #root {
     height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
+}
+
+/* Global Scrollbar Styling */
+.overflow-y-auto {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(155, 155, 155, 0.4) transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(155, 155, 155, 0.3);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 155, 155, 0.5);
+}
+
+/* Sidebar Specific Scrollbar */
+.sidebar-scroll {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(155, 155, 155, 0.4);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 155, 155, 0.6);
+  border: 1px solid transparent;
+  background-clip: content-box;
 }

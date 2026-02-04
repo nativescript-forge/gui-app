@@ -590,7 +590,7 @@ export function HomePage(props: HomePageProps) {
         </div>
 
         {/* System Environment Section - Single Card */}
-        <div className="card bg-base-100 border border-base-200 shadow-sm mb-12 overflow-hidden mt-5">
+        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden mt-5">
           <div className="card-body p-0">
             <div className="flex flex-col md:flex-row items-stretch divide-y md:divide-y-0 md:divide-x divide-base-200">
               {/* CLI Version */}
