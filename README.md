@@ -68,10 +68,18 @@ NativeScript Forge aims to address these problems by providing a unified graphic
    ```
 
 3. Run the application in development mode:
+
    ```bash
    npm run tauri dev
    # or
    bun run tauri dev
+   ```
+
+4. Build the application for production:
+   ```bash
+   npm tauri build
+   # or
+   bun tauri build
    ```
 
 ## 🗺️ Roadmap

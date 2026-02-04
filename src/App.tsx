@@ -1016,6 +1016,7 @@ function App() {
             onRefreshSystemReport={async () => {
               if (db) await runBackgroundChecks(db);
             }}
+            isRefreshingSystemReport={isRefreshingSystemReport}
           />
         )}
 

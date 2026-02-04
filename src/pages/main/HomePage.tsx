@@ -49,6 +49,7 @@ type HomePageProps = {
   onOpenFolder: (projectPath: string) => void;
   onRunNpm?: (args: string[], cwd?: string) => Promise<void>;
   onRefreshSystemReport?: () => Promise<void>;
+  isRefreshingSystemReport?: boolean;
 };
 
 export function HomePage(props: HomePageProps) {
@@ -61,6 +62,8 @@ export function HomePage(props: HomePageProps) {
   });
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+
+  const isRefreshing = props.isRefreshingSystemReport;
 
   const activeProject =
     activeProjectPath == null
@@ -93,9 +96,20 @@ export function HomePage(props: HomePageProps) {
 
     // Default extraction
     let current =
-      info.match(/(?:nativescript|cli)\s+(?:has\s+)?([\d.]+)/i)?.[1] ||
+      info.match(
+        /(?:nativescript|cli)\s+(?:has\s+)?(?:version\s+)?([\d.]+)/i,
+      )?.[1] ||
       info.match(/([\d.]+)/)?.[1] ||
       null;
+
+    // Additional check for common patterns in 'ns info' or 'ns --version'
+    if (!current && combined) {
+      // Look for standalone version numbers like "8.8.6"
+      const versionMatch = combined.match(
+        /(?:\s|^)([\d]{1,2}\.[\d]{1,2}\.[\d]{1,3})(?:\s|$)/,
+      );
+      if (versionMatch) current = versionMatch[1];
+    }
 
     // Try to find "X.X.X -> Y.Y.Y"
     const updateMatch = combined.match(/([\d.]+)\s*->\s*([\d.]+)/);
@@ -379,7 +393,12 @@ export function HomePage(props: HomePageProps) {
                   NS CLI Version
                 </div>
                 <div className="font-bold text-sm truncate flex items-center gap-2">
-                  {versions.current === "Not Installed" ? (
+                  {isRefreshing ? (
+                    <div className="flex items-center gap-2 text-primary/50 italic animate-pulse">
+                      <span className="loading loading-spinner loading-xs"></span>
+                      <span className="text-[10px]">Checking...</span>
+                    </div>
+                  ) : versions.current === "Not Installed" ? (
                     <span className="text-error animate-pulse">
                       Not Installed
                     </span>
@@ -408,16 +427,24 @@ export function HomePage(props: HomePageProps) {
                   Package Manager
                 </div>
                 <div className="font-bold text-sm truncate uppercase">
-                  {(() => {
-                    const pm = props.systemReport?.packageManager?.trim() || "";
-                    const match = pm.match(/(npm|yarn|pnpm|bun)/i);
-                    if (match) return match[1];
-                    // Fallback to simpler check if regex fails
-                    if (pm.toLowerCase().includes("pnpm")) return "pnpm";
-                    if (pm.toLowerCase().includes("yarn")) return "yarn";
-                    if (pm.toLowerCase().includes("bun")) return "bun";
-                    return "npm";
-                  })()}
+                  {isRefreshing ? (
+                    <div className="flex items-center gap-2 text-secondary/50 italic animate-pulse">
+                      <span className="loading loading-spinner loading-xs"></span>
+                      <span className="text-[10px]">Checking...</span>
+                    </div>
+                  ) : (
+                    (() => {
+                      const pm =
+                        props.systemReport?.packageManager?.trim() || "";
+                      const match = pm.match(/(npm|yarn|pnpm|bun)/i);
+                      if (match) return match[1];
+                      // Fallback to simpler check if regex fails
+                      if (pm.toLowerCase().includes("pnpm")) return "pnpm";
+                      if (pm.toLowerCase().includes("yarn")) return "yarn";
+                      if (pm.toLowerCase().includes("bun")) return "bun";
+                      return "npm";
+                    })()
+                  )}
                 </div>
               </div>
             </div>
@@ -439,14 +466,20 @@ export function HomePage(props: HomePageProps) {
                 className={`p-3 rounded-2xl ${
                   props.systemReport?.doctor
                     ?.toLowerCase()
-                    .includes("no issues")
+                    .includes("no issues") ||
+                  props.systemReport?.doctor
+                    ?.toLowerCase()
+                    .includes("your system is setup and ready")
                     ? "bg-success/10 text-success"
                     : "bg-warning/10 text-warning"
                 }`}
               >
                 {props.systemReport?.doctor
                   ?.toLowerCase()
-                  .includes("no issues") ? (
+                  .includes("no issues") ||
+                props.systemReport?.doctor
+                  ?.toLowerCase()
+                  .includes("your system is setup and ready") ? (
                   <FiCheckCircle className="h-5 w-5" />
                 ) : (
                   <FiAlertCircle className="h-5 w-5" />
@@ -458,18 +491,33 @@ export function HomePage(props: HomePageProps) {
                 </div>
                 <div
                   className={`font-bold text-sm leading-tight whitespace-normal break-words ${
-                    props.systemReport?.doctor
-                      ?.toLowerCase()
-                      .includes("no issues")
-                      ? "text-success"
-                      : "text-warning"
+                    isRefreshing
+                      ? "text-warning/50 italic animate-pulse"
+                      : props.systemReport?.doctor
+                            ?.toLowerCase()
+                            .includes("no issues") ||
+                          props.systemReport?.doctor
+                            ?.toLowerCase()
+                            .includes("your system is setup and ready")
+                        ? "text-success"
+                        : "text-warning"
                   }`}
                 >
-                  {props.systemReport?.doctor
-                    ?.toLowerCase()
-                    .includes("no issues")
-                    ? "Healthy"
-                    : "Review Needed"}
+                  {isRefreshing ? (
+                    <div className="flex items-center gap-2">
+                      <span className="loading loading-spinner loading-xs"></span>
+                      <span className="text-[10px]">Verifying...</span>
+                    </div>
+                  ) : props.systemReport?.doctor
+                      ?.toLowerCase()
+                      .includes("no issues") ||
+                    props.systemReport?.doctor
+                      ?.toLowerCase()
+                      .includes("your system is setup and ready") ? (
+                    "Healthy"
+                  ) : (
+                    "Review Needed"
+                  )}
                 </div>
               </div>
               {/* <div className="hidden lg:block text-[10px] font-bold uppercase tracking-widest opacity-20 group-hover:opacity-60 transition-opacity shrink-0 self-end md:self-auto">

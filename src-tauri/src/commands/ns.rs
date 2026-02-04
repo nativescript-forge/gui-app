@@ -110,9 +110,13 @@ pub fn run_command(
 ) -> Result<CommandResult, String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         // Try raw command first
         let mut cmd = Command::new(program);
         cmd.args(args);
+        cmd.creation_flags(CREATE_NO_WINDOW);
         if let Some(cwd) = cwd {
             cmd.current_dir(cwd);
         }
@@ -131,6 +135,7 @@ pub fn run_command(
         cmd.arg("/C");
         cmd.arg(program);
         cmd.args(args);
+        cmd.creation_flags(CREATE_NO_WINDOW);
         if let Some(cwd) = cwd {
             cmd.current_dir(cwd);
         }
@@ -168,9 +173,13 @@ pub fn run_command_vec(
 ) -> Result<CommandResult, String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
         // Try raw command first
         let mut cmd = Command::new(program);
         cmd.args(&args);
+        cmd.creation_flags(CREATE_NO_WINDOW);
         if let Some(cwd) = cwd {
             cmd.current_dir(cwd);
         }
@@ -189,6 +198,7 @@ pub fn run_command_vec(
         cmd.arg("/C");
         cmd.arg(program);
         cmd.args(&args);
+        cmd.creation_flags(CREATE_NO_WINDOW);
         if let Some(cwd) = cwd {
             cmd.current_dir(cwd);
         }
@@ -1032,10 +1042,13 @@ pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessStat
         let _ = window.emit("create-project-log", LogPayload { message: "\n--- Process stop requested ---\n".to_string() });
         #[cfg(target_os = "windows")]
         {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
             // On Windows, taskkill /F /T /PID is better for killing process trees
             let pid = child.id();
             let _ = Command::new("taskkill")
                 .args(["/F", "/T", "/PID", &pid.to_string()])
+                .creation_flags(CREATE_NO_WINDOW)
                 .output();
         }
         #[cfg(not(target_os = "windows"))]

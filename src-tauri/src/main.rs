@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    nativescript_forge_app_lib::run()
+    nativescript_forge_lib::run()
 }

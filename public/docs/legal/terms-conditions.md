@@ -1,0 +1,46 @@
+# Terms and Conditions for NativeScript Forge
+
+**Last Updated: February 4, 2026**
+
+Please read these Terms and Conditions ("Terms") carefully before using the NativeScript Forge desktop application ("the Application").
+
+## 1. Acceptance of Terms
+By downloading, installing, or using NativeScript Forge, you agree to be bound by these Terms. If you do not agree, do not use the Application.
+
+## 2. License Grant
+We grant you a personal, non-exclusive, non-transferable, limited license to use NativeScript Forge for personal or professional development purposes, subject to these Terms.
+
+## 3. Local-First Application
+NativeScript Forge is a local-first management tool for NativeScript projects. You understand that:
+- The Application acts as a GUI wrapper for the NativeScript CLI.
+- You are responsible for installing and maintaining the required development environment (Node.js, NativeScript CLI, Android SDK, etc.).
+- All project data is stored locally on your device.
+
+## 4. User Responsibilities
+- **Compliance:** You must use the Application in compliance with all applicable laws and regulations.
+- **Security:** You are responsible for the security of your local machine and the data stored on it.
+- **Project Content:** You are solely responsible for the content and code of the NativeScript projects you manage using this Application.
+
+## 5. Prohibited Uses
+You agree not to:
+- Use the Application for any illegal or unauthorized purpose.
+- Attempt to decompile, reverse engineer, or extract source code from the Application unless permitted by law.
+- Use the Application to distribute malware or harmful content.
+
+## 6. Disclaimer of Warranties
+THE APPLICATION IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY.
+
+## 7. Limitation of Liability
+To the maximum extent permitted by law, the developer shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or use, arising out of your use of the Application.
+
+## 8. Intellectual Property
+All intellectual property rights in NativeScript Forge, including the logo, design, and code, are owned by the developer or its licensors. "NativeScript" is a trademark of the OpenJS Foundation; NativeScript Forge is an independent community tool.
+
+## 9. Changes to Terms
+We reserve the right to modify these Terms at any time. Your continued use of the Application after changes are posted constitutes acceptance of the new Terms.
+
+## 10. Governing Law
+These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which the developer resides, without regard to its conflict of law provisions.
+
+## 11. Contact
+For any questions regarding these Terms, please reach out via GitHub: [https://github.com/dyazincahya](https://github.com/dyazincahya)

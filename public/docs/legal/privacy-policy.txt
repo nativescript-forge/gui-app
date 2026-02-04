@@ -1,0 +1,35 @@
+Privacy Policy for NativeScript Forge
+Last Updated: February 4, 2026
+
+NativeScript Forge ("we", "our", or "the Application") is committed to protecting your privacy. This Privacy Policy explains how we handle information when you use our desktop application.
+
+1. Information We Collect
+NativeScript Forge is a local-first desktop application. 
+- Personal Data: We do not collect, store, or transmit any personal identification information (PII) to any external servers.
+- Local Data: All project configurations, paths, and local database (SQLite) data are stored exclusively on your local machine.
+- Usage Data: We do not track your usage of the application.
+
+2. How We Use Information
+The information processed by the Application (such as project paths and system reports) is used solely to:
+- Provide the graphical user interface for managing your NativeScript projects.
+- Execute local NativeScript CLI commands on your behalf.
+- Display system health reports for your local development environment.
+
+3. Data Storage
+- SQLite Database: NativeScript Forge uses a local SQLite database to store project metadata and activity logs. This file remains on your computer.
+- Tauri Storage: Any application preferences are stored locally using standard Tauri/system configuration paths.
+
+4. Third-Party Services
+NativeScript Forge interacts with the following third-party services only in a limited capacity:
+- NPM Registry: The application may fetch the latest version numbers of NativeScript from registry.npmjs.org to notify you of updates.
+- NativeScript CLI: The application executes the NativeScript CLI installed on your machine. We are not responsible for how the NativeScript CLI handles data.
+
+5. Security
+Since NativeScript Forge runs locally on your machine, the security of your data depends on the security of your local system. We recommend keeping your operating system and the NativeScript CLI updated.
+
+6. Changes to This Policy
+We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy within the application.
+
+7. Contact Us
+If you have any questions about this Privacy Policy, you can contact the developer at:
+- GitHub: https://github.com/dyazincahya

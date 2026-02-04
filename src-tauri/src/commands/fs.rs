@@ -25,8 +25,11 @@ pub fn write_text_file(path: String, content: String) -> Result<(), String> {
 pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
         Command::new("explorer")
             .arg(&path)
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
