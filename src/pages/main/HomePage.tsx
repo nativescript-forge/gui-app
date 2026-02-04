@@ -144,6 +144,37 @@ export function HomePage(props: HomePageProps) {
 
   const hasUpdate = versions.hasUpdate;
 
+  const isHealthy = useMemo(() => {
+    if (isRefreshing) return false;
+    if (!props.systemReport?.doctor) return false;
+    const doc = props.systemReport.doctor.toLowerCase();
+
+    // Positive indicators from 'ns doctor'
+    const hasPositiveIndicator =
+      doc.includes("no issues") ||
+      doc.includes("setup and ready") ||
+      doc.includes("is correctly configured") ||
+      doc.includes("is up to date");
+
+    // Negative indicators (common ns doctor error symbols and words)
+    const hasNegativeIndicator =
+      doc.includes("✘") ||
+      doc.includes("error") ||
+      doc.includes("warning") ||
+      doc.includes("not installed") ||
+      doc.includes("failed") ||
+      doc.includes("requires");
+
+    // It's healthy if:
+    // 1. It explicitly says it's healthy and has no negative signs
+    // 2. It's up to date and has no negative signs
+    // 3. There are simply no negative signs at all (optimistic)
+    if (hasPositiveIndicator && !hasNegativeIndicator) return true;
+    if (!hasNegativeIndicator && !hasUpdate) return true;
+
+    return false;
+  }, [props.systemReport?.doctor, hasUpdate, isRefreshing]);
+
   const handleUpgrade = async () => {
     if (isUpgrading) return;
     setIsUpgrading(true);
@@ -394,9 +425,8 @@ export function HomePage(props: HomePageProps) {
                 </div>
                 <div className="font-bold text-sm truncate flex items-center gap-2">
                   {isRefreshing ? (
-                    <div className="flex items-center gap-2 text-primary/50 italic animate-pulse">
+                    <div className="flex items-center gap-2 text-primary/50 animate-pulse">
                       <span className="loading loading-spinner loading-xs"></span>
-                      <span className="text-[10px]">Checking...</span>
                     </div>
                   ) : versions.current === "Not Installed" ? (
                     <span className="text-error animate-pulse">
@@ -428,9 +458,8 @@ export function HomePage(props: HomePageProps) {
                 </div>
                 <div className="font-bold text-sm truncate uppercase">
                   {isRefreshing ? (
-                    <div className="flex items-center gap-2 text-secondary/50 italic animate-pulse">
+                    <div className="flex items-center gap-2 text-secondary/50 animate-pulse">
                       <span className="loading loading-spinner loading-xs"></span>
-                      <span className="text-[10px]">Checking...</span>
                     </div>
                   ) : (
                     (() => {
@@ -464,22 +493,12 @@ export function HomePage(props: HomePageProps) {
             >
               <div
                 className={`p-3 rounded-2xl ${
-                  props.systemReport?.doctor
-                    ?.toLowerCase()
-                    .includes("no issues") ||
-                  props.systemReport?.doctor
-                    ?.toLowerCase()
-                    .includes("your system is setup and ready")
+                  isHealthy
                     ? "bg-success/10 text-success"
                     : "bg-warning/10 text-warning"
                 }`}
               >
-                {props.systemReport?.doctor
-                  ?.toLowerCase()
-                  .includes("no issues") ||
-                props.systemReport?.doctor
-                  ?.toLowerCase()
-                  .includes("your system is setup and ready") ? (
+                {isHealthy ? (
                   <FiCheckCircle className="h-5 w-5" />
                 ) : (
                   <FiAlertCircle className="h-5 w-5" />
@@ -492,13 +511,8 @@ export function HomePage(props: HomePageProps) {
                 <div
                   className={`font-bold text-sm leading-tight whitespace-normal break-words ${
                     isRefreshing
-                      ? "text-warning/50 italic animate-pulse"
-                      : props.systemReport?.doctor
-                            ?.toLowerCase()
-                            .includes("no issues") ||
-                          props.systemReport?.doctor
-                            ?.toLowerCase()
-                            .includes("your system is setup and ready")
+                      ? "text-warning/50 animate-pulse"
+                      : isHealthy
                         ? "text-success"
                         : "text-warning"
                   }`}
@@ -506,14 +520,8 @@ export function HomePage(props: HomePageProps) {
                   {isRefreshing ? (
                     <div className="flex items-center gap-2">
                       <span className="loading loading-spinner loading-xs"></span>
-                      <span className="text-[10px]">Verifying...</span>
                     </div>
-                  ) : props.systemReport?.doctor
-                      ?.toLowerCase()
-                      .includes("no issues") ||
-                    props.systemReport?.doctor
-                      ?.toLowerCase()
-                      .includes("your system is setup and ready") ? (
+                  ) : isHealthy ? (
                     "Healthy"
                   ) : (
                     "Review Needed"
@@ -527,7 +535,11 @@ export function HomePage(props: HomePageProps) {
 
             {/* Actions */}
             <div className="p-4 bg-base-200/30 flex flex-col sm:flex-row md:flex-col justify-center gap-2 min-w-[200px]">
-              {hasUpdate ? (
+              {isRefreshing ? (
+                <div className="flex items-center justify-center py-2">
+                  <span className="loading loading-spinner loading-md opacity-30"></span>
+                </div>
+              ) : hasUpdate ? (
                 <button
                   onClick={handleUpgrade}
                   disabled={isUpgrading}
