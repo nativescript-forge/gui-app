@@ -105,6 +105,19 @@ export function DashboardPage(props: DashboardPageProps) {
     const fetchProjectIcon = async () => {
       if (!props.projectPath) return;
 
+      try {
+        const iconData = await invoke<string>("get_project_icon", {
+          path: props.projectPath,
+        });
+        if (iconData) {
+          setProjectIcon(iconData);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to fetch icon from backend:", err);
+      }
+
+      // Fallback manual check
       const iconPaths = [
         "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
         "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",

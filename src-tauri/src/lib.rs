@@ -89,6 +89,7 @@ pub fn run() {
             commands::fs::path_exists,
             commands::fs::read_text_file,
             commands::fs::write_text_file,
+            commands::fs::get_project_icon,
             commands::project::analyze_project,
             commands::project::get_project_packages,
             commands::project::discover_projects,
