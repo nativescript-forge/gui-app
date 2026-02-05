@@ -381,15 +381,6 @@ export function DashboardPage(props: DashboardPageProps) {
 
   const [migrating, setMigrating] = useState(false);
 
-  const getLatestCliVersion = async () => {
-    try {
-      return await getLatestFromRegistry("nativescript");
-    } catch (err) {
-      console.error("Failed to fetch latest nativescript version:", err);
-      return null;
-    }
-  };
-
   const globalNsMajor = useMemo(() => {
     if (!props.systemReport?.info) return null;
     // ns info output: "NativeScript CLI version: 8.6.2" or similar
@@ -423,7 +414,6 @@ export function DashboardPage(props: DashboardPageProps) {
 
     setMigrating(true);
     try {
-      const pm = props.systemReport?.packageManager || "npm";
       const isGlobalLatest = true; // Placeholder: we should ideally check this
 
       // 1. Install latest CLI global if needed

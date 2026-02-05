@@ -5,6 +5,7 @@ use roxmltree;
 use plist;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct PermissionInfo {
     pub name: String,
     pub description: Option<String>,
@@ -90,7 +91,7 @@ pub fn save_android_permissions(project_path: String, permissions: Vec<String>) 
     let mut lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
     lines.retain(|l| !l.contains("<uses-permission"));
 
-    let mut insert_idx = lines.iter().position(|l| l.contains("<application")).unwrap_or(lines.len() - 1);
+    let insert_idx = lines.iter().position(|l| l.contains("<application")).unwrap_or(lines.len() - 1);
     
     for perm in permissions.iter().rev() {
         lines.insert(insert_idx, format!("    <uses-permission android:name=\"{}\" />", perm));

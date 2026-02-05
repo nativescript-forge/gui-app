@@ -253,21 +253,21 @@ export function TitleBar({
     }
   };
 
+  const dragProps =
+    currentRoute === "setup" ? {} : { "data-tauri-drag-region": true };
+
   return (
     <div
-      data-tauri-drag-region
+      {...dragProps}
       onClick={handleTitleBarClick}
       className="h-10 bg-[#1e1e1e] flex items-center justify-between select-none border-b border-white/5 text-white/70"
     >
       {/* Left side: Logo and Menus */}
-      <div
-        className="flex items-center h-full px-3 gap-2"
-        data-tauri-drag-region
-      >
+      <div className="flex items-center h-full px-3 gap-2" {...dragProps}>
         <div
           className="flex items-center gap-1 mr-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => setRoute("home")}
-          data-tauri-drag-region
+          {...dragProps}
         >
           <img
             src={brandIconSrc}
@@ -276,35 +276,36 @@ export function TitleBar({
           />
         </div>
 
-        <div
-          className="flex items-center h-full text-[12px]"
-          data-tauri-drag-region
-        >
-          <FileMenu
-            onCreateProject={onCreateProject}
-            onAddProject={onAddProject}
-            onSelectProject={onSelectProject}
-            projects={projects}
-            onOpenSettings={() => setRoute("settings")}
-          />
+        <div className="flex items-center h-full text-[12px]" {...dragProps}>
+          {currentRoute !== "setup" && (
+            <>
+              <FileMenu
+                onCreateProject={onCreateProject}
+                onAddProject={onAddProject}
+                onSelectProject={onSelectProject}
+                projects={projects}
+                onOpenSettings={() => setRoute("settings")}
+              />
 
-          <RunMenu activeProject={activeProject} setRoute={setRoute} />
+              <RunMenu activeProject={activeProject} setRoute={setRoute} />
 
-          <HelpMenu
-            setRoute={setRoute}
-            onOpenDoctor={onOpenDoctor}
-            onShowAbout={() => setShowAboutModal(true)}
-          />
+              <HelpMenu
+                setRoute={setRoute}
+                onOpenDoctor={onOpenDoctor}
+                onShowAbout={() => setShowAboutModal(true)}
+              />
+            </>
+          )}
         </div>
       </div>
 
       {/* Center: Global App Switching & Dashboard Actions */}
       <div
         className="flex-1 flex justify-center items-center h-full gap-4 max-w-[60%]"
-        data-tauri-drag-region
+        {...dragProps}
       >
         {currentRoute.startsWith("app-") && (
-          <div className="flex items-center gap-2" data-tauri-drag-region>
+          <div className="flex items-center gap-2" {...dragProps}>
             {/* Platform & Device Selector */}
             <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
               {/* Platform Toggle */}
@@ -565,8 +566,8 @@ export function TitleBar({
         )}
       </div>
 
-      {/* Right side: Controls */}
-      <div className="flex items-center h-full gap-1" data-tauri-drag-region>
+      {/* Right side: Actions & Controls */}
+      <div className="flex items-center h-full gap-1" {...dragProps}>
         <button
           onClick={onToggleTheme}
           className="p-2 rounded hover:bg-white/10 transition-colors mr-2 group"
@@ -586,6 +587,8 @@ export function TitleBar({
           handleMaximize={handleMaximize}
           handleClose={handleClose}
           isMaximized={isMaximized}
+          maximizeDisabled={currentRoute === "setup"}
+          minimizeDisabled={false}
         />
       </div>
 

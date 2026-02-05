@@ -1,6 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
-  FiKey,
   FiShield,
   FiSearch,
   FiPlus,
@@ -17,15 +16,6 @@ import {
 import { FaAndroid, FaApple } from "react-icons/fa";
 import { invoke } from "@tauri-apps/api/core";
 import masterPermissions from "../../data/permissions_master.json";
-
-interface Permission {
-  name: string;
-  description: string;
-  sensitivity: "low" | "medium" | "high";
-  impact: string;
-  use_case: string;
-  added_in?: number;
-}
 
 interface PermissionsPageProps {
   projectPath: string;

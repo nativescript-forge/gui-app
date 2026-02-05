@@ -7,9 +7,13 @@ import {
   FiChevronLeft,
   FiPackage,
   FiSave,
+  FiRefreshCw,
+  FiLock,
+  FiAlertTriangle,
 } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { IntroPage } from "../setup/intro/IntroPage";
 
 type SettingsPageProps = {
   systemReport: {
@@ -20,12 +24,14 @@ type SettingsPageProps = {
   isRefreshingSystemReport?: boolean;
   onRefreshSystemReport: () => Promise<void>;
   onBack: () => void;
+  onReSetup: () => void;
   onClearLogs: () => Promise<void>;
   onRunCommand: (command: string, args: Record<string, any>) => Promise<void>;
   showToast: (
     message: string,
     type: "info" | "success" | "error" | "warning",
   ) => void;
+  theme: "light" | "dark";
 };
 
 export function SettingsPage({
@@ -33,16 +39,21 @@ export function SettingsPage({
   isRefreshingSystemReport,
   onRefreshSystemReport,
   onBack,
+  onReSetup,
   onClearLogs,
   onRunCommand,
   showToast,
+  theme,
 }: SettingsPageProps) {
   const [clearing, setClearing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [availablePMs, setAvailablePMs] = useState<string[]>([]);
   const [selectedPM, setSelectedPM] = useState<string>("");
   const [updatingPM, setUpdatingPM] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [showLegalViewer, setShowLegalViewer] = useState(false);
 
   useEffect(() => {
     async function loadAvailablePMs() {
@@ -105,6 +116,29 @@ export function SettingsPage({
     }
   };
 
+  const handleResetApp = async () => {
+    setResetting(true);
+    try {
+      // 1. Clear all localStorage
+      localStorage.clear();
+
+      // 2. Clear activity logs via API
+      await onClearLogs();
+
+      showToast("Application has been reset successfully.", "success");
+
+      // 3. Force reload the app to trigger initial setup flow
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (err) {
+      console.error("Failed to reset app:", err);
+      showToast("Failed to reset application.", "error");
+      setResetting(false);
+      setShowResetModal(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
@@ -122,6 +156,52 @@ export function SettingsPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6">
+        {/* Legal & Privacy Section */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
+          <div className="card-body p-0">
+            <div className="p-6 border-b border-base-200 bg-base-200/30">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FiShield className="text-primary" />
+                Legal & Privacy
+              </h2>
+              <p className="text-sm opacity-60 mt-1">
+                Review our terms of service and privacy policy.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-center justify-between gap-8">
+                <div className="flex-1">
+                  <h3 className="font-bold text-sm mb-1">Legal Agreements</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="badge badge-success badge-sm gap-1.5 font-bold py-3 px-4">
+                      <FiLock className="w-3 h-3" />
+                      Agreed on Setup
+                    </span>
+                    <p className="text-xs opacity-50 leading-relaxed">
+                      You have accepted our Privacy Policy and Terms &
+                      Conditions.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowLegalViewer(!showLegalViewer)}
+                  className="btn btn-outline btn-sm gap-2"
+                >
+                  <FiInfo className="w-3.5 h-3.5" />
+                  {showLegalViewer ? "Hide Documents" : "View Documents"}
+                </button>
+              </div>
+
+              {showLegalViewer && (
+                <div className="mt-8 pt-8 border-t border-base-200 animate-in slide-in-from-top duration-300">
+                  <IntroPage theme={theme} onAgree={() => {}} readOnly={true} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* NativeScript Configuration Section */}
         <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
           <div className="card-body p-0">
@@ -248,6 +328,43 @@ export function SettingsPage({
           </div>
         </div>
 
+        {/* Environment Setup Section */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
+          <div className="card-body p-0">
+            <div className="p-6 border-b border-base-200 bg-base-200/30">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FiRefreshCw className="text-primary" />
+                System Environment
+              </h2>
+              <p className="text-sm opacity-60 mt-1">
+                Re-run the environment setup wizard if needed.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex items-center justify-between gap-8">
+                <div className="flex-1">
+                  <h3 className="font-bold text-sm mb-1">
+                    Environment Setup Wizard
+                  </h3>
+                  <p className="text-xs opacity-50 leading-relaxed">
+                    If you want to re-check or re-configure your NativeScript
+                    development environment (Node.js, JDK, Android SDK), you can
+                    trigger the setup wizard manually here.
+                  </p>
+                </div>
+                <button
+                  onClick={onReSetup}
+                  className="btn btn-outline btn-primary btn-sm gap-2"
+                >
+                  <FiRefreshCw className="w-3.5 h-3.5" />
+                  Run Setup Wizard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* App Info Section */}
         <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
           <div className="card-body p-0">
@@ -275,6 +392,18 @@ export function SettingsPage({
                   <FiShield className="text-success w-3 h-3" />
                   SQLite (nsforge.db)
                 </span>
+              </div>
+              <div className="pt-6 border-t border-base-200">
+                <button
+                  onClick={() => setShowResetModal(true)}
+                  className="btn btn-outline btn-error btn-sm w-full gap-2"
+                >
+                  <FiAlertTriangle className="w-3.5 h-3.5" />
+                  Reset Application to Factory Settings
+                </button>
+                <p className="text-[10px] text-error opacity-60 mt-2 text-center">
+                  Warning: This will clear all settings, agreements, and logs.
+                </p>
               </div>
             </div>
           </div>
@@ -315,6 +444,56 @@ export function SettingsPage({
           <div
             className="modal-backdrop bg-black/50"
             onClick={() => setShowConfirmModal(false)}
+          ></div>
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetModal && (
+        <div className="modal modal-open">
+          <div className="modal-box border-2 border-error shadow-2xl">
+            <h3 className="font-bold text-lg flex items-center gap-2 text-error">
+              <FiAlertTriangle />
+              Critical: Factory Reset
+            </h3>
+            <div className="py-4 space-y-3">
+              <p className="text-sm font-bold">
+                Are you absolutely sure you want to reset the application?
+              </p>
+              <p className="text-xs opacity-70 leading-relaxed">
+                This action will:
+              </p>
+              <ul className="list-disc list-inside text-xs opacity-70 space-y-1 ml-2">
+                <li>Remove all legal agreement flags</li>
+                <li>Clear all environment setup test results</li>
+                <li>Delete all activity logs and history</li>
+                <li>Reset all application configurations</li>
+              </ul>
+              <p className="text-xs font-bold text-error mt-4">
+                The application will restart and you will need to complete the
+                setup from the beginning.
+              </p>
+            </div>
+            <div className="modal-action">
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => !resetting && setShowResetModal(false)}
+                disabled={resetting}
+              >
+                Cancel
+              </button>
+              <button
+                className={`btn btn-error btn-sm gap-2 ${resetting ? "loading" : ""}`}
+                onClick={handleResetApp}
+                disabled={resetting}
+              >
+                {resetting ? "Resetting..." : "Yes, Reset Everything"}
+              </button>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-black/60"
+            onClick={() => !resetting && setShowResetModal(false)}
           ></div>
         </div>
       )}

@@ -1,4 +1,5 @@
 export type Route =
+  | "setup"
   | "home"
   | "create"
   | "projects"

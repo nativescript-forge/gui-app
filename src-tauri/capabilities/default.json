@@ -9,7 +9,20 @@
     "opener:default",
     "sql:default",
     "sql:allow-execute",
-    "shell:default",
+    "shell:allow-open",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "node", "cmd": "node", "args": ["-v"] },
+        { "name": "javac", "cmd": "javac", "args": ["-version"] },
+        { "name": "adb", "cmd": "adb", "args": ["--version"] },
+        { "name": "ns", "cmd": "ns", "args": ["-v"] },
+        { "name": "ns-cmd", "cmd": "ns.cmd", "args": ["-v"] },
+        { "name": "xcode-select", "cmd": "xcode-select", "args": ["-p"] },
+        { "name": "pod", "cmd": "pod", "args": ["--version"] },
+        { "name": "brew", "cmd": "brew", "args": ["--version"] }
+      ]
+    },
     "fs:default",
     "fs:allow-read-file",
     "fs:allow-exists",
@@ -18,6 +31,10 @@
     "clipboard-manager:allow-read-text",
     "core:window:allow-minimize",
     "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-set-resizable",
+    "core:window:allow-set-maximizable",
+    "core:window:allow-set-minimizable",
     "core:window:allow-close",
     "core:window:allow-destroy",
     "core:window:allow-toggle-maximize",

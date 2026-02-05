@@ -37,6 +37,7 @@ import {
   CreateProjectPage,
   type ProjectConfig,
 } from "./pages/main/CreateProjectPage";
+import { SetupPage } from "./pages/setup/SetupPage";
 import { BuildModal } from "./components/TitleBar/BuildModal";
 import { GlobalTerminal } from "./components/GlobalTerminal";
 
@@ -375,6 +376,13 @@ function App() {
         startup_time: new Date().toISOString(),
         platform: window.navigator.platform,
       });
+
+      // Check if setup is completed
+      const isSetup =
+        localStorage.getItem("ns-forge-setup-completed") === "true";
+      if (!isSetup) {
+        setRoute("setup");
+      }
     } catch (err) {
       console.error("Failed to init DB:", err);
     }
@@ -1006,164 +1014,176 @@ function App() {
         onToggleTheme={toggleTheme}
         onOpenBuildModal={() => setIsBuildModalOpen(true)}
       />
-      <AppShell
-        theme={theme}
-        route={route}
-        setRoute={setRoute}
-        activeProjectPathLabel={
-          activeProject ? activeProject.name : "No project selected"
-        }
-        brandIconSrc={iconSrc}
-        onToggleTheme={toggleTheme}
-        onAddProject={browseAndAddProject}
-        onCreateProject={() => {
-          setLogText("");
-          setRoute("create");
-        }}
-        onOpenDoctor={runDoctor}
-        isAppMode={isAppMode}
-        projects={projects}
-        activeProjectPath={activeProjectPath}
-        onSelectProject={(path) => {
-          setActiveProjectPath(path);
-          setActionsProjectPath(path);
-        }}
-        onOpenBuildModal={() => setIsBuildModalOpen(true)}
-      >
-        {route === "home" && (
-          <HomePage
-            logoSrc={logoSrc}
+
+      {route === "setup" ? (
+        <div className="flex-1 overflow-auto">
+          <SetupPage theme={theme} onComplete={() => setRoute("home")} />
+        </div>
+      ) : (
+        <AppShell
+          theme={theme}
+          route={route}
+          setRoute={setRoute}
+          activeProjectPathLabel={
+            activeProject ? activeProject.name : "No project selected"
+          }
+          brandIconSrc={iconSrc}
+          onToggleTheme={toggleTheme}
+          onAddProject={browseAndAddProject}
+          onCreateProject={() => {
+            setLogText("");
+            setRoute("create");
+          }}
+          onOpenDoctor={runDoctor}
+          isAppMode={isAppMode}
+          projects={projects}
+          activeProjectPath={activeProjectPath}
+          onSelectProject={(path) => {
+            setActiveProjectPath(path);
+            setActionsProjectPath(path);
+          }}
+          onOpenBuildModal={() => setIsBuildModalOpen(true)}
+        >
+          {route === "home" && (
+            <HomePage
+              logoSrc={logoSrc}
+              projects={projects}
+              db={db}
+              systemReport={systemReport}
+              lastActivityTime={lastActivityTime}
+              onAddProject={browseAndAddProject}
+              onCreateProject={() => setRoute("create")}
+              onOpenDoctor={runDoctor}
+              onViewAllProjects={() => setRoute("projects")}
+              onViewAllActivities={() => setRoute("activity")}
+              onOpenProject={handleOpenActions}
+              onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+              onRunNpm={runNpm}
+              onRefreshSystemReport={async () => {
+                if (db) await runBackgroundChecks(db);
+              }}
+              isRefreshingSystemReport={isRefreshingSystemReport}
+            />
+          )}
+
+          {route === "projects" && (
+            <ProjectsPage
+              projects={projects}
+              activeProjectPath={activeProjectPath}
+              onSelectProject={handleSelectProject}
+              onScanFolder={scanAndDiscoverProjects}
+              onAddProject={browseAndAddProject}
+              onCreateProject={() => setRoute("create")}
+              onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+              onOpenActions={handleOpenActions}
+              onRemoveProject={removeProject}
+              onRefresh={() => db && refreshProjects(db)}
+            />
+          )}
+
+          {route === "create" && (
+            <CreateProjectPage
+              onBack={() => setRoute("home")}
+              onCreate={handleCreateProject}
+              onProjectCreated={() => setRoute("app-actions")}
+              isCreating={createLoading}
+              logs={logText}
+            />
+          )}
+
+          {route === "app-platform-config" && (
+            <PlatformConfigPage projectPath={actionsProjectPath} />
+          )}
+
+          {route === "app-actions" && (
+            <DashboardPage
+              projects={projects}
+              projectPath={actionsProjectPath}
+              setProjectPath={setActionsProjectPath}
+              running={actionsRunning}
+              systemReport={systemReport}
+              onOpenBuildModal={() => setIsBuildModalOpen(true)}
+              onRunAction={async (action, deviceId, buildConfig) => {
+                await runAction(action, deviceId, buildConfig);
+              }}
+              currentAction={currentAction}
+              onRunNpm={runNpm}
+              setRoute={setRoute}
+              onRefreshProject={reAnalyzeProject}
+            />
+          )}
+
+          {/* Application Tools */}
+          {route === "app-plugins" && (
+            <PluginsPage
+              projectPath={actionsProjectPath}
+              onInstall={(pluginName) =>
+                runAction("plugin-add", undefined, undefined, pluginName)
+              }
+              onUninstall={(pluginName) =>
+                runAction("plugin-remove", undefined, undefined, pluginName)
+              }
+              isRunning={actionsRunning}
+            />
+          )}
+          {route === "app-resources" && (
+            <ResourceConfigPage
+              projectPath={actionsProjectPath}
+              running={actionsRunning}
+              currentAction={currentAction}
+              onRunAction={async (action, sourcePath, backgroundColor) => {
+                await runAction(
+                  action,
+                  undefined,
+                  undefined,
+                  sourcePath,
+                  backgroundColor,
+                );
+              }}
+            />
+          )}
+          {route === "app-permissions" && (
+            <PermissionsPage
+              projectPath={actionsProjectPath!}
+              showToast={showToast}
+            />
+          )}
+          {route === "app-config" && (
+            <ProjectConfigPage projectPath={activeProjectPath} />
+          )}
+          {route === "settings" && (
+            <SettingsPage
+              systemReport={systemReport}
+              isRefreshingSystemReport={isRefreshingSystemReport}
+              onRefreshSystemReport={async () => {
+                if (db) await runBackgroundChecks(db);
+              }}
+              onBack={() => setRoute("home")}
+              onReSetup={() => setRoute("setup")}
+              onClearLogs={clearLogs}
+              onRunCommand={async (cmd, args) => {
+                await runSettingsCommand(cmd, args);
+              }}
+              showToast={showToast}
+              theme={theme}
+            />
+          )}
+
+          {route === "activity" && (
+            <ActivityPage db={db} lastActivityTime={lastActivityTime} />
+          )}
+
+          <DiscoverModal
+            open={discoverOpen}
+            loading={discoverLoading}
+            results={discoverResults}
             projects={projects}
             db={db}
-            systemReport={systemReport}
-            lastActivityTime={lastActivityTime}
-            onAddProject={browseAndAddProject}
-            onCreateProject={() => setRoute("create")}
-            onOpenDoctor={runDoctor}
-            onViewAllProjects={() => setRoute("projects")}
-            onViewAllActivities={() => setRoute("activity")}
-            onOpenProject={handleOpenActions}
-            onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-            onRunNpm={runNpm}
-            onRefreshSystemReport={async () => {
-              if (db) await runBackgroundChecks(db);
-            }}
-            isRefreshingSystemReport={isRefreshingSystemReport}
+            onClose={() => setDiscoverOpen(false)}
+            onImport={handleImportProject}
           />
-        )}
-
-        {route === "projects" && (
-          <ProjectsPage
-            projects={projects}
-            activeProjectPath={activeProjectPath}
-            onSelectProject={handleSelectProject}
-            onScanFolder={scanAndDiscoverProjects}
-            onAddProject={browseAndAddProject}
-            onCreateProject={() => setRoute("create")}
-            onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-            onOpenActions={handleOpenActions}
-            onRemoveProject={removeProject}
-            onRefresh={() => db && refreshProjects(db)}
-          />
-        )}
-
-        {route === "create" && (
-          <CreateProjectPage
-            onBack={() => setRoute("home")}
-            onCreate={handleCreateProject}
-            onProjectCreated={() => setRoute("app-actions")}
-            isCreating={createLoading}
-            logs={logText}
-          />
-        )}
-
-        {route === "app-platform-config" && (
-          <PlatformConfigPage projectPath={actionsProjectPath} />
-        )}
-
-        {route === "app-actions" && (
-          <DashboardPage
-            projects={projects}
-            projectPath={actionsProjectPath}
-            setProjectPath={setActionsProjectPath}
-            running={actionsRunning}
-            systemReport={systemReport}
-            onOpenBuildModal={() => setIsBuildModalOpen(true)}
-            onRunAction={async (action, deviceId, buildConfig) => {
-              await runAction(action, deviceId, buildConfig);
-            }}
-            currentAction={currentAction}
-            onRunNpm={runNpm}
-            setRoute={setRoute}
-            onRefreshProject={reAnalyzeProject}
-          />
-        )}
-
-        {/* Application Tools */}
-        {route === "app-plugins" && (
-          <PluginsPage
-            projectPath={actionsProjectPath}
-            onInstall={(pluginName) =>
-              runAction("plugin-add", undefined, undefined, pluginName)
-            }
-            onUninstall={(pluginName) =>
-              runAction("plugin-remove", undefined, undefined, pluginName)
-            }
-            isRunning={actionsRunning}
-          />
-        )}
-        {route === "app-resources" && (
-          <ResourceConfigPage
-            projectPath={actionsProjectPath}
-            running={actionsRunning}
-            currentAction={currentAction}
-            onRunAction={async (action, sourcePath, backgroundColor) => {
-              await runAction(
-                action,
-                undefined,
-                undefined,
-                sourcePath,
-                backgroundColor,
-              );
-            }}
-          />
-        )}
-        {route === "app-permissions" && (
-          <PermissionsPage projectPath={actionsProjectPath!} showToast={showToast} />
-        )}
-        {route === "app-config" && (
-          <ProjectConfigPage projectPath={activeProjectPath} />
-        )}
-        {route === "settings" && (
-          <SettingsPage
-            systemReport={systemReport}
-            isRefreshingSystemReport={isRefreshingSystemReport}
-            onRefreshSystemReport={async () => {
-              if (db) await runBackgroundChecks(db);
-            }}
-            onBack={() => setRoute("home")}
-            onClearLogs={clearLogs}
-            onRunCommand={async (cmd, args) => {
-              await runSettingsCommand(cmd, args);
-            }}
-            showToast={showToast}
-          />
-        )}
-
-        {route === "activity" && (
-          <ActivityPage db={db} lastActivityTime={lastActivityTime} />
-        )}
-
-        <DiscoverModal
-          open={discoverOpen}
-          loading={discoverLoading}
-          results={discoverResults}
-          projects={projects}
-          db={db}
-          onClose={() => setDiscoverOpen(false)}
-          onImport={handleImportProject}
-        />
-      </AppShell>
+        </AppShell>
+      )}
 
       <BuildModal
         isOpen={isBuildModalOpen}
