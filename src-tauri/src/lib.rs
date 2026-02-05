@@ -104,6 +104,10 @@ pub fn run() {
             commands::ns::create_ns_project,
             commands::ns::get_adb_devices,
             commands::ns::stop_ns_command,
+            commands::permissions::get_android_permissions,
+            commands::permissions::get_ios_permissions,
+            commands::permissions::save_android_permissions,
+            commands::permissions::save_ios_permissions,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

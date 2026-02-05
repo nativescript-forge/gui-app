@@ -73,8 +73,10 @@ pub async fn detect_available_package_managers() -> Vec<String> {
     let pms = vec!["npm", "yarn", "pnpm", "bun"];
 
     for pm in pms {
-        if run_command(pm, &["--version"], None).is_ok() {
-            available.push(pm.to_string());
+        if let Ok(res) = run_command(pm, &["--version"], None) {
+            if res.status_code == Some(0) {
+                available.push(pm.to_string());
+            }
         }
     }
 

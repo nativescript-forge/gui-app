@@ -437,6 +437,13 @@ function App() {
     };
   }, [db]); // Added db dependency to ensure we can log on close if db is ready
 
+  // Re-analyze project when switching to ensure fresh data
+  useEffect(() => {
+    if (actionsProjectPath) {
+      reAnalyzeProject(actionsProjectPath);
+    }
+  }, [actionsProjectPath]);
+
   async function upsertProject(currentDb: Database, analysis: ProjectAnalysis) {
     const platforms = JSON.stringify(analysis.platforms ?? []);
     const lastOpened = Date.now();
@@ -564,6 +571,31 @@ function App() {
     } catch (err) {
       console.error("Import failed:", err);
       logActivity("project", `Failed to import project`, "error", {
+        error: String(err),
+      });
+    }
+  }
+
+  async function reAnalyzeProject(path: string) {
+    if (!db) return;
+    try {
+      const analysis = (await invoke("analyze_project", {
+        projectPath: path,
+      })) as ProjectAnalysis;
+      await upsertProject(db, analysis);
+      await refreshProjects(db);
+      logActivity(
+        "project",
+        `Re-analyzed project: ${analysis.name}`,
+        "success",
+        {
+          path,
+        },
+      );
+    } catch (err) {
+      console.error("Re-analysis failed:", err);
+      logActivity("project", `Failed to re-analyze project`, "error", {
+        path,
         error: String(err),
       });
     }
@@ -797,13 +829,13 @@ function App() {
       );
       if (result.statusCode === 0) {
         showToast(`${action.toUpperCase()} completed successfully`, "success");
-        // If it was a platform add, we should probably refresh the project list or data
-        if (action.startsWith("platform-add")) {
-          // Re-fetch projects to update platform list in database
-          const projectsData = await db?.select<ProjectRow[]>(
-            "SELECT * FROM projects ORDER BY last_opened DESC",
-          );
-          if (projectsData) setProjects(projectsData);
+        // If it was a platform add, migrate, or update, we should refresh the project data
+        if (
+          action.startsWith("platform-add") ||
+          action === "migrate" ||
+          action === "update"
+        ) {
+          await reAnalyzeProject(actionsProjectPath);
         }
       } else {
         showToast(
@@ -1063,6 +1095,7 @@ function App() {
             currentAction={currentAction}
             onRunNpm={runNpm}
             setRoute={setRoute}
+            onRefreshProject={reAnalyzeProject}
           />
         )}
 
@@ -1095,7 +1128,9 @@ function App() {
             }}
           />
         )}
-        {route === "app-permissions" && <PermissionsPage />}
+        {route === "app-permissions" && (
+          <PermissionsPage projectPath={actionsProjectPath!} showToast={showToast} />
+        )}
         {route === "app-config" && (
           <ProjectConfigPage projectPath={activeProjectPath} />
         )}

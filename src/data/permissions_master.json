@@ -1,0 +1,919 @@
+{
+  "android_permissions": [
+    {
+      "name": "android.permission.CAMERA",
+      "description": "Required to be able to access the camera device.",
+      "sensitivity": "high",
+      "impact": "Required for apps that take photos or videos. Google Play requires justification if used as a primary feature.",
+      "use_case": "Taking profile pictures, scanning QR codes.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_FINE_LOCATION",
+      "description": "Allows an app to access precise location.",
+      "sensitivity": "high",
+      "impact": "High scrutiny on Play Store. Requires prominent disclosure and clear user benefit.",
+      "use_case": "Navigation, location-based services.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_COARSE_LOCATION",
+      "description": "Allows an app to access approximate location.",
+      "sensitivity": "medium",
+      "impact": "Less sensitive than fine location but still requires user consent.",
+      "use_case": "Weather updates, region-based content.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_LOCATION_EXTRA_COMMANDS",
+      "description": "Allows an application to access extra location provider commands.",
+      "sensitivity": "low",
+      "impact": "Minimal impact, used for specialized location features.",
+      "use_case": "GPS testing, specialized navigation.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_MOCK_LOCATION",
+      "description": "Allows an application to create mock location providers for testing.",
+      "sensitivity": "high",
+      "impact": "Restricted to development/debug use. Can be used for location spoofing.",
+      "use_case": "Testing location-aware apps without moving.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.BLUETOOTH",
+      "description": "Allows applications to connect to paired bluetooth devices.",
+      "sensitivity": "medium",
+      "impact": "Standard Bluetooth permission for older Android versions.",
+      "use_case": "Connecting to known accessories.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.BLUETOOTH_ADMIN",
+      "description": "Allows applications to discover and pair bluetooth devices.",
+      "sensitivity": "medium",
+      "impact": "Standard Bluetooth management for older Android versions.",
+      "use_case": "Managing Bluetooth settings.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.BLUETOOTH_PRIVILEGED",
+      "description": "Allows applications to pair bluetooth devices without user interaction.",
+      "sensitivity": "high",
+      "impact": "Restricted to system apps or apps signed with the same certificate.",
+      "use_case": "Automated accessory pairing.",
+      "added_in": 19
+    },
+    {
+      "name": "android.permission.CHANGE_NETWORK_STATE",
+      "description": "Allows applications to change network connectivity state.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Switching data connection on/off.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.CHANGE_WIFI_MULTICAST_STATE",
+      "description": "Allows applications to enter Wi-Fi Multicast mode.",
+      "sensitivity": "low",
+      "impact": "Normal permission, but increases battery consumption.",
+      "use_case": "Discovering devices on local network via multicast.",
+      "added_in": 4
+    },
+    {
+      "name": "android.permission.CHANGE_WIFI_STATE",
+      "description": "Allows applications to change Wi-Fi connectivity state.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Turning Wi-Fi on or off.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.DISABLE_KEYGUARD",
+      "description": "Allows applications to disable the keyguard if it is not secure.",
+      "sensitivity": "medium",
+      "impact": "Can affect device security if misused.",
+      "use_case": "Showing incoming call screens over lock screen.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.EXPAND_STATUS_BAR",
+      "description": "Allows an application to expand or collapse the status bar.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Custom notification panels.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.GET_PACKAGE_SIZE",
+      "description": "Allows an application to find out the space used by any package.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Storage cleaning or management apps.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.INSTALL_SHORTCUT",
+      "description": "Allows an application to install a shortcut in Launcher.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Adding home screen shortcuts.",
+      "added_in": 19
+    },
+    {
+      "name": "android.permission.KILL_BACKGROUND_PROCESSES",
+      "description": "Allows an application to call ActivityManager.killBackgroundProcesses.",
+      "sensitivity": "low",
+      "impact": "Normal permission, but can disrupt other apps.",
+      "use_case": "Task killers or memory managers.",
+      "added_in": 8
+    },
+    {
+      "name": "android.permission.MANAGE_EXTERNAL_STORAGE",
+      "description": "Allows an application a broad access to external storage in scoped storage.",
+      "sensitivity": "high",
+      "impact": "Highly restricted. Requires strong justification for Play Store approval.",
+      "use_case": "File managers, backup apps.",
+      "added_in": 30
+    },
+    {
+      "name": "android.permission.MODIFY_AUDIO_SETTINGS",
+      "description": "Allows an application to modify global audio settings.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Volume control apps, music players.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.QUERY_ALL_PACKAGES",
+      "description": "Allows query of any normal app on the device, regardless of manifest declarations.",
+      "sensitivity": "high",
+      "impact": "Highly restricted on Play Store. Requires core feature justification.",
+      "use_case": "App launchers, security scanners.",
+      "added_in": 30
+    },
+    {
+      "name": "android.permission.READ_PHONE_NUMBERS",
+      "description": "Allows read access to the device's phone number(s).",
+      "sensitivity": "high",
+      "impact": "Sensitive personal data. Restricted on Play Store.",
+      "use_case": "Automatic phone number verification.",
+      "added_in": 26
+    },
+    {
+      "name": "android.permission.RECEIVE_BOOT_COMPLETED",
+      "description": "Allows an application to receive the ACTION_BOOT_COMPLETED that is broadcast after the system finishes booting.",
+      "sensitivity": "low",
+      "impact": "Normal permission. Can impact boot time if many apps use it.",
+      "use_case": "Starting background services or alarms on boot.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.RECEIVE_MMS",
+      "description": "Allows an application to monitor incoming MMS messages.",
+      "sensitivity": "high",
+      "impact": "Highly sensitive privacy data.",
+      "use_case": "MMS messaging apps.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.RECEIVE_SMS",
+      "description": "Allows an application to receive SMS messages.",
+      "sensitivity": "high",
+      "impact": "Highly sensitive. Used for auto-filling OTPs or SMS apps.",
+      "use_case": "OTP verification, SMS apps.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.RECEIVE_WAP_PUSH",
+      "description": "Allows an application to monitor incoming WAP push messages.",
+      "sensitivity": "high",
+      "impact": "Legacy sensitive permission.",
+      "use_case": "WAP push message handling.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.REORDER_TASKS",
+      "description": "Allows an application to change the Z-order of tasks.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Task managers, custom launchers.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.REQUEST_COMPANION_RUN_IN_BACKGROUND",
+      "description": "Allows a companion app to run in the background.",
+      "sensitivity": "low",
+      "priority": "low",
+      "impact": "Allows persistent connection for companion devices.",
+      "use_case": "Smartwatch sync apps.",
+      "added_in": 26
+    },
+    {
+      "name": "android.permission.REQUEST_COMPANION_USE_DATA_IN_BACKGROUND",
+      "description": "Allows a companion app to use data in the background.",
+      "sensitivity": "low",
+      "impact": "Allows background data sync for companion devices.",
+      "use_case": "Fitness tracker data sync.",
+      "added_in": 26
+    },
+    {
+      "name": "android.permission.REQUEST_DELETE_PACKAGES",
+      "description": "Allows an application to request deleting packages.",
+      "sensitivity": "medium",
+      "impact": "Requires user confirmation before deletion.",
+      "use_case": "Uninstaller apps, app managers.",
+      "added_in": 26
+    },
+    {
+      "name": "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+      "description": "Permission an application must hold in order to use Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS.",
+      "sensitivity": "high",
+      "impact": "Highly discouraged by Google. Impacts battery life significantly.",
+      "use_case": "Critical background apps like messengers or navigation.",
+      "added_in": 23
+    },
+    {
+      "name": "android.permission.SET_ALARM",
+      "description": "Allows an application to broadcast an Intent to set an alarm for the user.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Clock and timer apps.",
+      "added_in": 9
+    },
+    {
+      "name": "android.permission.SET_WALLPAPER",
+      "description": "Allows applications to set the wallpaper.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Wallpaper picker apps.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.SET_WALLPAPER_HINTS",
+      "description": "Allows applications to set the wallpaper hints.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Customizing wallpaper display.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.USE_FULL_SCREEN_INTENT",
+      "description": "Required for apps to use full-screen intents.",
+      "sensitivity": "medium",
+      "impact": "Can be intrusive, used for high-priority notifications.",
+      "use_case": "Incoming call screens, alarms.",
+      "added_in": 29
+    },
+    {
+      "name": "android.permission.READ_EXTERNAL_STORAGE",
+      "description": "Allows an app to read from external storage.",
+      "sensitivity": "medium",
+      "impact": "Legacy permission. Android 13+ uses scoped storage permissions instead.",
+      "use_case": "Reading local media files.",
+      "added_in": 16
+    },
+    {
+      "name": "android.permission.WRITE_EXTERNAL_STORAGE",
+      "description": "Allows an app to write to external storage.",
+      "sensitivity": "medium",
+      "impact": "Legacy permission. Android 13+ uses scoped storage permissions instead.",
+      "use_case": "Saving downloads or user-generated content.",
+      "added_in": 4
+    },
+    {
+      "name": "android.permission.INTERNET",
+      "description": "Allows applications to open network sockets.",
+      "sensitivity": "low",
+      "impact": "Standard permission, granted automatically by Android.",
+      "use_case": "Any network communication.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.RECORD_AUDIO",
+      "description": "Allows an application to record audio.",
+      "sensitivity": "high",
+      "impact": "Highly sensitive. Requires clear justification and user consent.",
+      "use_case": "Voice messages, video calls.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.READ_CONTACTS",
+      "description": "Allows an application to read the user's contacts data.",
+      "sensitivity": "high",
+      "impact": "Personal data access. Play Store requires clear explanation of why this is needed.",
+      "use_case": "Finding friends, contact sync.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_BACKGROUND_LOCATION",
+      "description": "Allows an app to access location in the background.",
+      "sensitivity": "high",
+      "impact": "Extremely high scrutiny. Requires specific user opt-in and strong justification for background use.",
+      "use_case": "Geofencing, continuous location tracking.",
+      "added_in": 29
+    },
+    {
+      "name": "android.permission.ACCESS_MEDIA_LOCATION",
+      "description": "Allows an application to access any geographic locations persisted in the user's shared collection.",
+      "sensitivity": "medium",
+      "impact": "Required for reading location metadata from photos/videos.",
+      "use_case": "Photo mapping, displaying where a photo was taken.",
+      "added_in": 29
+    },
+    {
+      "name": "android.permission.ACCESS_NETWORK_STATE",
+      "description": "Allows applications to access information about networks.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Checking for internet connectivity before making requests.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACCESS_WIFI_STATE",
+      "description": "Allows applications to access information about Wi-Fi networks.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Optimizing downloads when on Wi-Fi.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.ACTIVITY_RECOGNITION",
+      "description": "Allows an application to recognize physical activity.",
+      "sensitivity": "medium",
+      "impact": "Requires user consent. Used for fitness tracking.",
+      "use_case": "Step counting, detecting if user is walking or driving.",
+      "added_in": 29
+    },
+    {
+      "name": "android.permission.BLUETOOTH_SCAN",
+      "description": "Allows applications to discover and pair bluetooth devices.",
+      "sensitivity": "high",
+      "impact": "Requires location permission on older Android versions. High sensitivity due to tracking potential.",
+      "use_case": "Finding nearby Bluetooth accessories.",
+      "added_in": 31
+    },
+    {
+      "name": "android.permission.BLUETOOTH_CONNECT",
+      "description": "Allows applications to connect to paired bluetooth devices.",
+      "sensitivity": "medium",
+      "impact": "Required to interact with Bluetooth devices on Android 12+.",
+      "use_case": "Connecting to headphones or smartwatches.",
+      "added_in": 31
+    },
+    {
+      "name": "android.permission.BODY_SENSORS",
+      "description": "Allows an application to access data from sensors that the user uses to measure what is happening inside their body, such as heart rate.",
+      "sensitivity": "high",
+      "impact": "Highly personal health data. Requires explicit user consent.",
+      "use_case": "Heart rate monitoring in fitness apps.",
+      "added_in": 20
+    },
+    {
+      "name": "android.permission.CALL_PHONE",
+      "description": "Allows an application to initiate a phone call without going through the Dialer user interface.",
+      "sensitivity": "high",
+      "impact": "Can lead to unexpected charges. Highly sensitive.",
+      "use_case": "Direct dial features.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.READ_CALENDAR",
+      "description": "Allows an application to read the user's calendar data.",
+      "sensitivity": "high",
+      "impact": "Personal schedule access. Requires user consent.",
+      "use_case": "Displaying events, scheduling appointments.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.WRITE_CALENDAR",
+      "description": "Allows an application to write the user's calendar data.",
+      "sensitivity": "high",
+      "impact": "Modifying personal schedule. Requires user consent.",
+      "use_case": "Adding reminders or events to the calendar.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.READ_CALL_LOG",
+      "description": "Allows an application to read the user's call log.",
+      "sensitivity": "high",
+      "impact": "Privacy sensitive. Play Store restricts this to core dialer/SMS apps.",
+      "use_case": "Call history management, spam detection.",
+      "added_in": 16
+    },
+    {
+      "name": "android.permission.READ_PHONE_STATE",
+      "description": "Allows read only access to phone state, including device ID and network info.",
+      "sensitivity": "high",
+      "impact": "Used for device identification. Highly regulated by Google Play.",
+      "use_case": "Identifying unique users, checking network type.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.READ_SMS",
+      "description": "Allows an application to read SMS messages.",
+      "sensitivity": "high",
+      "impact": "Extremely sensitive. Restricted to core SMS apps on Play Store.",
+      "use_case": "SMS backup, auto-filling OTPs (legacy).",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.SEND_SMS",
+      "description": "Allows an application to send SMS messages.",
+      "sensitivity": "high",
+      "impact": "Can lead to charges. Highly sensitive and restricted.",
+      "use_case": "Sending invites via SMS, auto-replies.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.POST_NOTIFICATIONS",
+      "description": "Allows an app to post notifications.",
+      "sensitivity": "medium",
+      "impact": "Required for Android 13+. Controls app interruptions.",
+      "use_case": "Sending alerts, reminders, and updates.",
+      "added_in": 33
+    },
+    {
+      "name": "android.permission.USE_BIOMETRIC",
+      "description": "Allows an app to use device supported biometric modalities.",
+      "sensitivity": "medium",
+      "impact": "Standard for security features. User must still authenticate.",
+      "use_case": "Fingerprint or Face unlock for app features.",
+      "added_in": 28
+    },
+    {
+      "name": "android.permission.VIBRATE",
+      "description": "Allows access to the vibrator.",
+      "sensitivity": "low",
+      "impact": "Normal permission, granted automatically.",
+      "use_case": "Haptic feedback for buttons or notifications.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.WAKE_LOCK",
+      "description": "Allows using PowerManager WakeLocks to keep processor from sleeping.",
+      "sensitivity": "low",
+      "impact": "Normal permission, but can impact battery life if misused.",
+      "use_case": "Background downloads, video playback.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.BLUETOOTH_ADVERTISE",
+      "description": "Required to be able to advertise to nearby Bluetooth devices.",
+      "sensitivity": "medium",
+      "impact": "Required for Android 12+ to make the device discoverable via Bluetooth.",
+      "use_case": "File sharing, multiplayer gaming.",
+      "added_in": 31
+    },
+    {
+      "name": "android.permission.READ_MEDIA_IMAGES",
+      "description": "Allows an app to read image files from shared storage.",
+      "sensitivity": "medium",
+      "impact": "Required for Android 13+ instead of READ_EXTERNAL_STORAGE for images.",
+      "use_case": "Photo editing, profile picture selection.",
+      "added_in": 33
+    },
+    {
+      "name": "android.permission.READ_MEDIA_VIDEO",
+      "description": "Allows an app to read video files from shared storage.",
+      "sensitivity": "medium",
+      "impact": "Required for Android 13+ instead of READ_EXTERNAL_STORAGE for videos.",
+      "use_case": "Video player, video editing.",
+      "added_in": 33
+    },
+    {
+      "name": "android.permission.READ_MEDIA_AUDIO",
+      "description": "Allows an app to read audio files from shared storage.",
+      "sensitivity": "medium",
+      "impact": "Required for Android 13+ instead of READ_EXTERNAL_STORAGE for audio.",
+      "use_case": "Music player, ringtone selection.",
+      "added_in": 33
+    },
+    {
+      "name": "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+      "description": "Allows an app to read image or video files that the user has selected.",
+      "sensitivity": "low",
+      "impact": "Required for Android 14+ for partial media access.",
+      "use_case": "Selective photo sharing.",
+      "added_in": 34
+    },
+    {
+      "name": "android.permission.SCHEDULE_EXACT_ALARM",
+      "description": "Allows apps to use exact alarm APIs.",
+      "sensitivity": "medium",
+      "impact": "Impacts battery life. Google Play restricts its use for non-core features.",
+      "use_case": "Alarm clock apps, calendar reminders.",
+      "added_in": 31
+    },
+    {
+      "name": "android.permission.USE_EXACT_ALARM",
+      "description": "Allows apps to use exact alarms without user permission.",
+      "sensitivity": "medium",
+      "impact": "Restricted to specific app categories (alarms, timers, calendars).",
+      "use_case": "Critical timing apps.",
+      "added_in": 33
+    },
+    {
+      "name": "android.permission.FOREGROUND_SERVICE",
+      "description": "Allows an app to use foreground services.",
+      "sensitivity": "low",
+      "impact": "Required for long-running tasks visible to the user.",
+      "use_case": "Music playback, active navigation.",
+      "added_in": 28
+    },
+    {
+      "name": "android.permission.FOREGROUND_SERVICE_CAMERA",
+      "description": "Allows an app to use the camera from a foreground service.",
+      "sensitivity": "high",
+      "impact": "Required for Android 14+ for foreground camera access.",
+      "use_case": "Video recording in background.",
+      "added_in": 34
+    },
+    {
+      "name": "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+      "description": "Allows an app to use the microphone from a foreground service.",
+      "sensitivity": "high",
+      "impact": "Required for Android 14+ for foreground microphone access.",
+      "use_case": "Audio recording, voice calls.",
+      "added_in": 34
+    },
+    {
+      "name": "android.permission.FOREGROUND_SERVICE_LOCATION",
+      "description": "Allows an app to access location from a foreground service.",
+      "sensitivity": "high",
+      "impact": "Required for Android 14+ for foreground location access.",
+      "use_case": "Real-time navigation, fitness tracking.",
+      "added_in": 34
+    },
+    {
+      "name": "android.permission.NFC",
+      "description": "Allows applications to perform I/O operations over NFC.",
+      "sensitivity": "medium",
+      "impact": "Required for NFC communication.",
+      "use_case": "Contactless payments, tag reading.",
+      "added_in": 9
+    },
+    {
+      "name": "android.permission.GET_ACCOUNTS",
+      "description": "Allows access to the list of accounts in the Accounts Service.",
+      "sensitivity": "medium",
+      "impact": "Can be used to identify the user's email accounts.",
+      "use_case": "Syncing user data, social login.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.SYSTEM_ALERT_WINDOW",
+      "description": "Allows an app to create windows shown on top of all other apps.",
+      "sensitivity": "high",
+      "impact": "Highly intrusive. Can be used for overlays and phishing.",
+      "use_case": "Floating chat bubbles, screen recorders.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.WRITE_SETTINGS",
+      "description": "Allows an application to read or write the system settings.",
+      "sensitivity": "high",
+      "impact": "Can change device behavior significantly.",
+      "use_case": "Changing brightness, ringtone from app.",
+      "added_in": 1
+    },
+    {
+      "name": "android.permission.REQUEST_INSTALL_PACKAGES",
+      "description": "Allows an application to request installing packages.",
+      "sensitivity": "high",
+      "impact": "Required for apps that install other apps (e.g., app stores).",
+      "use_case": "In-app updates, alternative app stores.",
+      "added_in": 23
+    }
+  ],
+  "ios_permissions": [
+    {
+      "name": "NSCameraUsageDescription",
+      "description": "Access the camera to take photos and videos.",
+      "sensitivity": "high",
+      "impact": "App Store rejection if usage description is vague or missing.",
+      "use_case": "Taking photos, AR features.",
+      "added_in": 1
+    },
+    {
+      "name": "NSLocationWhenInUseUsageDescription",
+      "description": "Access location while the app is in use.",
+      "sensitivity": "high",
+      "impact": "Crucial for App Store approval. Description must clearly explain the benefit.",
+      "use_case": "Local search, navigation.",
+      "added_in": 11
+    },
+    {
+      "name": "NSLocationAlwaysAndWhenInUseUsageDescription",
+      "description": "Access location information while running in the background.",
+      "sensitivity": "high",
+      "impact": "High scrutiny. Requires strong justification for background access.",
+      "use_case": "Background tracking, geofencing.",
+      "added_in": 11
+    },
+    {
+      "name": "NSMicrophoneUsageDescription",
+      "description": "Access the microphone to record audio.",
+      "sensitivity": "high",
+      "impact": "Sensitive permission. Requires clear purpose string.",
+      "use_case": "Recording audio notes, video chat.",
+      "added_in": 1
+    },
+    {
+      "name": "NSPhotoLibraryUsageDescription",
+      "description": "Access the user's photo library.",
+      "sensitivity": "medium",
+      "impact": "Required for picking photos. Description must be clear.",
+      "use_case": "Uploading profile picture, sharing photos.",
+      "added_in": 6
+    },
+    {
+      "name": "NSPhotoLibraryAddUsageDescription",
+      "description": "Add photos to the user's photo library.",
+      "sensitivity": "low",
+      "impact": "Write-only access, less sensitive than full library access.",
+      "use_case": "Saving generated images.",
+      "added_in": 11
+    },
+    {
+      "name": "NSContactsUsageDescription",
+      "description": "Access the user's contacts.",
+      "sensitivity": "high",
+      "impact": "Personal data. Usage description must explain how contacts are used.",
+      "use_case": "Inviting friends, address book sync.",
+      "added_in": 6
+    },
+    {
+      "name": "NSBluetoothAlwaysUsageDescription",
+      "description": "Use Bluetooth even when the app is in the background.",
+      "sensitivity": "high",
+      "impact": "Highly sensitive. Requires strong justification for background use.",
+      "use_case": "Connecting to wearable devices.",
+      "added_in": 13
+    },
+    {
+      "name": "NSBluetoothPeripheralUsageDescription",
+      "description": "Access Bluetooth peripherals.",
+      "sensitivity": "medium",
+      "impact": "Required for interacting with Bluetooth accessories (Legacy).",
+      "use_case": "Connecting to external hardware.",
+      "added_in": 6
+    },
+    {
+      "name": "NSFaceIDUsageDescription",
+      "description": "Use Face ID for authentication.",
+      "sensitivity": "medium",
+      "impact": "Security feature. Description must mention authentication purpose.",
+      "use_case": "Secure login, payments.",
+      "added_in": 11
+    },
+    {
+      "name": "NSCalendarsUsageDescription",
+      "description": "Access the user's calendar.",
+      "sensitivity": "high",
+      "impact": "Personal schedule data. Description must explain purpose.",
+      "use_case": "Scheduling events, displaying appointments.",
+      "added_in": 6
+    },
+    {
+      "name": "NSRemindersUsageDescription",
+      "description": "Access the user's reminders.",
+      "sensitivity": "medium",
+      "impact": "Personal task data access.",
+      "use_case": "Creating or managing task lists.",
+      "added_in": 6
+    },
+    {
+      "name": "NSSpeechRecognitionUsageDescription",
+      "description": "Send user data to Apple's speech recognition servers.",
+      "sensitivity": "medium",
+      "impact": "Voice data is processed by Apple. User must be informed.",
+      "use_case": "Voice-to-text features.",
+      "added_in": 10
+    },
+    {
+      "name": "NSMotionUsageDescription",
+      "description": "Access device motion and orientation data.",
+      "sensitivity": "low",
+      "impact": "Used for fitness or movement tracking.",
+      "use_case": "Step counting, activity monitoring.",
+      "added_in": 7
+    },
+    {
+      "name": "NSAppleMusicUsageDescription",
+      "description": "Access the user's media library (Apple Music).",
+      "sensitivity": "medium",
+      "impact": "Personal media library access.",
+      "use_case": "Playing music from local library.",
+      "added_in": 9.3
+    },
+    {
+      "name": "NSUserTrackingUsageDescription",
+      "description": "Track the user across other apps and websites.",
+      "sensitivity": "high",
+      "impact": "Crucial for advertising and tracking. High user rejection rate.",
+      "use_case": "Personalized ads, analytics.",
+      "added_in": 14
+    },
+    {
+      "name": "NSLocalNetworkUsageDescription",
+      "description": "Discover and communicate with devices on the local network.",
+      "sensitivity": "medium",
+      "impact": "Security related. Used for finding local hardware.",
+      "use_case": "Connecting to smart home devices.",
+      "added_in": 14
+    },
+    {
+      "name": "NSHealthShareUsageDescription",
+      "description": "Read data from the Health app.",
+      "sensitivity": "high",
+      "impact": "Extremely personal health data. Requires clear justification.",
+      "use_case": "Fitness tracking, health analysis.",
+      "added_in": 8
+    },
+    {
+      "name": "NSHealthUpdateUsageDescription",
+      "description": "Write data to the Health app.",
+      "sensitivity": "high",
+      "impact": "Modifying health data. Requires clear justification.",
+      "use_case": "Saving workout data.",
+      "added_in": 8
+    },
+    {
+      "name": "NSHomeKitUsageDescription",
+      "description": "Access HomeKit configuration data.",
+      "sensitivity": "high",
+      "impact": "Smart home security access.",
+      "use_case": "Managing smart home accessories.",
+      "added_in": 8
+    },
+    {
+      "name": "NSMediaLibraryUsageDescription",
+      "description": "Access the user's media library.",
+      "sensitivity": "medium",
+      "impact": "Personal media access.",
+      "use_case": "Browsing and playing user media.",
+      "added_in": 9.3
+    },
+    {
+      "name": "NSNFCReaderUsageDescription",
+      "description": "Access NFC hardware to scan tags.",
+      "sensitivity": "medium",
+      "impact": "Required for reading NFC tags. Requires entitlement.",
+      "use_case": "Scanning NFC-enabled products or cards.",
+      "added_in": 11
+    },
+    {
+      "name": "NSPhotoLibraryAddUsageDescription",
+      "description": "Add photos to the user's photo library.",
+      "sensitivity": "low",
+      "impact": "Write-only access to the photo library. Less intrusive than full access.",
+      "use_case": "Saving images or videos captured in the app.",
+      "added_in": 11
+    },
+    {
+      "name": "NSSiriUsageDescription",
+      "description": "Send user data to Siri to process requests.",
+      "sensitivity": "medium",
+      "impact": "Required for apps that integrate with SiriKit.",
+      "use_case": "Voice commands through Siri.",
+      "added_in": 10
+    },
+    {
+      "name": "NSFocusStatusUsageDescription",
+      "description": "Access the user's focus status (Do Not Disturb).",
+      "sensitivity": "low",
+      "impact": "Allows app to know if notifications are silenced.",
+      "use_case": "Displaying availability to other users.",
+      "added_in": 15
+    },
+    {
+      "name": "NSNearbyInteractionUsageDescription",
+      "description": "Access nearby interaction data using Ultra Wideband.",
+      "sensitivity": "medium",
+      "impact": "High-precision distance measurement between devices.",
+      "use_case": "Finding nearby friends or items with high accuracy.",
+      "added_in": 14
+    },
+    {
+      "name": "NSCalendarsFullAccessUsageDescription",
+      "description": "Read and write access to the user's calendar data.",
+      "sensitivity": "high",
+      "impact": "Full access to calendar events. Required for iOS 17+.",
+      "use_case": "Creating and managing calendar events with full control.",
+      "added_in": 17
+    },
+    {
+      "name": "NSRemindersFullAccessUsageDescription",
+      "description": "Read and write access to the user's reminders data.",
+      "sensitivity": "high",
+      "impact": "Full access to reminders. Required for iOS 17+.",
+      "use_case": "Creating and managing reminders with full control.",
+      "added_in": 17
+    },
+    {
+      "name": "NSMainCameraUsageDescription",
+      "description": "Access the device's main camera (specifically for visionOS).",
+      "sensitivity": "high",
+      "impact": "Required for camera access on visionOS.",
+      "use_case": "Capturing photos or videos in spatial computing.",
+      "added_in": 1
+    },
+    {
+      "name": "NSDesktopFolderUsageDescription",
+      "description": "Access the user's Desktop folder.",
+      "sensitivity": "medium",
+      "impact": "Allows reading/writing files on the Desktop.",
+      "use_case": "Saving or opening files from the Desktop.",
+      "added_in": 10.15
+    },
+    {
+      "name": "NSDocumentsFolderUsageDescription",
+      "description": "Access the user's Documents folder.",
+      "sensitivity": "medium",
+      "impact": "Allows reading/writing files in the Documents folder.",
+      "use_case": "Managing user documents.",
+      "added_in": 10.15
+    },
+    {
+      "name": "NSDownloadsFolderUsageDescription",
+      "description": "Access the user's Downloads folder.",
+      "sensitivity": "medium",
+      "impact": "Allows reading/writing files in the Downloads folder.",
+      "use_case": "Managing downloaded content.",
+      "added_in": 10.15
+    },
+    {
+      "name": "NSNetworkVolumesUsageDescription",
+      "description": "Access files on a network volume.",
+      "sensitivity": "medium",
+      "impact": "Allows interaction with files on network-attached storage.",
+      "use_case": "Opening files stored on network drives.",
+      "added_in": 10.15
+    },
+    {
+      "name": "NSFileProviderDomainUsageDescription",
+      "description": "Access files managed by a file provider.",
+      "sensitivity": "medium",
+      "impact": "Allows access to cloud storage or other file provider domains.",
+      "use_case": "Integrating with cloud storage services.",
+      "added_in": 10.15
+    },
+    {
+      "name": "NSFallDetectionUsageDescription",
+      "description": "Access fall detection event data.",
+      "sensitivity": "high",
+      "impact": "Access to sensitive health/safety data.",
+      "use_case": "Detecting and responding to fall events (watchOS).",
+      "added_in": 5
+    },
+    {
+      "name": "NSCalendarsWriteOnlyAccessUsageDescription",
+      "description": "Write-only access to the user's calendar data.",
+      "sensitivity": "medium",
+      "impact": "Allows adding events without reading existing ones. Required for iOS 17+.",
+      "use_case": "Adding new appointments to the calendar.",
+      "added_in": 17
+    },
+    {
+      "name": "NSLocationDefaultAccuracyReduction",
+      "description": "Request reduced location accuracy by default.",
+      "sensitivity": "low",
+      "impact": "User can still grant full accuracy. Used for privacy-conscious apps.",
+      "use_case": "General region-based features.",
+      "added_in": 14
+    },
+    {
+      "name": "NSVideoSubscriberAccountUsageDescription",
+      "description": "Access the user's TV provider account.",
+      "sensitivity": "medium",
+      "impact": "Personal subscription data access.",
+      "use_case": "Streaming content based on provider subscription.",
+      "added_in": 10
+    },
+    {
+      "name": "NSRemovableVolumesUsageDescription",
+      "description": "Access files on a removable volume.",
+      "sensitivity": "medium",
+      "impact": "Allows reading/writing files on external drives/SD cards.",
+      "use_case": "Managing files on external storage.",
+      "added_in": 13
+    },
+    {
+      "name": "NSWorldSensingUsageDescription",
+      "description": "Access world-sensing data for spatial computing.",
+      "sensitivity": "high",
+      "impact": "Required for visionOS to map the surroundings.",
+      "use_case": "Placing virtual objects in the real world.",
+      "added_in": 1
+    },
+    {
+      "name": "NSHandsTrackingUsageDescription",
+      "description": "Access hand-tracking data for spatial computing.",
+      "sensitivity": "high",
+      "impact": "Required for visionOS to track hand movements.",
+      "use_case": "Interacting with virtual objects using hands.",
+      "added_in": 1
+    }
+  ]
+}

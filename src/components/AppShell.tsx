@@ -124,6 +124,16 @@ export function AppShell(props: AppShellProps) {
 
   const sidebarItems = props.isAppMode ? appSidebarItems : homeSidebarItems;
 
+  const closeDropdown = (e: React.MouseEvent) => {
+    const dropdown = e.currentTarget.closest(".dropdown");
+    if (dropdown) {
+      (dropdown as HTMLElement).blur();
+    }
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
+
   return (
     <div
       data-theme={props.theme}
@@ -245,9 +255,7 @@ export function AppShell(props: AppShellProps) {
                           <button
                             onClick={(e) => {
                               props.onSelectProject(p.path);
-                              (e.currentTarget.closest(".dropdown") as any)
-                                ?.querySelector("[tabindex='0']")
-                                ?.blur();
+                              closeDropdown(e);
                             }}
                             className={`flex items-center gap-3 py-3 rounded-lg ${
                               props.activeProjectPath === p.path
