@@ -121,8 +121,16 @@ export function TitleBar({
     try {
       const result = (await invoke("get_adb_devices")) as AdbDevice[];
       setDevices(result);
-      if (result.length > 0 && !selectedDeviceId) {
-        setSelectedDeviceId(result[0].id);
+
+      // Auto-select if no device selected or selected device not in new list
+      const platformDevices = result.filter((d) => d.platform === platform);
+      if (platformDevices.length > 0) {
+        const isSelectedStillValid = platformDevices.some(
+          (d) => d.id === selectedDeviceId,
+        );
+        if (!selectedDeviceId || !isSelectedStillValid) {
+          setSelectedDeviceId(platformDevices[0].id);
+        }
       }
     } catch (e) {
       console.error("Failed to scan devices:", e);
@@ -130,6 +138,23 @@ export function TitleBar({
       setScanning(false);
     }
   };
+
+  // Effect to auto-select device when platform changes
+  useEffect(() => {
+    if (platform && devices.length > 0) {
+      const platformDevices = devices.filter((d) => d.platform === platform);
+      if (platformDevices.length > 0) {
+        const isSelectedStillValid = platformDevices.some(
+          (d) => d.id === selectedDeviceId,
+        );
+        if (!selectedDeviceId || !isSelectedStillValid) {
+          setSelectedDeviceId(platformDevices[0].id);
+        }
+      } else {
+        setSelectedDeviceId(null);
+      }
+    }
+  }, [platform, devices]);
 
   useEffect(() => {
     if (currentRoute.startsWith("app-")) {
@@ -373,17 +398,29 @@ export function TitleBar({
                   role="button"
                   className="flex items-center gap-2 px-2 py-1 hover:bg-white/10 rounded transition-colors"
                 >
-                  <FiSmartphone
-                    className={`w-3.5 h-3.5 ${
-                      selectedDevice ? "text-success" : "text-white/40"
-                    }`}
-                  />
+                  {scanning ? (
+                    <FiRefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
+                  ) : (
+                    <FiSmartphone
+                      className={`w-3.5 h-3.5 ${
+                        selectedDevice ? "text-success" : "text-white/40"
+                      }`}
+                    />
+                  )}
                   <div className="flex flex-col items-start max-w-[120px]">
                     <span className="text-[10px] font-medium truncate w-full">
                       {selectedDevice ? selectedDevice.model : "No Device"}
                     </span>
                     {selectedDevice && (
-                      <span className="text-[8px] opacity-40 leading-none">
+                      <span
+                        className={`text-[8px] leading-none ${
+                          selectedDevice.status === "device"
+                            ? "text-success/60"
+                            : selectedDevice.status === "unauthorized"
+                              ? "text-warning/60"
+                              : "text-white/40"
+                        }`}
+                      >
                         {selectedDevice.id}
                       </span>
                     )}
@@ -409,7 +446,7 @@ export function TitleBar({
                           scanDevices();
                         }}
                         className={`p-1 hover:bg-white/10 rounded ${
-                          scanning ? "animate-spin" : ""
+                          scanning ? "animate-spin text-primary" : ""
                         }`}
                       >
                         <FiRefreshCw className="w-3 h-3" />
@@ -444,12 +481,28 @@ export function TitleBar({
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <FiSmartphone className="w-4 h-4" />
+                              <FiSmartphone
+                                className={`w-4 h-4 ${
+                                  device.status === "device"
+                                    ? "text-success/70"
+                                    : device.status === "unauthorized"
+                                      ? "text-warning/70"
+                                      : "text-white/30"
+                                }`}
+                              />
                               <div className="flex flex-col items-start">
                                 <span className="font-medium">
                                   {device.model}
                                 </span>
-                                <span className="text-[9px] opacity-50 uppercase tracking-tighter">
+                                <span
+                                  className={`text-[9px] uppercase tracking-tighter ${
+                                    device.status === "device"
+                                      ? "text-success/50"
+                                      : device.status === "unauthorized"
+                                        ? "text-warning/50"
+                                        : "text-white/30"
+                                  }`}
+                                >
                                   {device.status} • {device.id}
                                 </span>
                               </div>
@@ -474,9 +527,10 @@ export function TitleBar({
                   <li>
                     <button
                       onClick={() => setRoute("app-platform-config")}
-                      className="text-[11px] text-primary hover:bg-primary/10 py-2"
+                      className="text-[11px] text-primary hover:bg-primary/10 py-2 group flex items-center justify-center gap-2"
                     >
-                      ADB not found? Check Doctor
+                      <FiAlertCircle className="w-3.5 h-3.5" />
+                      <span>ADB not found? Check Doctor</span>
                     </button>
                   </li>
                 </ul>
@@ -488,12 +542,14 @@ export function TitleBar({
               <div
                 className="tooltip tooltip-bottom"
                 data-tip={
-                  !selectedDevice
-                    ? "Select a device first"
-                    : (platform === "android" && !hasAndroidPackage) ||
-                        (platform === "ios" && !hasIosPackage)
-                      ? `Platform ${platform} not installed`
-                      : "Run Project"
+                  actionsRunning
+                    ? "Action already running"
+                    : !selectedDevice
+                      ? "Connect/select a device first"
+                      : (platform === "android" && !hasAndroidPackage) ||
+                          (platform === "ios" && !hasIosPackage)
+                        ? `${platform === "android" ? "Android" : "iOS"} platform not installed in project`
+                        : `Run on ${selectedDevice.model}`
                 }
               >
                 <button
@@ -521,12 +577,14 @@ export function TitleBar({
               <div
                 className="tooltip tooltip-bottom"
                 data-tip={
-                  !selectedDevice
-                    ? "Select a device first"
-                    : (platform === "android" && !hasAndroidPackage) ||
-                        (platform === "ios" && !hasIosPackage)
-                      ? `Platform ${platform} not installed`
-                      : "Debug Project"
+                  actionsRunning
+                    ? "Action already running"
+                    : !selectedDevice
+                      ? "Connect/select a device first"
+                      : (platform === "android" && !hasAndroidPackage) ||
+                          (platform === "ios" && !hasIosPackage)
+                        ? `${platform === "android" ? "Android" : "iOS"} platform not installed in project`
+                        : `Debug on ${selectedDevice.model}`
                 }
               >
                 <button
@@ -551,17 +609,25 @@ export function TitleBar({
             <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
 
             {/* Build Button */}
-            <button
-              onClick={onOpenBuildModal}
-              disabled={actionsRunning}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-md text-primary transition-all group active:scale-95 disabled:opacity-50"
-              title="Configure Build"
+            <div
+              className="tooltip tooltip-bottom"
+              data-tip={
+                actionsRunning
+                  ? "Action already running"
+                  : "Build & Package Application"
+              }
             >
-              <FiPackage className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                Build
-              </span>
-            </button>
+              <button
+                onClick={onOpenBuildModal}
+                disabled={actionsRunning}
+                className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-md text-primary transition-all group active:scale-95 disabled:opacity-50"
+              >
+                <FiPackage className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                  Build
+                </span>
+              </button>
+            </div>
           </div>
         )}
       </div>

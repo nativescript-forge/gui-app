@@ -11,6 +11,7 @@ pub struct CommandResult {
     pub stdout: String,
     pub stderr: String,
     pub command: Option<String>,
+    pub resolved_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -74,7 +75,20 @@ pub async fn verify_tool(tool: String) -> Result<CommandResult, String> {
         "javac" => ("javac", vec!["-version"], vec!["JAVA_HOME"]),
         "adb" => {
             let adb_name = if cfg!(target_os = "windows") { "adb.exe" } else { "adb" };
-            (adb_name, vec!["--version"], vec!["ANDROID_HOME", "ANDROID_SDK_ROOT"])
+            let env_vars = vec!["ANDROID_HOME", "ANDROID_SDK_ROOT"];
+            
+            // Add common Windows paths if not in env
+            #[cfg(target_os = "windows")]
+            {
+                if let Ok(local_appdata) = env::var("LOCALAPPDATA") {
+                    let sdk_path = PathBuf::from(local_appdata).join("Android").join("Sdk");
+                    if sdk_path.exists() {
+                         // We can't easily add to env_vars as it expects &str from match
+                         // but we can handle it below.
+                    }
+                }
+            }
+            (adb_name, vec!["--version"], env_vars)
         },
         "ns" => {
              if let Some(cli) = resolve_cli() {
@@ -97,31 +111,71 @@ pub async fn verify_tool(tool: String) -> Result<CommandResult, String> {
         }
     }
 
-    // If failed, try to resolve via environment variables
+    // If failed, try to resolve via environment variables or common paths
+    let mut search_roots = Vec::new();
     for env_var in env_vars {
         if let Ok(root) = env::var(env_var) {
-            let root_path = PathBuf::from(root);
-            
-            // Define possible subdirectories where the binary might be
-            let subdirs = match tool.as_str() {
-                "javac" => vec!["bin"],
-                "adb" => vec!["platform-tools"],
-                _ => vec!["bin", ""],
+            search_roots.push(PathBuf::from(root));
+        }
+    }
+
+    // Add common paths as fallback
+    #[cfg(target_os = "windows")]
+    if tool == "adb" || tool == "javac" {
+        if let Ok(local_appdata) = env::var("LOCALAPPDATA") {
+            let sdk_path = PathBuf::from(local_appdata).join("Android").join("Sdk");
+            if sdk_path.exists() {
+                if env::var("ANDROID_HOME").is_err() {
+                    env::set_var("ANDROID_HOME", &sdk_path);
+                }
+                search_roots.push(sdk_path);
+            }
+        }
+        
+        let common_sdk_paths = vec![
+            "C:\\Android\\sdk",
+            "C:\\Program Files (x86)\\Android\\android-sdk",
+        ];
+        
+        for path in common_sdk_paths {
+            let p = PathBuf::from(path);
+            if p.exists() {
+                if env::var("ANDROID_HOME").is_err() {
+                    env::set_var("ANDROID_HOME", &p);
+                }
+                search_roots.push(p);
+            }
+        }
+        
+        if tool == "javac" {
+            search_roots.push(PathBuf::from("C:\\Program Files\\Java"));
+        }
+    }
+
+    for root_path in search_roots {
+        if !root_path.exists() {
+            continue;
+        }
+        
+        // Define possible subdirectories where the binary might be
+        let subdirs = match tool.as_str() {
+            "javac" => vec!["bin"],
+            "adb" => vec!["platform-tools"],
+            _ => vec!["bin", ""],
+        };
+
+        for subdir in subdirs {
+            let bin_path = if subdir.is_empty() {
+                root_path.join(program)
+            } else {
+                root_path.join(subdir).join(program)
             };
 
-            for subdir in subdirs {
-                let bin_path = if subdir.is_empty() {
-                    root_path.join(program)
-                } else {
-                    root_path.join(subdir).join(program)
-                };
-
-                if bin_path.exists() {
-                    let bin_str = bin_path.to_string_lossy().to_string();
-                    if let Ok(res) = run_command(&bin_str, &args, None) {
-                        if res.status_code == Some(0) {
-                            return Ok(res);
-                        }
+            if bin_path.exists() {
+                let bin_str = bin_path.to_string_lossy().to_string();
+                if let Ok(res) = run_command(&bin_str, &args, None) {
+                    if res.status_code == Some(0) {
+                        return Ok(res);
                     }
                 }
             }
@@ -163,11 +217,19 @@ pub async fn set_ns_package_manager(
     let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
     
     // Run in a separate thread to avoid blocking the Tauri async runtime
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args = ["package-manager", "set", &pm];
         run_resolved_streaming(&window, state, &cli, &args, None)
-    }).await.map_err(|e| e.to_string())?
+    }).await.map_err(|e| e.to_string())??;
+
+    Ok(CommandResult {
+        status_code: result.status_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        command: result.command,
+        resolved_path: result.resolved_path,
+    })
 }
 
 #[derive(Clone)]
@@ -201,6 +263,7 @@ pub fn run_command(
                 stdout: String::from_utf8_lossy(&output.stdout).to_string(),
                 stderr: String::from_utf8_lossy(&output.stderr).to_string(),
                 command: Some(format!("{} {}", program, args.join(" "))),
+                resolved_path: Some(program.to_string()),
             });
         }
 
@@ -219,6 +282,7 @@ pub fn run_command(
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+            resolved_path: Some(program.to_string()),
         })
     }
 
@@ -236,6 +300,7 @@ pub fn run_command(
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             command: Some(format!("{} {}", program, args.join(" "))),
+            resolved_path: Some(program.to_string()),
         })
     }
 }
@@ -264,6 +329,7 @@ pub fn run_command_vec(
                 stdout: String::from_utf8_lossy(&output.stdout).to_string(),
                 stderr: String::from_utf8_lossy(&output.stderr).to_string(),
                 command: Some(format!("{} {}", program, args.join(" "))),
+                resolved_path: Some(program.to_string()),
             });
         }
 
@@ -282,6 +348,7 @@ pub fn run_command_vec(
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+            resolved_path: Some(program.to_string()),
         })
     }
 
@@ -299,6 +366,7 @@ pub fn run_command_vec(
             stdout: String::from_utf8_lossy(&output.stdout).to_string(),
             stderr: String::from_utf8_lossy(&output.stderr).to_string(),
             command: Some(format!("{} {}", program, args.join(" "))),
+            resolved_path: Some(program.to_string()),
         })
     }
 }
@@ -633,12 +701,9 @@ pub fn doctor_checks() -> Vec<DoctorCheck> {
 pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
     // 1. Find adb path
     let adb_path = if let Ok(res) = verify_tool("adb".to_string()).await {
-        if let Some(cmd) = res.command {
-            // res.command might be "adb --version" or "C:\path\to\adb.exe --version"
-            cmd.split_whitespace().next().unwrap_or("adb").to_string()
-        } else {
+        res.resolved_path.unwrap_or_else(|| {
             if cfg!(target_os = "windows") { "adb.exe".to_string() } else { "adb".to_string() }
-        }
+        })
     } else {
         if cfg!(target_os = "windows") { "adb.exe".to_string() } else { "adb".to_string() }
     };
@@ -652,11 +717,23 @@ pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
     // Get devices
     let output = run_command(adb_cmd, &["devices", "-l"], None)?;
     let mut devices = Vec::new();
+    let mut start_parsing = false;
 
-    for line in output.stdout.lines().skip(1) {
-        if line.trim().is_empty() {
+    for line in output.stdout.lines() {
+        let line = line.trim();
+        if line.is_empty() {
             continue;
         }
+
+        if line.starts_with("List of devices attached") {
+            start_parsing = true;
+            continue;
+        }
+
+        if !start_parsing {
+            continue;
+        }
+
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
             let id = parts[0].to_string();
@@ -722,13 +799,21 @@ pub async fn run_npm(
         display: program.to_string(),
     };
 
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
         run_resolved_streaming(&window, state, &cli, &args_refs, cwd.as_deref())
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+
+    Ok(CommandResult {
+        status_code: result.status_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        command: result.command,
+        resolved_path: result.resolved_path,
+    })
 }
 
 #[tauri::command]
@@ -934,7 +1019,7 @@ pub async fn run_ns(
     let project_path_owned = project_path.clone();
     let build_config_owned = build_config.clone();
 
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
 
         // Handle ns clean if requested
@@ -951,7 +1036,15 @@ pub async fn run_ns(
         run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+
+    Ok(CommandResult {
+        status_code: result.status_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        command: result.command,
+        resolved_path: result.resolved_path,
+    })
 }
 
 use tauri::{Emitter, State, Manager};
@@ -1070,6 +1163,7 @@ pub fn run_resolved_streaming(
         stdout: "Logs sent via events".to_string(),
         stderr: "".to_string(),
         command: Some(format!("{} {}", cli.launcher, full_args.join(" "))),
+        resolved_path: Some(cli.launcher.clone()),
     })
 }
 
@@ -1192,11 +1286,19 @@ pub async fn create_ns_project(
     let args_owned: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     
     // Run in a separate thread to avoid blocking the Tauri async runtime
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args_refs: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
         run_resolved_streaming(&window, state, &cli, &args_refs, Some(&parent_path))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+
+    Ok(CommandResult {
+        status_code: result.status_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        command: result.command,
+        resolved_path: result.resolved_path,
+    })
 }
