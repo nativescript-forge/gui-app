@@ -358,7 +358,7 @@ export function SettingsPage({
                   className="btn btn-outline btn-primary btn-sm gap-2"
                 >
                   <FiRefreshCw className="w-3.5 h-3.5" />
-                  Run Setup Wizard
+                  Re-run Setup
                 </button>
               </div>
             </div>

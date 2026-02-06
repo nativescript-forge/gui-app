@@ -1,144 +1,84 @@
-import { Command } from "@tauri-apps/plugin-shell";
+import { invoke } from "@tauri-apps/api/core";
 
-export async function checkNode(): Promise<{
+export interface VerificationResult {
   success: boolean;
   message: string;
-}> {
+}
+
+interface CommandResult {
+  statusCode: number | null;
+  stdout: string;
+  stderr: string;
+  command?: string;
+}
+
+export async function checkNode(): Promise<VerificationResult> {
   try {
-    const command = Command.create("node", ["-v"]);
-    const output = await command.execute();
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `Node.js found: ${output.stdout.trim()}`,
-      };
-    }
+    const res = await invoke<CommandResult>("verify_tool", { tool: "node" });
     return {
-      success: false,
-      message: `Node.js check failed: ${output.stderr}`,
+      success: true,
+      message: `Node.js found: ${res.stdout.trim()}`,
     };
   } catch (error) {
-    return { success: false, message: `Node.js not found in PATH. ${error}` };
+    return { success: false, message: `Node.js not found: ${error}` };
   }
 }
 
-export async function checkJDK(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function checkJDK(): Promise<VerificationResult> {
   try {
-    const command = Command.create("javac", ["-version"]);
-    const output = await command.execute();
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `JDK found: ${output.stdout.trim() || output.stderr.trim()}`,
-      };
-    }
-    return { success: false, message: `JDK check failed: ${output.stderr}` };
+    const res = await invoke<CommandResult>("verify_tool", { tool: "javac" });
+    return {
+      success: true,
+      message: `JDK found: ${res.stdout.trim() || res.stderr.trim()}`,
+    };
   } catch (error) {
     return {
       success: false,
-      message: `JDK (javac) not found in PATH. ${error}`,
+      message: `JDK (javac) not found. Please ensure JDK is installed and JAVA_HOME is set. ${error}`,
     };
   }
 }
 
-export async function checkAndroidSDK(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function checkAndroidSDK(): Promise<VerificationResult> {
   try {
-    // Check for adb as a proxy for SDK
-    const command = Command.create("adb", ["--version"]);
-    const output = await command.execute();
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `Android Platform Tools found: ${output.stdout.split("\n")[0].trim()}`,
-      };
-    }
-    return { success: false, message: `ADB check failed: ${output.stderr}` };
+    const res = await invoke<CommandResult>("verify_tool", { tool: "adb" });
+    return {
+      success: true,
+      message: `Android Platform Tools found: ${res.stdout.split("\n")[0].trim()}`,
+    };
   } catch (error) {
     return {
       success: false,
-      message: `ADB not found in PATH. Please ensure Android SDK is installed and platform-tools is in PATH. ${error}`,
+      message: `Android SDK/ADB not found. Please ensure Android SDK is installed and ANDROID_HOME is set. ${error}`,
     };
   }
 }
 
-export async function checkNS(): Promise<{
-  success: boolean;
-  message: string;
-}> {
-  // Try 'ns' first
+export async function checkNS(): Promise<VerificationResult> {
   try {
-    const command = Command.create("ns", ["-v"]);
-    const output = await command.execute();
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `NativeScript CLI found: ${output.stdout.trim()}`,
-      };
-    }
-  } catch (error) {
-    // Fall through to next attempt
-  }
-
-  // If 'ns' failed or not found, try 'ns.cmd' (common on Windows for global npm packages)
-  try {
-    const command = Command.create("ns-cmd", ["-v"]);
-    const output = await command.execute();
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `NativeScript CLI found: ${output.stdout.trim()}`,
-      };
-    }
+    const res = await invoke<CommandResult>("verify_tool", { tool: "ns" });
     return {
-      success: false,
-      message: `NativeScript CLI check failed: ${output.stderr}`,
+      success: true,
+      message: `NativeScript CLI found: ${res.stdout.trim()}`,
     };
   } catch (error) {
     return {
       success: false,
-      message: `NativeScript CLI ('ns') not found in PATH. Make sure it's installed via 'npm install -g nativescript' and you have restarted the application.`,
+      message: `NativeScript CLI ('ns') not found. ${error}`,
     };
   }
 }
 
-export async function checkIOS(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function checkIOS(): Promise<VerificationResult> {
   try {
-    // Check Xcode
-    const xcodeCommand = Command.create("xcode-select", ["-p"]);
-    const xcodeOutput = await xcodeCommand.execute();
-
-    if (xcodeOutput.code !== 0) {
-      return {
-        success: false,
-        message:
-          "Xcode Command Line Tools not found. Please run the setup commands.",
-      };
-    }
-
-    // Check CocoaPods
-    const podCommand = Command.create("pod", ["--version"]);
-    const podOutput = await podCommand.execute();
-
-    if (podOutput.code !== 0) {
-      return {
-        success: false,
-        message:
-          "CocoaPods not found. Please install it using 'sudo gem install cocoapods'.",
-      };
-    }
+    const xcodeRes = await invoke<CommandResult>("verify_tool", {
+      tool: "xcode-select",
+    });
+    const podRes = await invoke<CommandResult>("verify_tool", { tool: "pod" });
 
     return {
       success: true,
-      message: `iOS environment ready. Xcode path: ${xcodeOutput.stdout.trim()}, CocoaPods: ${podOutput.stdout.trim()}`,
+      message: `iOS environment ready. Xcode: ${xcodeRes.stdout.trim()}, CocoaPods: ${podRes.stdout.trim()}`,
     };
   } catch (error) {
     return {
@@ -148,28 +88,17 @@ export async function checkIOS(): Promise<{
   }
 }
 
-export async function checkBrew(): Promise<{
-  success: boolean;
-  message: string;
-}> {
+export async function checkBrew(): Promise<VerificationResult> {
   try {
-    const command = Command.create("brew", ["--version"]);
-    const output = await command.execute();
-
-    if (output.code === 0) {
-      return {
-        success: true,
-        message: `Homebrew found: ${output.stdout.split("\n")[0].trim()}`,
-      };
-    }
+    const res = await invoke<CommandResult>("verify_tool", { tool: "brew" });
     return {
-      success: false,
-      message: `Homebrew check failed: ${output.stderr}`,
+      success: true,
+      message: `Homebrew found: ${res.stdout.split("\n")[0].trim()}`,
     };
   } catch (error) {
     return {
       success: false,
-      message: `Homebrew ('brew') not found in PATH. ${error}`,
+      message: `Homebrew ('brew') not found. ${error}`,
     };
   }
 }

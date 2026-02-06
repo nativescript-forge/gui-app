@@ -68,6 +68,78 @@ pub struct NsReport {
 }
 
 #[tauri::command]
+pub async fn verify_tool(tool: String) -> Result<CommandResult, String> {
+    let (program, args, env_vars) = match tool.as_str() {
+        "node" => ("node", vec!["-v"], vec![]),
+        "javac" => ("javac", vec!["-version"], vec!["JAVA_HOME"]),
+        "adb" => {
+            let adb_name = if cfg!(target_os = "windows") { "adb.exe" } else { "adb" };
+            (adb_name, vec!["--version"], vec!["ANDROID_HOME", "ANDROID_SDK_ROOT"])
+        },
+        "ns" => {
+             if let Some(cli) = resolve_cli() {
+                 let mut full_args = cli.base_args.clone();
+                 full_args.push("-v".to_string());
+                 return run_command_vec(&cli.launcher, full_args, None);
+             }
+             ("ns", vec!["-v"], vec![])
+        },
+        "brew" => ("brew", vec!["--version"], vec![]),
+        "xcode-select" => ("xcode-select", vec!["-p"], vec![]),
+        "pod" => ("pod", vec!["--version"], vec![]),
+        _ => return Err(format!("Unknown tool: {}", tool)),
+    };
+
+    // Try normal execution first
+    if let Ok(res) = run_command(program, &args, None) {
+        if res.status_code == Some(0) {
+            return Ok(res);
+        }
+    }
+
+    // If failed, try to resolve via environment variables
+    for env_var in env_vars {
+        if let Ok(root) = env::var(env_var) {
+            let root_path = PathBuf::from(root);
+            
+            // Define possible subdirectories where the binary might be
+            let subdirs = match tool.as_str() {
+                "javac" => vec!["bin"],
+                "adb" => vec!["platform-tools"],
+                _ => vec!["bin", ""],
+            };
+
+            for subdir in subdirs {
+                let bin_path = if subdir.is_empty() {
+                    root_path.join(program)
+                } else {
+                    root_path.join(subdir).join(program)
+                };
+
+                if bin_path.exists() {
+                    let bin_str = bin_path.to_string_lossy().to_string();
+                    if let Ok(res) = run_command(&bin_str, &args, None) {
+                        if res.status_code == Some(0) {
+                            return Ok(res);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Final fallback for Windows: try cmd /C
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(res) = run_command(program, &args, None) {
+             return Ok(res);
+        }
+    }
+
+    Err(format!("Could not find or execute tool: {}", tool))
+}
+
+#[tauri::command]
 pub async fn detect_available_package_managers() -> Vec<String> {
     let mut available = Vec::new();
     let pms = vec!["npm", "yarn", "pnpm", "bun"];
@@ -559,12 +631,19 @@ pub fn doctor_checks() -> Vec<DoctorCheck> {
 
 #[tauri::command]
 pub async fn get_adb_devices() -> Result<Vec<AdbDevice>, String> {
-    // 1. Try to find adb
-    let adb_cmd = if cfg!(target_os = "windows") {
-        "adb.exe"
+    // 1. Find adb path
+    let adb_path = if let Ok(res) = verify_tool("adb".to_string()).await {
+        if let Some(cmd) = res.command {
+            // res.command might be "adb --version" or "C:\path\to\adb.exe --version"
+            cmd.split_whitespace().next().unwrap_or("adb").to_string()
+        } else {
+            if cfg!(target_os = "windows") { "adb.exe".to_string() } else { "adb".to_string() }
+        }
     } else {
-        "adb"
+        if cfg!(target_os = "windows") { "adb.exe".to_string() } else { "adb".to_string() }
     };
+
+    let adb_cmd = adb_path.as_str();
 
     // Kill and Start server
     let _ = run_command(adb_cmd, &["kill-server"], None);
