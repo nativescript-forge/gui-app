@@ -827,10 +827,53 @@ pub async fn run_ns(
     background_color: Option<String>,
 ) -> Result<CommandResult, String> {
     let mut args: Vec<String> = match action.as_str() {
-        "run-android" => vec!["run".to_string(), "android".to_string()],
-        "run-ios" => vec!["run".to_string(), "ios".to_string()],
-        "debug-android" => vec!["debug".to_string(), "android".to_string()],
-        "debug-ios" => vec!["debug".to_string(), "ios".to_string()],
+        "run-android" | "run-ios" | "debug-android" | "debug-ios" => {
+            let cmd = if action.starts_with("run") { "run" } else { "debug" };
+            let platform = if action.ends_with("android") { "android" } else { "ios" };
+            let mut r_args = vec![cmd.to_string(), platform.to_string()];
+            
+            if let Some(config) = &build_config {
+                if config.mode == "release" {
+                    r_args.push("--release".to_string());
+                }
+
+                // Add optimization and additional flags
+                if config.uglify.unwrap_or(false) {
+                    r_args.push("--env.uglify".to_string());
+                }
+                if config.aot.unwrap_or(false) {
+                    r_args.push("--env.aot".to_string());
+                }
+                if config.snapshot.unwrap_or(false) {
+                    r_args.push("--env.snapshot".to_string());
+                }
+                if config.compile_snapshot.unwrap_or(false) {
+                    r_args.push("--env.compileSnapshot".to_string());
+                }
+                if config.report.unwrap_or(false) {
+                    r_args.push("--env.report".to_string());
+                }
+                if config.source_map.unwrap_or(false) {
+                    r_args.push("--env.sourceMap".to_string());
+                }
+                if config.hidden_source_map.unwrap_or(false) {
+                    r_args.push("--env.hiddenSourceMap".to_string());
+                }
+                if config.force.unwrap_or(false) {
+                    r_args.push("--force".to_string());
+                }
+                
+                // Add additional options at the end
+                if let Some(options) = &config.additional_options {
+                    if !options.is_empty() {
+                        for opt in options.split_whitespace() {
+                            r_args.push(opt.to_string());
+                        }
+                    }
+                }
+            }
+            r_args
+        }
         "clean" => vec!["clean".to_string()],
         "install" => vec!["install".to_string()],
         "doctor" => vec!["doctor".to_string()],

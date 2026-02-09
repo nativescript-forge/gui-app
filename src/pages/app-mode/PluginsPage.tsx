@@ -399,7 +399,7 @@ export function PluginsPage({
   };
 
   return (
-    <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-wrap items-center justify-between gap-6 mb-8">
         <div>
           <h2 className="text-3xl font-extrabold">Plugins</h2>

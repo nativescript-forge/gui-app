@@ -1,6 +1,14 @@
-import { FiZap, FiBox, FiKey, FiCheckCircle, FiTerminal } from "react-icons/fi";
+import {
+  FiZap,
+  FiBox,
+  FiKey,
+  FiCheckCircle,
+  FiTerminal,
+  FiInfo,
+} from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import type { BuildConfig } from "../../../app/types";
+import type { PlatformStatus } from "../../../app/platformDetection";
 
 interface LocalBuildFlowProps {
   wizardStep: number;
@@ -10,6 +18,8 @@ interface LocalBuildFlowProps {
   ) => void;
   flavor?: string;
   selectKeystore: () => Promise<void>;
+  platformStatus: PlatformStatus;
+  isMac: boolean;
 }
 
 export function LocalBuildFlow({
@@ -18,6 +28,8 @@ export function LocalBuildFlow({
   setBuildConfig,
   flavor,
   selectKeystore,
+  platformStatus,
+  isMac,
 }: LocalBuildFlowProps) {
   switch (wizardStep) {
     case 2:
@@ -29,14 +41,22 @@ export function LocalBuildFlow({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <button
-                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${buildConfig.platform === "android" ? "btn-primary border-primary shadow-md" : "btn-ghost bg-base-200/50 border-base-300 opacity-60 hover:opacity-100"}`}
+                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${
+                  buildConfig.platform === "android"
+                    ? "btn-primary border-primary shadow-md"
+                    : !platformStatus.android.available
+                      ? "btn-ghost bg-base-200/50 border-base-300 opacity-40 cursor-not-allowed grayscale"
+                      : "btn-ghost bg-base-200/50 border-base-300 opacity-60 hover:opacity-100"
+                }`}
                 onClick={() =>
+                  platformStatus.android.available &&
                   setBuildConfig({
                     ...buildConfig,
                     platform: "android",
                     format: "apk",
                   })
                 }
+                disabled={!platformStatus.android.available}
               >
                 <div className="flex items-center gap-2">
                   <SiAndroid className="w-4 h-4" />
@@ -45,16 +65,29 @@ export function LocalBuildFlow({
                 <span className="text-[10px] font-medium opacity-60">
                   Build for Android devices
                 </span>
+                {!platformStatus.android.available && (
+                  <div className="text-[8px] text-error font-bold leading-tight mt-0.5">
+                    {platformStatus.android.reason || "Not available"}
+                  </div>
+                )}
               </button>
               <button
-                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${buildConfig.platform === "ios" ? "btn-primary border-primary shadow-md" : "btn-ghost bg-base-200/50 border-base-300 opacity-60 hover:opacity-100"}`}
+                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${
+                  buildConfig.platform === "ios"
+                    ? "btn-primary border-primary shadow-md"
+                    : !platformStatus.ios.available
+                      ? "btn-ghost bg-base-200/50 border-base-300 opacity-40 cursor-not-allowed grayscale"
+                      : "btn-ghost bg-base-200/50 border-base-300 opacity-60 hover:opacity-100"
+                }`}
                 onClick={() =>
+                  platformStatus.ios.available &&
                   setBuildConfig({
                     ...buildConfig,
                     platform: "ios",
                     format: "ipa",
                   })
                 }
+                disabled={!platformStatus.ios.available}
               >
                 <div className="flex items-center gap-2">
                   <SiApple className="w-4 h-4" />
@@ -63,6 +96,11 @@ export function LocalBuildFlow({
                 <span className="text-[10px] font-medium opacity-60">
                   Build for iOS devices
                 </span>
+                {!platformStatus.ios.available && (
+                  <div className="text-[8px] text-error font-bold leading-tight mt-0.5">
+                    {platformStatus.ios.reason || "Not available"}
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -72,34 +110,49 @@ export function LocalBuildFlow({
               Build Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <button
-                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${buildConfig.mode === "debug" ? "btn-primary border-primary shadow-md" : "btn-ghost bg-base-200/50 border-base-300 opacity-70 hover:opacity-100"}`}
-                onClick={() =>
-                  setBuildConfig({ ...buildConfig, mode: "debug" })
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <FiZap className="w-4 h-4" />
-                  <span className="text-xs font-bold">Debug</span>
+              <div className="relative group">
+                <button
+                  className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all w-full ${buildConfig.mode === "debug" ? "btn-primary border-primary shadow-md" : "btn-ghost bg-base-200/50 border-base-300 opacity-70 hover:opacity-100"}`}
+                  onClick={() =>
+                    setBuildConfig({ ...buildConfig, mode: "debug" })
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <FiZap className="w-4 h-4" />
+                    <span className="text-xs font-bold">Debug</span>
+                  </div>
+                  <span className="text-[10px] font-medium opacity-60">
+                    Faster build for testing
+                  </span>
+                </button>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-base-300 text-base-content text-[10px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-base-content/10">
+                  <strong>Debug Mode:</strong> Run the application with
+                  debugging and hot reload enabled.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-base-300"></div>
                 </div>
-                <span className="text-[10px] font-medium opacity-60">
-                  Faster build for testing
-                </span>
-              </button>
-              <button
-                className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all ${buildConfig.mode === "release" ? "btn-warning border-warning shadow-md text-warning-content" : "btn-ghost bg-base-200/50 border-base-300 opacity-70 hover:opacity-100"}`}
-                onClick={() =>
-                  setBuildConfig({ ...buildConfig, mode: "release" })
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <FiCheckCircle className="w-4 h-4" />
-                  <span className="text-xs font-bold">Release</span>
+              </div>
+
+              <div className="relative group">
+                <button
+                  className={`btn btn-sm h-auto py-2.5 flex flex-col items-center gap-1 rounded-xl border-2 transition-all w-full ${buildConfig.mode === "release" ? "btn-warning border-warning shadow-md text-warning-content" : "btn-ghost bg-base-200/50 border-base-300 opacity-70 hover:opacity-100"}`}
+                  onClick={() =>
+                    setBuildConfig({ ...buildConfig, mode: "release" })
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <FiCheckCircle className="w-4 h-4" />
+                    <span className="text-xs font-bold">Release</span>
+                  </div>
+                  <span className="text-[10px] font-medium opacity-60">
+                    Optimized for production
+                  </span>
+                </button>
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-base-300 text-base-content text-[10px] rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-base-content/10">
+                  <strong>Release Mode:</strong> Run the application in
+                  production mode without debugging.
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-base-300"></div>
                 </div>
-                <span className="text-[10px] font-medium opacity-60">
-                  Optimized for production
-                </span>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -143,27 +196,50 @@ export function LocalBuildFlow({
 
           <div className="bg-base-300/20 p-3 rounded-xl border border-base-300/50">
             <div className="form-control">
-              <label className="label cursor-pointer justify-start gap-3 p-0 mb-0.5">
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-primary checkbox-xs rounded-lg"
-                  checked={buildConfig.clean}
-                  onChange={(e) =>
-                    setBuildConfig({
-                      ...buildConfig,
-                      clean: e.target.checked,
-                    })
-                  }
-                />
-                <div className="flex items-center gap-2">
-                  <span className="label-text font-bold text-sm">
-                    Clean Build (Fresh Start)
-                  </span>
-                  <div className="badge badge-primary badge-outline text-[9px] h-4 px-1 leading-none">
-                    RECOMMENDED
+              <div className="flex items-center justify-between group">
+                <label className="label cursor-pointer justify-start gap-3 p-0 mb-0.5 flex-1">
+                  <input
+                    type="checkbox"
+                    className="checkbox checkbox-primary checkbox-xs rounded-lg"
+                    checked={buildConfig.clean}
+                    onChange={(e) =>
+                      setBuildConfig({
+                        ...buildConfig,
+                        clean: e.target.checked,
+                      })
+                    }
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="label-text font-bold text-sm">
+                      Clean Build (Fresh Start)
+                    </span>
+                    <div className="badge badge-primary badge-outline text-[9px] h-4 px-1 leading-none">
+                      RECOMMENDED
+                    </div>
+                  </div>
+                </label>
+                <div className="dropdown dropdown-left dropdown-hover">
+                  <label
+                    tabIndex={0}
+                    className="btn btn-ghost btn-xs btn-circle text-base-content/20 group-hover:text-info hover:bg-info/10 transition-all"
+                  >
+                    <FiInfo className="w-3.5 h-3.5" />
+                  </label>
+                  <div
+                    tabIndex={0}
+                    className="dropdown-content z-[2] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200"
+                  >
+                    <div className="font-bold mb-1.5 text-primary text-sm">
+                      Clean Build
+                    </div>
+                    <p className="text-xs opacity-70 leading-relaxed">
+                      Menghapus folder platforms dan node_modules sebelum build
+                      untuk memastikan lingkungan bersih dan menghindari error
+                      cache. Sangat disarankan saat berpindah platform.
+                    </p>
                   </div>
                 </div>
-              </label>
+              </div>
               <p className="text-xs text-base-content/60 pl-7 leading-tight">
                 Removes old build artifacts and cache. Highly recommended when
                 switching platforms or encountering unexpected build errors.
@@ -345,27 +421,50 @@ export function LocalBuildFlow({
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                 <div className="form-control">
-                  <label className="label cursor-pointer justify-start gap-3 p-0 mb-1">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-primary checkbox-xs rounded-lg"
-                        checked={buildConfig.uglify}
-                        onChange={(e) =>
-                          setBuildConfig({
-                            ...buildConfig,
-                            uglify: e.target.checked,
-                          })
-                        }
-                      />
-                      <span className="label-text font-bold text-xs">
-                        Uglify (Minify)
-                      </span>
-                      <div className="badge badge-primary badge-outline text-[10px] h-4 px-1 leading-none">
-                        RECOMMENDED
+                  <div className="flex items-center justify-between group">
+                    <label className="label cursor-pointer justify-start gap-3 p-0 mb-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-primary checkbox-xs rounded-lg"
+                          checked={buildConfig.uglify}
+                          onChange={(e) =>
+                            setBuildConfig({
+                              ...buildConfig,
+                              uglify: e.target.checked,
+                            })
+                          }
+                        />
+                        <span className="label-text font-bold text-xs">
+                          Uglify (Minify)
+                        </span>
+                        <div className="badge badge-primary badge-outline text-[10px] h-4 px-1 leading-none">
+                          RECOMMENDED
+                        </div>
+                      </div>
+                    </label>
+                    <div className="dropdown dropdown-left dropdown-hover">
+                      <label
+                        tabIndex={0}
+                        className="btn btn-ghost btn-xs btn-circle text-base-content/20 group-hover:text-info hover:bg-info/10 transition-all"
+                      >
+                        <FiInfo className="w-3.5 h-3.5" />
+                      </label>
+                      <div
+                        tabIndex={0}
+                        className="dropdown-content z-[2] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200"
+                      >
+                        <div className="font-bold mb-1.5 text-primary text-sm">
+                          Uglify (Minify)
+                        </div>
+                        <p className="text-xs opacity-70 leading-relaxed">
+                          Mengurangi ukuran file JavaScript dengan menghapus
+                          spasi, komentar, dan menyingkat nama variabel.
+                          Memberikan obfuscation dasar.
+                        </p>
                       </div>
                     </div>
-                  </label>
+                  </div>
                   <p className="text-xs text-base-content/70 pl-7 leading-tight">
                     Provides basic obfuscation and smaller app size.
                   </p>
@@ -373,28 +472,53 @@ export function LocalBuildFlow({
                 <div
                   className={`form-control ${!flavor?.toLowerCase().includes("angular") ? "opacity-40 grayscale pointer-events-none" : ""}`}
                 >
-                  <label className="label cursor-pointer justify-start gap-3 p-0 mb-1">
-                    <input
-                      type="checkbox"
-                      className="checkbox checkbox-primary checkbox-xs rounded-lg"
-                      checked={buildConfig.aot}
-                      disabled={!flavor?.toLowerCase().includes("angular")}
-                      onChange={(e) =>
-                        setBuildConfig({
-                          ...buildConfig,
-                          aot: e.target.checked,
-                        })
-                      }
-                    />
-                    <span className="label-text font-bold text-xs">
-                      AOT Compilation
-                    </span>
-                    {!flavor?.toLowerCase().includes("angular") && (
-                      <div className="badge badge-ghost text-[10px] font-bold h-4 px-1 leading-none">
-                        ANGULAR ONLY
+                  <div className="flex items-center justify-between group">
+                    <label className="label cursor-pointer justify-start gap-3 p-0 mb-1 flex-1">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-primary checkbox-xs rounded-lg"
+                          checked={buildConfig.aot}
+                          disabled={!flavor?.toLowerCase().includes("angular")}
+                          onChange={(e) =>
+                            setBuildConfig({
+                              ...buildConfig,
+                              aot: e.target.checked,
+                            })
+                          }
+                        />
+                        <span className="label-text font-bold text-xs">
+                          AOT Compilation
+                        </span>
+                        {!flavor?.toLowerCase().includes("angular") && (
+                          <div className="badge badge-ghost text-[10px] font-bold h-4 px-1 leading-none">
+                            ANGULAR ONLY
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </label>
+                    </label>
+                    <div className="dropdown dropdown-left dropdown-hover">
+                      <label
+                        tabIndex={0}
+                        className="btn btn-ghost btn-xs btn-circle text-base-content/20 group-hover:text-info hover:bg-info/10 transition-all"
+                      >
+                        <FiInfo className="w-3.5 h-3.5" />
+                      </label>
+                      <div
+                        tabIndex={0}
+                        className="dropdown-content z-[2] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200"
+                      >
+                        <div className="font-bold mb-1.5 text-primary text-sm">
+                          AOT Compilation
+                        </div>
+                        <p className="text-xs opacity-70 leading-relaxed">
+                          Ahead-of-Time compilation mengonversi template Angular
+                          ke kode eksekusi saat build, mempercepat rendering
+                          awal aplikasi.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <p className="text-xs text-base-content/70 pl-7 leading-tight">
                     Creates Ahead-Of-Time build (Angular only).
                   </p>
@@ -433,6 +557,29 @@ export function LocalBuildFlow({
                       </label>
                       <p className="text-xs text-base-content/70 pl-7 leading-tight">
                         Decreases app start time (Android Release only).
+                      </p>
+                    </div>
+                    <div className="form-control">
+                      <label className="label cursor-pointer justify-start gap-3 p-0 mb-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="checkbox checkbox-primary checkbox-xs rounded-lg"
+                            checked={!!buildConfig.v8cache}
+                            onChange={(e) =>
+                              setBuildConfig({
+                                ...buildConfig,
+                                v8cache: e.target.checked,
+                              })
+                            }
+                          />
+                          <span className="label-text font-bold text-xs">
+                            V8 Cache
+                          </span>
+                        </div>
+                      </label>
+                      <p className="text-xs text-base-content/70 pl-7 leading-tight">
+                        Enable V8 code caching for faster execution.
                       </p>
                     </div>
                     <div

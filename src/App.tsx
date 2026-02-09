@@ -12,9 +12,12 @@ import type {
   ProjectRow,
   ProjectAnalysis,
   CommandResult,
+  RunConfig,
+  BuildConfig,
 } from "./app/types";
 import { getBrandAssets } from "./app/brand";
 import { redactCommand, formatDuration } from "./app/logging";
+import { detectPlatforms, PlatformStatus } from "./app/platformDetection";
 
 // Components
 import { SplashScreen } from "./components/SplashScreen";
@@ -39,13 +42,69 @@ import {
 } from "./pages/main/CreateProjectPage";
 import { SetupPage } from "./pages/setup/SetupPage";
 import { BuildModal } from "./components/TitleBar/BuildModal";
+import { RunModal } from "./components/TitleBar/RunModal";
 import { GlobalTerminal } from "./components/GlobalTerminal";
 
 function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
   const [route, setRoute] = useState<Route>("home");
   const [theme, setTheme] = useState<Theme>("dark");
+
+  const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [activeProjectPath, setActiveProjectPath] = useState<string | null>(
+    null,
+  );
+  const [actionsProjectPath, setActionsProjectPath] = useState<string | null>(
+    null,
+  );
+  const [db, setDb] = useState<Database | null>(null);
+
+  console.log(
+    `[App] Render - bootStage: ${bootStage}, route: ${route}, theme: ${theme}`,
+  );
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  const [platformStatus, setPlatformStatus] = useState<PlatformStatus>({
+    android: { available: false },
+    ios: { available: false },
+  });
+
+  useEffect(() => {
+    const platform = window.navigator.platform.toLowerCase();
+    setIsMac(platform.includes("mac"));
+  }, []);
+
+  // Update platform status when project or route changes
+  useEffect(() => {
+    const checkPlatforms = async () => {
+      if (!activeProjectPath) {
+        setPlatformStatus({
+          android: { available: false, reason: "No project selected" },
+          ios: { available: false, reason: "No project selected" },
+        });
+        return;
+      }
+
+      try {
+        const pkgs = (await invoke("get_project_packages", {
+          projectPath: activeProjectPath,
+        })) as Record<string, string>;
+
+        const status = await detectPlatforms(activeProjectPath, pkgs, isMac);
+        setPlatformStatus(status);
+      } catch (err) {
+        console.error("Failed to detect platforms in App:", err);
+      }
+    };
+
+    checkPlatforms();
+  }, [activeProjectPath, isMac]);
+
+  const [runModalPlatform, setRunModalPlatform] = useState<
+    "android" | "ios" | null
+  >(null);
+  const [runModalAction, setRunModalAction] = useState<"run" | "debug">("run");
 
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme);
@@ -76,7 +135,6 @@ function App() {
       return () => prefersDark.removeEventListener("change", handler);
     }
   }, []);
-  const [db, setDb] = useState<Database | null>(null);
   const [systemReport, setSystemReport] = useState<{
     info: string;
     doctor: string;
@@ -85,18 +143,10 @@ function App() {
   const [isRefreshingSystemReport, setIsRefreshingSystemReport] =
     useState(false);
 
-  const [projects, setProjects] = useState<ProjectRow[]>([]);
-  const [activeProjectPath, setActiveProjectPath] = useState<string | null>(
-    null,
-  );
-
   const [discoverOpen, setDiscoverOpen] = useState(false);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discoverResults, setDiscoverResults] = useState<ProjectAnalysis[]>([]);
 
-  const [actionsProjectPath, setActionsProjectPath] = useState<string | null>(
-    null,
-  );
   const [actionsRunning, setActionsRunning] = useState(false);
   const [currentAction, setCurrentAction] = useState<string | null>(null);
   const [buildOutputPath, setBuildOutputPath] = useState<string | null>(null);
@@ -108,6 +158,8 @@ function App() {
     message: string;
     type: "info" | "success" | "error" | "warning";
   } | null>(null);
+
+  const initStartedRef = useRef(false);
 
   const showToast = (
     message: string,
@@ -351,14 +403,38 @@ function App() {
   }
 
   async function init() {
+    if (initStartedRef.current) {
+      console.log("[App] Initialization already started, skipping...");
+      return;
+    }
+    initStartedRef.current = true;
+
+    console.log("[App] Initializing application...");
+
+    // Show window early to let user see the SplashScreen and prevent "blank" state
     try {
+      console.log("[App] Showing window...");
+      const win = getCurrentWindow();
+      await win.show();
+      await win.setFocus();
+    } catch (err) {
+      console.error("[App] Failed to show window early:", err);
+    }
+
+    try {
+      console.log("[App] Loading database...");
       const currentDb = await Database.load("sqlite:nsforge.db");
       setDb(currentDb);
+      console.log("[App] Database loaded, refreshing projects...");
       await refreshProjects(currentDb, false);
 
       // Load existing system report
+      console.log("[App] Loading system report...");
       const savedReport = await currentDb.select<
-        { key: string; value: string }[]
+        {
+          key: string;
+          value: string;
+        }[]
       >("SELECT * FROM system_info");
       if (savedReport.length > 0) {
         const reportObj: any = {};
@@ -369,6 +445,7 @@ function App() {
       }
 
       // Start background checks
+      console.log("[App] Starting background checks...");
       runBackgroundChecks(currentDb);
 
       // Log App Startup
@@ -380,31 +457,29 @@ function App() {
       // Check if setup is completed
       const isSetup =
         localStorage.getItem("ns-forge-setup-completed") === "true";
+      console.log("[App] Setup completed check:", isSetup);
       if (!isSetup) {
         setRoute("setup");
       }
     } catch (err) {
-      console.error("Failed to init DB:", err);
-    }
-
-    const minSplashMs = 1200;
-    const elapsed = Date.now() - splashStartRef.current;
-    const remaining = Math.max(0, minSplashMs - elapsed);
-    window.setTimeout(() => setBootStage("ready"), remaining);
-
-    // Show window after initial loading to prevent white flash
-    try {
-      await getCurrentWindow().show();
-    } catch (err) {
-      console.error("Failed to show window:", err);
+      console.error("[App] Failed to initialize core systems:", err);
+    } finally {
+      const minSplashMs = 1500; // Slightly longer for stability
+      const elapsed = Date.now() - splashStartRef.current;
+      const remaining = Math.max(0, minSplashMs - elapsed);
+      console.log(`[App] Transitioning to 'ready' in ${remaining}ms`);
+      window.setTimeout(() => {
+        console.log("[App] Boot stage: ready");
+        setBootStage("ready");
+      }, remaining);
     }
   }
 
   useEffect(() => {
-    if (!db) {
-      init();
-    }
+    init();
+  }, []);
 
+  useEffect(() => {
     // Listen for window close to log session duration
     let unlistenClose: (() => void) | null = null;
 
@@ -789,7 +864,10 @@ function App() {
       | "platform-add-android"
       | "platform-add-ios",
     deviceId?: string,
-    buildConfig?: { platform?: "android" | "ios"; [key: string]: any },
+    config?:
+      | BuildConfig
+      | RunConfig
+      | { platform?: "android" | "ios"; [key: string]: any },
     sourcePath?: string,
     backgroundColor?: string,
   ): Promise<string> {
@@ -809,7 +887,7 @@ function App() {
         projectPath: actionsProjectPath,
         action,
         deviceId,
-        buildConfig,
+        buildConfig: config,
         sourcePath,
         backgroundColor,
       })) as CommandResult;
@@ -831,7 +909,7 @@ function App() {
           duration_ms: duration,
           command: redactedCmd,
           platform:
-            buildConfig?.platform ||
+            (config as any)?.platform ||
             (action.includes("android") ? "android" : "ios"),
         },
       );
@@ -868,7 +946,7 @@ function App() {
           duration_ms: duration,
           error: String(e),
           platform:
-            buildConfig?.platform ||
+            (config as any)?.platform ||
             (action.includes("android") ? "android" : "ios"),
         },
       );
@@ -1013,6 +1091,12 @@ function App() {
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenBuildModal={() => setIsBuildModalOpen(true)}
+        onOpenRunModal={(platform, action) => {
+          setRunModalPlatform(platform);
+          setRunModalAction(action || "run");
+          setIsRunModalOpen(true);
+        }}
+        isMac={isMac}
       />
 
       {route === "setup" ? (
@@ -1103,13 +1187,20 @@ function App() {
               running={actionsRunning}
               systemReport={systemReport}
               onOpenBuildModal={() => setIsBuildModalOpen(true)}
-              onRunAction={async (action, deviceId, buildConfig) => {
-                await runAction(action, deviceId, buildConfig);
+              onOpenRunModal={(platform, action) => {
+                setRunModalPlatform(platform);
+                setRunModalAction(action || "run");
+                setIsRunModalOpen(true);
+              }}
+              onRunAction={async (action, deviceId, config) => {
+                await runAction(action, deviceId, config);
               }}
               currentAction={currentAction}
               onRunNpm={runNpm}
               setRoute={setRoute}
               onRefreshProject={reAnalyzeProject}
+              isMac={isMac}
+              platformStatus={platformStatus}
             />
           )}
 
@@ -1202,6 +1293,22 @@ function App() {
           undefined
         }
         db={db}
+        platformStatus={platformStatus}
+        isMac={isMac}
+      />
+
+      <RunModal
+        isOpen={isRunModalOpen}
+        onClose={() => setIsRunModalOpen(false)}
+        onRun={async (config) => {
+          const action = `${config.action}-${config.platform}` as any;
+          await runAction(action, config.deviceId, config);
+        }}
+        platform={runModalPlatform}
+        initialAction={runModalAction}
+        flavor={activeProject?.framework || undefined}
+        platformStatus={platformStatus}
+        isMac={isMac}
       />
 
       <GlobalTerminal

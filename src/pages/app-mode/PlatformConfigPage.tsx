@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import {
+  FiFileText,
   FiSave,
   FiRefreshCw,
   FiAlertCircle,
   FiCheckCircle,
   FiInfo,
-  FiFileText,
 } from "react-icons/fi";
-import { FaAndroid, FaApple } from "react-icons/fa";
+import { SiAndroid, SiApple } from "react-icons/si";
 import { join } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -245,11 +245,11 @@ export function PlatformConfigPage({ projectPath }: PlatformConfigPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h2 className="text-3xl font-extrabold flex items-center gap-3">
+            <FiFileText className="text-primary" />
             Platform Config
           </h2>
           <p className="text-sm opacity-50 uppercase tracking-widest mt-1">
@@ -260,163 +260,139 @@ export function PlatformConfigPage({ projectPath }: PlatformConfigPageProps) {
           <button
             onClick={loadConfigs}
             disabled={loading}
-            className="btn btn-ghost btn-sm rounded-xl"
+            className={`btn btn-ghost btn-sm gap-2 ${loading ? "loading" : ""}`}
             title="Reload configs"
           >
-            <FiRefreshCw
-              className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
-            />
+            {!loading && <FiRefreshCw className="w-4 h-4" />} Reload
           </button>
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="btn btn-primary btn-sm rounded-xl px-6 gap-2"
+            className={`btn btn-primary btn-sm gap-2 shadow-lg shadow-primary/20 ${saving ? "loading" : ""}`}
           >
-            {saving ? (
-              <span className="loading loading-spinner loading-xs"></span>
-            ) : (
-              <FiSave className="w-4 h-4" />
-            )}
-            Save Changes
+            {!saving && <FiSave className="w-4 h-4" />} Save Changes
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="alert alert-error rounded-2xl mb-6 shadow-sm border-none text-white">
+        <div className="alert alert-error rounded-2xl mb-6 shadow-sm border-none text-white animate-in slide-in-from-top-2">
           <FiAlertCircle className="w-5 h-5" />
           <span className="text-sm font-medium">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="alert alert-success rounded-2xl mb-6 shadow-sm border-none text-white">
+        <div className="alert alert-success rounded-2xl mb-6 shadow-sm border-none text-white animate-in slide-in-from-top-2">
           <FiCheckCircle className="w-5 h-5" />
           <span className="text-sm font-medium">{success}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Left Column: Navigation */}
-        <div className="lg:col-span-3 space-y-4">
-          <div className="card bg-base-100 border border-base-300 rounded-3xl p-4 shadow-sm">
-            <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2 mb-4 block">
-              Select Platform
-            </label>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => setActivePlatform("android")}
-                className={`flex items-center gap-3 p-4 rounded-2xl transition-all font-bold text-sm ${
-                  activePlatform === "android"
-                    ? "bg-primary text-primary-content shadow-md"
-                    : "hover:bg-base-200 opacity-60 hover:opacity-100"
-                }`}
-              >
-                <FaAndroid className="w-5 h-5" />
-                Android
-              </button>
-              <button
-                onClick={() => setActivePlatform("ios")}
-                className={`flex items-center gap-3 p-4 rounded-2xl transition-all font-bold text-sm ${
-                  activePlatform === "ios"
-                    ? "bg-primary text-primary-content shadow-md"
-                    : "hover:bg-base-200 opacity-60 hover:opacity-100"
-                }`}
-              >
-                <FaApple className="w-5 h-5" />
-                iOS
-              </button>
-            </div>
-          </div>
+        <div className="lg:col-span-1 space-y-4">
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => setActivePlatform("android")}
+              className={`btn btn-sm justify-start gap-3 ${
+                activePlatform === "android" ? "btn-primary" : "btn-ghost"
+              }`}
+            >
+              <SiAndroid className="w-4 h-4" /> Android
+            </button>
+            <button
+              onClick={() => setActivePlatform("ios")}
+              className={`btn btn-sm justify-start gap-3 ${
+                activePlatform === "ios" ? "btn-primary" : "btn-ghost"
+              }`}
+            >
+              <SiApple className="w-4 h-4" /> iOS
+            </button>
 
-          {activePlatform === "android" && (
-            <div className="card bg-base-100 border border-base-300 rounded-3xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-              <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2 mb-4 block">
-                Android Files
-              </label>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setActiveAndroidFile("app")}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all font-bold text-xs ${
-                    activeAndroidFile === "app"
-                      ? "bg-base-200 text-primary"
-                      : "hover:bg-base-200/50 opacity-60"
-                  }`}
-                >
-                  <FiFileText className="w-4 h-4" />
-                  app.gradle
-                </button>
-                <button
-                  onClick={() => setActiveAndroidFile("before-plugins")}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all font-bold text-xs ${
-                    activeAndroidFile === "before-plugins"
-                      ? "bg-base-200 text-primary"
-                      : "hover:bg-base-200/50 opacity-60"
-                  }`}
-                >
-                  <FiFileText className="w-4 h-4" />
-                  before-plugins.gradle
-                </button>
+            <div className="divider my-4"></div>
+
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-base-content/40 px-3">
+                {activePlatform === "android" ? "Android Files" : "iOS Files"}
+              </h3>
+
+              <div className="flex flex-col gap-1">
+                {activePlatform === "android" ? (
+                  <>
+                    <button
+                      onClick={() => setActiveAndroidFile("app")}
+                      className={`btn btn-sm justify-start gap-3 ${
+                        activeAndroidFile === "app"
+                          ? "bg-base-200 text-primary shadow-sm"
+                          : "btn-ghost"
+                      }`}
+                    >
+                      <FiFileText className="w-4 h-4" /> app.gradle
+                    </button>
+                    <button
+                      onClick={() => setActiveAndroidFile("before-plugins")}
+                      className={`btn btn-sm justify-start gap-3 ${
+                        activeAndroidFile === "before-plugins"
+                          ? "bg-base-200 text-primary shadow-sm"
+                          : "btn-ghost"
+                      }`}
+                    >
+                      <FiFileText className="w-4 h-4" /> before-plugins.gradle
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setActiveIosFile("xcconfig")}
+                      className={`btn btn-sm justify-start gap-3 ${
+                        activeIosFile === "xcconfig"
+                          ? "bg-base-200 text-primary shadow-sm"
+                          : "btn-ghost"
+                      }`}
+                    >
+                      <FiFileText className="w-4 h-4" /> build.xcconfig
+                    </button>
+                    <button
+                      onClick={() => setActiveIosFile("plist")}
+                      className={`btn btn-sm justify-start gap-3 ${
+                        activeIosFile === "plist"
+                          ? "bg-base-200 text-primary shadow-sm"
+                          : "btn-ghost"
+                      }`}
+                    >
+                      <FiFileText className="w-4 h-4" /> Info.plist
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          )}
 
-          {activePlatform === "ios" && (
-            <div className="card bg-base-100 border border-base-300 rounded-3xl p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-              <label className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2 mb-4 block">
-                iOS Files
-              </label>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => setActiveIosFile("xcconfig")}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all font-bold text-xs ${
-                    activeIosFile === "xcconfig"
-                      ? "bg-base-200 text-primary"
-                      : "hover:bg-base-200/50 opacity-60"
-                  }`}
-                >
-                  <FiFileText className="w-4 h-4" />
-                  build.xcconfig
-                </button>
-                <button
-                  onClick={() => setActiveIosFile("plist")}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all font-bold text-xs ${
-                    activeIosFile === "plist"
-                      ? "bg-base-200 text-primary"
-                      : "hover:bg-base-200/50 opacity-60"
-                  }`}
-                >
-                  <FiFileText className="w-4 h-4" />
-                  Info.plist
-                </button>
+            <div className="mt-8 p-4 bg-primary/5 rounded-2xl border border-primary/10">
+              <div className="flex items-center gap-2 text-primary mb-2">
+                <FiInfo className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  Tip
+                </span>
               </div>
+              <p className="text-[11px] opacity-70 leading-relaxed">
+                {activePlatform === "android"
+                  ? "Use app.gradle for native dependencies and SDK versions. Use before-plugins.gradle for custom Gradle configurations before plugins are applied."
+                  : "build.xcconfig is used for build settings, while Info.plist is for app metadata and permissions."}
+              </p>
             </div>
-          )}
-
-          <div className="card bg-primary/5 border border-primary/10 rounded-3xl p-6">
-            <div className="flex items-center gap-2 text-primary mb-3">
-              <FiInfo className="w-4 h-4" />
-              <span className="text-xs font-black uppercase tracking-widest">
-                Tip
-              </span>
-            </div>
-            <p className="text-xs opacity-70 leading-relaxed">
-              {activePlatform === "android"
-                ? "Use app.gradle for native dependencies and SDK versions. Use before-plugins.gradle for custom Gradle configurations before plugins are applied."
-                : "build.xcconfig is used for build settings, while Info.plist is for app metadata and permissions."}
-            </p>
           </div>
         </div>
 
         {/* Right Column: Editor */}
-        <div className="lg:col-span-9">
+        <div className="lg:col-span-3">
           <div className="card bg-base-100 border border-base-300 rounded-3xl overflow-hidden shadow-sm h-[70vh]">
             <div className="p-4 bg-base-200/50 border-b border-base-300 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
                   className={`p-2 rounded-lg ${activePlatform === "android" ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"}`}
                 >
-                  {activePlatform === "android" ? <FaAndroid /> : <FaApple />}
+                  {activePlatform === "android" ? <SiAndroid /> : <SiApple />}
                 </div>
                 <div>
                   <div className="text-xs font-black uppercase tracking-widest opacity-60 flex items-center gap-2">

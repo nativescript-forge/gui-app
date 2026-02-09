@@ -7,15 +7,18 @@ import { TargetSelection } from "./BuildWizard/TargetSelection";
 import { LocalBuildFlow } from "./BuildWizard/LocalBuildFlow";
 import { CloudBuildFlow } from "./BuildWizard/CloudBuildFlow";
 import { BuildWizardPreview } from "./BuildWizard/BuildWizardPreview";
+import type { PlatformStatus } from "../../app/platformDetection";
 
 interface BuildModalProps {
   isOpen: boolean;
   onClose: () => void;
   onBuild: (config: BuildConfig) => void;
-  platform: "android" | "ios";
+  platform: "android" | "ios" | null;
   projectPath?: string;
   flavor?: string;
   db: Database | null;
+  platformStatus: PlatformStatus;
+  isMac: boolean;
 }
 
 export function BuildModal({
@@ -26,14 +29,21 @@ export function BuildModal({
   flavor,
   projectPath,
   db,
+  platformStatus,
+  isMac,
 }: BuildModalProps) {
   const [wizardStep, setWizardStep] = useState(1);
   const [copied, setCopied] = useState(false);
   const [buildConfig, setBuildConfig] = useState<BuildConfig>({
     buildType: "local",
-    platform: initialPlatform,
+    platform:
+      initialPlatform || (platformStatus.android.available ? "android" : "ios"),
     mode: "debug",
-    format: initialPlatform === "android" ? "apk" : "ipa",
+    format:
+      (initialPlatform ||
+        (platformStatus.android.available ? "android" : "ios")) === "android"
+        ? "apk"
+        : "ipa",
     clean: false,
     aot: false,
     snapshot: false,
@@ -91,6 +101,7 @@ export function BuildModal({
       if (buildConfig.aot && flavor?.toLowerCase().includes("angular"))
         buildCmdParts.push("--env.aot");
       if (buildConfig.snapshot) buildCmdParts.push("--env.snapshot");
+      if (buildConfig.v8cache) buildCmdParts.push("--env.v8cache");
       if (buildConfig.compileSnapshot)
         buildCmdParts.push("--env.compileSnapshot");
       if (buildConfig.report) buildCmdParts.push("--env.report");
@@ -217,9 +228,16 @@ export function BuildModal({
     if (isOpen) {
       setBuildConfig({
         buildType: "local",
-        platform: initialPlatform,
+        platform:
+          initialPlatform ||
+          (platformStatus.android.available ? "android" : "ios"),
         mode: "debug",
-        format: initialPlatform === "android" ? "apk" : "ipa",
+        format:
+          (initialPlatform ||
+            (platformStatus.android.available ? "android" : "ios")) ===
+          "android"
+            ? "apk"
+            : "ipa",
         clean: false,
         aot: false,
         snapshot: false,
@@ -233,7 +251,7 @@ export function BuildModal({
       setWizardStep(1);
       loadSavedSigningInfo();
     }
-  }, [initialPlatform, isOpen, db, projectPath]);
+  }, [initialPlatform, isOpen, db, projectPath, platformStatus]);
 
   if (!isOpen) return null;
 
@@ -265,6 +283,8 @@ export function BuildModal({
             setBuildConfig={setBuildConfig}
             flavor={flavor}
             selectKeystore={selectKeystore}
+            platformStatus={platformStatus}
+            isMac={isMac}
           />
         );
       case 5:

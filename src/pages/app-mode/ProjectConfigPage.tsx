@@ -13,7 +13,7 @@ import {
   FiEye,
   FiX,
 } from "react-icons/fi";
-import { FaAndroid, FaApple } from "react-icons/fa";
+import { SiAndroid, SiApple } from "react-icons/si";
 import { invoke } from "@tauri-apps/api/core";
 import { NativeScriptConfig } from "../../app/types";
 
@@ -283,7 +283,7 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>
           <div className="text-3xl font-extrabold flex items-center gap-3">
@@ -296,19 +296,19 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
         </div>
         <div className="flex gap-2">
           <button
-            className={`btn btn-ghost btn-sm ${loading ? "loading" : ""}`}
+            className={`btn btn-ghost btn-sm gap-2 ${loading ? "loading" : ""}`}
             onClick={loadConfig}
             disabled={loading || saving}
           >
-            {!loading && <FiRefreshCw />}
+            {!loading && <FiRefreshCw className="w-4 h-4" />}
             Reload
           </button>
           <button
-            className={`btn btn-primary btn-sm ${saving ? "loading" : ""}`}
+            className={`btn btn-primary btn-sm gap-2 shadow-lg shadow-primary/20 ${saving ? "loading" : ""}`}
             onClick={handleSave}
             disabled={loading || saving || !projectPath}
           >
-            {!saving && <FiSave />}
+            {!saving && <FiSave className="w-4 h-4" />}
             Save Changes
           </button>
         </div>
@@ -336,38 +336,38 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
               className={`btn btn-sm justify-start gap-3 ${activeTab === "general" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("general")}
             >
-              <FiGlobe /> General
+              <FiGlobe className="w-4 h-4" /> General
             </button>
             <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "android" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("android")}
             >
-              <FaAndroid /> Android
+              <SiAndroid className="w-4 h-4" /> Android
             </button>
             <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "ios" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("ios")}
             >
-              <FaApple /> iOS
+              <SiApple className="w-4 h-4" /> iOS
             </button>
             <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "cli" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("cli")}
             >
-              <FiTerminal /> CLI
+              <FiTerminal className="w-4 h-4" /> CLI
             </button>
             <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "security" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("security")}
             >
-              <FiShield /> Security
+              <FiShield className="w-4 h-4" /> Security
             </button>
-            <div className="divider my-1"></div>
+            <div className="divider my-4"></div>
             <button
-              className={`btn btn-sm justify-start gap-3 ${activeTab === "presets" ? "btn-secondary text-white" : "btn-ghost"}`}
+              className={`btn btn-sm justify-start gap-3 ${activeTab === "presets" ? "btn-secondary text-white shadow-lg shadow-secondary/20" : "btn-ghost"}`}
               onClick={() => setActiveTab("presets")}
             >
-              <FiZap /> Presets
+              <FiZap className="w-4 h-4" /> Presets
             </button>
           </div>
         </div>

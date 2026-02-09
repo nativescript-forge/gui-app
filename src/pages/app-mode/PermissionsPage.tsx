@@ -13,7 +13,7 @@ import {
   FiExternalLink,
   FiRefreshCw,
 } from "react-icons/fi";
-import { FaAndroid, FaApple } from "react-icons/fa";
+import { SiAndroid, SiApple } from "react-icons/si";
 import { invoke } from "@tauri-apps/api/core";
 import masterPermissions from "../../data/permissions_master.json";
 
@@ -181,7 +181,7 @@ export function PermissionsPage({
   };
 
   return (
-    <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header Section */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>
@@ -232,7 +232,7 @@ export function PermissionsPage({
                 activePlatform === "android" ? "btn-primary" : "btn-ghost"
               }`}
             >
-              <FaAndroid className="w-4 h-4" /> Android
+              <SiAndroid className="w-4 h-4" /> Android
             </button>
             <button
               onClick={() => setActivePlatform("ios")}
@@ -240,7 +240,7 @@ export function PermissionsPage({
                 activePlatform === "ios" ? "btn-primary" : "btn-ghost"
               }`}
             >
-              <FaApple className="w-4 h-4" /> iOS
+              <SiApple className="w-4 h-4" /> iOS
             </button>
 
             <div className="divider my-4"></div>
@@ -257,12 +257,12 @@ export function PermissionsPage({
                 }
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-ghost btn-xs w-full justify-between group px-3"
+                className="btn btn-ghost btn-sm w-full justify-start gap-3 group px-3"
               >
+                <FiExternalLink className="w-4 h-4 text-base-content/30 group-hover:text-primary transition-colors" />
                 <span className="text-xs font-bold text-base-content/60 group-hover:text-primary transition-colors">
                   Official Docs
                 </span>
-                <FiExternalLink className="w-3 h-3 text-base-content/30 group-hover:text-primary transition-colors" />
               </a>
             </div>
           </div>

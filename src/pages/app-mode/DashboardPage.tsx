@@ -1,5 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import type { ProjectRow, BuildConfig, Route } from "../../app/types";
+import type {
+  ProjectRow,
+  BuildConfig,
+  RunConfig,
+  Route,
+} from "../../app/types";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -28,6 +33,7 @@ import {
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { detectPlatforms, PlatformStatus } from "../../app/platformDetection";
 
 export type DashboardPageProps = {
   projects: ProjectRow[];
@@ -40,6 +46,10 @@ export type DashboardPageProps = {
     packageManager: string;
   } | null;
   onOpenBuildModal: () => void;
+  onOpenRunModal: (
+    platform: "android" | "ios" | null,
+    action?: "run" | "debug",
+  ) => void;
   onRunAction: (
     action:
       | "run-android"
@@ -60,18 +70,22 @@ export type DashboardPageProps = {
       | "platform-add-android"
       | "platform-add-ios",
     deviceId?: string,
-    buildConfig?: BuildConfig,
+    config?: BuildConfig | RunConfig,
     sourcePath?: string,
     backgroundColor?: string,
   ) => Promise<string | void>;
   onRunNpm: (args: string[], cwd?: string) => Promise<void>;
   currentAction: string | null;
   setRoute: (route: Route) => void;
+  onRouteToSetup?: () => void;
   onRefreshProject?: (path: string) => Promise<void>;
+  isMac: boolean;
+  platformStatus: PlatformStatus;
 };
 
 export function DashboardPage(props: DashboardPageProps) {
-  const { running, onRunAction, onRunNpm, currentAction } = props;
+  const { running, onRunAction, onRunNpm, currentAction, platformStatus } =
+    props;
   const [nodeModulesExist, setNodeModulesExist] = useState<boolean | null>(
     null,
   );
@@ -614,21 +628,48 @@ export function DashboardPage(props: DashboardPageProps) {
               </div>
               <div className="flex items-center xl:justify-end gap-2.5">
                 {projectPlatforms.length === 0 ? (
-                  <span className="text-xs font-bold opacity-30">None</span>
+                  <span className="text-sm font-bold opacity-30">None</span>
                 ) : (
-                  projectPlatforms.map((p) => (
-                    <div
-                      key={p}
-                      className="tooltip tooltip-bottom"
-                      data-tip={p.toUpperCase()}
-                    >
-                      {p === "android" ? (
-                        <SiAndroid className="w-4 h-4 text-success/70" />
-                      ) : (
-                        <SiApple className="w-4 h-4 text-base-content/70" />
-                      )}
-                    </div>
-                  ))
+                  projectPlatforms.map((p) => {
+                    const status =
+                      p === "android"
+                        ? platformStatus.android
+                        : platformStatus.ios;
+                    return (
+                      <div
+                        key={p}
+                        className="dropdown dropdown-hover dropdown-bottom dropdown-end"
+                      >
+                        <label tabIndex={0} className="cursor-help">
+                          {p === "android" ? (
+                            <SiAndroid
+                              className={`w-5 h-5 transition-colors ${status.available ? "text-success" : "text-error opacity-40"}`}
+                            />
+                          ) : (
+                            <SiApple
+                              className={`w-5 h-5 transition-colors ${status.available ? "text-base-content" : "text-error opacity-40"}`}
+                            />
+                          )}
+                        </label>
+                        <div
+                          tabIndex={0}
+                          className="dropdown-content z-[20] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200 mt-2"
+                        >
+                          <div
+                            className={`font-black mb-1.5 text-sm uppercase tracking-wider ${status.available ? "text-success" : "text-error"}`}
+                          >
+                            {p.toUpperCase()} Platform
+                          </div>
+                          <p className="text-xs font-semibold opacity-70 leading-relaxed">
+                            {status.available
+                              ? `Platform ${p} terdeteksi dan siap digunakan.`
+                              : status.reason ||
+                                `Platform ${p} tidak tersedia.`}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -660,192 +701,199 @@ export function DashboardPage(props: DashboardPageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Main Column */}
         <div className="lg:col-span-8 flex flex-col gap-5">
-          {/* Action Grid - 3 Columns for Run, Debug, and Distribution */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {/* Run Section */}
-            <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm flex flex-col">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2 mb-5">
-                <FiPlay className="w-3.5 h-3.5 text-success" /> Run Project
+          {/* Quick Actions - Combined Launch and Build */}
+          <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-4 sm:p-6 shadow-sm flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
+                <FiZap className="w-3.5 h-3.5 text-primary" /> Quick Actions
               </h3>
-              <div className="grid grid-cols-1 gap-2.5 flex-1">
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+              {/* Launch Button */}
+              <div className="relative group/launch flex">
                 <button
-                  className={`btn h-auto py-3 px-4 rounded-2xl border-none transition-all flex items-center justify-between group ${
-                    projectPlatforms.includes("android")
-                      ? "bg-success/10 text-success hover:bg-success hover:text-white shadow-sm hover:shadow-md"
-                      : "bg-base-200 text-base-content/20 cursor-not-allowed"
+                  className={`btn h-full py-5 px-6 rounded-2xl border-none transition-all flex items-center justify-between group w-full ${
+                    platformStatus.android.available ||
+                    platformStatus.ios.available
+                      ? "bg-gradient-to-r from-success/10 to-primary/5 text-base-content hover:from-success/20 hover:to-primary/10 shadow-sm hover:shadow-md active:scale-[0.98]"
+                      : "bg-base-200 text-base-content/20 cursor-not-allowed opacity-50"
                   }`}
                   disabled={
-                    props.running || !projectPlatforms.includes("android")
+                    props.running ||
+                    (!platformStatus.android.available &&
+                      !platformStatus.ios.available)
                   }
-                  onClick={() => props.onRunAction("run-android")}
+                  onClick={() => props.onOpenRunModal(null, "run")}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4 overflow-hidden">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                        projectPlatforms.includes("android")
-                          ? "bg-success/20 group-hover:bg-white/20"
+                      className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
+                        platformStatus.android.available ||
+                        platformStatus.ios.available
+                          ? "bg-success text-white shadow-lg shadow-success/20"
                           : "bg-base-300"
                       }`}
                     >
-                      <SiAndroid className="w-5 h-5" />
+                      <FiPlay className="w-6 h-6" />
                     </div>
-                    <div className="text-left">
-                      <div className="font-black text-sm">Run Android</div>
-                      <div className="text-[10px] opacity-60 font-bold uppercase tracking-wider">
-                        {projectPlatforms.includes("android")
-                          ? "Emulator/Device"
-                          : "Not Available"}
+                    <div className="text-left truncate">
+                      <div className="font-bold text-lg tracking-tight truncate">
+                        Launch App
+                      </div>
+                      <div className="text-[10px] opacity-50 font-black uppercase tracking-wider mt-0.5 truncate">
+                        {platformStatus.android.available ||
+                        platformStatus.ios.available
+                          ? "Run on Device"
+                          : "No Platforms"}
                       </div>
                     </div>
                   </div>
-                  <FiChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex -space-x-2">
+                      {platformStatus.android.available && (
+                        <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center border-2 border-base-100 shadow-sm">
+                          <SiAndroid className="w-3 h-3 text-success" />
+                        </div>
+                      )}
+                      {platformStatus.ios.available && (
+                        <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center border-2 border-base-100 shadow-sm">
+                          <SiApple className="w-3 h-3 text-primary" />
+                        </div>
+                      )}
+                    </div>
+                    <FiChevronRight className="w-5 h-5 opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                  </div>
                 </button>
 
-                <button
-                  className={`btn h-auto py-3 px-4 rounded-2xl border-none transition-all flex items-center justify-between group ${
-                    projectPlatforms.includes("ios")
-                      ? "bg-primary/10 text-primary hover:bg-primary hover:text-white shadow-sm hover:shadow-md"
-                      : "bg-base-200 text-base-content/20 cursor-not-allowed"
-                  }`}
-                  disabled={props.running || !projectPlatforms.includes("ios")}
-                  onClick={() => props.onRunAction("run-ios")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                        projectPlatforms.includes("ios")
-                          ? "bg-primary/20 group-hover:bg-white/20"
-                          : "bg-base-300"
-                      }`}
-                    >
-                      <SiApple className="w-5 h-5" />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-black text-sm">Run iOS</div>
-                      <div className="text-[10px] opacity-60 font-bold uppercase tracking-wider">
-                        {projectPlatforms.includes("ios")
-                          ? "Simulator/Device"
-                          : "Not Available"}
+                {!platformStatus.android.available &&
+                  !platformStatus.ios.available && (
+                    <div className="absolute top-2 right-2">
+                      <div className="dropdown dropdown-hover dropdown-left dropdown-end">
+                        <label
+                          tabIndex={0}
+                          className="btn btn-error btn-xs rounded-full w-6 h-6 p-0 min-h-0 animate-pulse"
+                        >
+                          <FiAlertTriangle className="w-3 h-3" />
+                        </label>
+                        <div
+                          tabIndex={0}
+                          className="dropdown-content z-[20] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200 mr-2"
+                        >
+                          <div className="font-black mb-1.5 text-error text-[10px] uppercase tracking-wider">
+                            Config Required
+                          </div>
+                          <p className="text-[10px] font-semibold opacity-70 leading-relaxed">
+                            No platforms ready. Check dependencies and OS
+                            compatibility.
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <FiChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                </button>
+                  )}
               </div>
-            </div>
 
-            {/* Debugging & Development */}
-            <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm flex flex-col">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2 mb-5">
-                <FiZap className="w-3.5 h-3.5 text-warning" /> Debugging &
-                Development
-              </h3>
-              <div className="grid grid-cols-1 gap-2.5 flex-1">
+              {/* Build Button */}
+              <div className="relative group/build flex">
                 <button
-                  className={`btn btn-outline border-base-200 justify-start gap-3.5 rounded-2xl h-auto py-3 px-4 group transition-all w-full ${
-                    projectPlatforms.includes("android")
-                      ? "hover:bg-warning/10 hover:text-warning hover:border-warning/30"
-                      : "opacity-50 cursor-not-allowed bg-base-200/30"
-                  }`}
-                  disabled={
-                    props.running || !projectPlatforms.includes("android")
-                  }
-                  onClick={() => props.onRunAction("debug-android")}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                      projectPlatforms.includes("android")
-                        ? "bg-base-200/50 group-hover:bg-warning/20"
-                        : "bg-base-300"
-                    }`}
-                  >
-                    <SiAndroid
-                      className={`w-5 h-5 ${projectPlatforms.includes("android") ? "opacity-40 group-hover:opacity-100" : "opacity-20"}`}
-                    />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-black text-sm">Debug Android</div>
-                    <div className="text-[10px] opacity-50 font-medium">
-                      {projectPlatforms.includes("android")
-                        ? "Chrome DevTools"
-                        : "Platform Not Available"}
-                    </div>
-                  </div>
-                </button>
-
-                <button
-                  className={`btn btn-outline border-base-200 justify-start gap-3.5 rounded-2xl h-auto py-3 px-4 group transition-all w-full ${
-                    projectPlatforms.includes("ios")
-                      ? "hover:bg-warning/10 hover:text-warning hover:border-warning/30"
-                      : "opacity-50 cursor-not-allowed bg-base-200/30"
-                  }`}
-                  disabled={props.running || !projectPlatforms.includes("ios")}
-                  onClick={() => props.onRunAction("debug-ios")}
-                >
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                      projectPlatforms.includes("ios")
-                        ? "bg-base-200/50 group-hover:bg-warning/20"
-                        : "bg-base-300"
-                    }`}
-                  >
-                    <SiApple
-                      className={`w-5 h-5 ${projectPlatforms.includes("ios") ? "opacity-40 group-hover:opacity-100" : "opacity-20"}`}
-                    />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-black text-sm">Debug iOS</div>
-                    <div className="text-[10px] opacity-50 font-medium">
-                      {projectPlatforms.includes("ios")
-                        ? "Safari Web Inspector"
-                        : "Platform Not Available"}
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* App Distribution */}
-            <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm flex flex-col md:col-span-2 xl:col-span-1">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2 mb-5">
-                <FiBox className="w-3.5 h-3.5 text-primary" /> App Distribution
-              </h3>
-              <div className="flex flex-col h-full gap-4">
-                <button
-                  className="btn btn-primary bg-gradient-to-br from-primary to-primary-focus border-none justify-start gap-4 rounded-2xl h-auto py-4 px-5 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all group w-full"
+                  className="btn h-full py-5 px-6 rounded-2xl border-none bg-gradient-to-r from-primary/10 to-primary/5 text-base-content hover:from-primary/20 hover:to-primary/10 shadow-sm hover:shadow-md transition-all flex items-center justify-between group w-full"
                   disabled={props.running}
                   onClick={props.onOpenBuildModal}
                 >
-                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <FiPackage className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-black text-sm text-white">
-                      Build Project
+                  <div className="flex items-center gap-4 overflow-hidden">
+                    <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                      <FiPackage className="w-6 h-6" />
                     </div>
-                    <div className="text-[10px] text-white/60 font-bold uppercase tracking-wider">
-                      Generate APK/AAB/IPA
+                    <div className="text-left truncate">
+                      <div className="font-bold text-lg tracking-tight text-base-content truncate">
+                        Build Project
+                      </div>
+                      <div className="text-[10px] opacity-50 font-black uppercase tracking-wider mt-0.5 truncate">
+                        Generate APK/AAB/IPA
+                      </div>
                     </div>
                   </div>
+                  <FiChevronRight className="w-5 h-5 opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all flex-shrink-0" />
                 </button>
-                <p className="text-[12px] leading-relaxed opacity-50 font-medium">
-                  Prepare your application for release. Building will generate
-                  installation files (APK/AAB for Android or IPA for iOS) ready
-                  for distribution to app stores or internal testing.
-                </p>
               </div>
             </div>
           </div>
 
+          {/* Project Health Section */}
+          <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
+                <FiActivity className="w-3.5 h-3.5 text-success" /> Project
+                Health & Status
+              </h3>
+              <button
+                onClick={checkProjectHealth}
+                className={`btn btn-ghost btn-xs btn-circle h-7 w-7 min-h-0 ${checkingHealth ? "animate-spin" : "opacity-30 hover:opacity-100 bg-base-200/50"}`}
+              >
+                <FiRefreshCw className="w-3 h-3" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-all ${nodeModulesExist ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}
+                >
+                  {nodeModulesExist ? (
+                    <FiCheckCircle className="w-6 h-6" />
+                  ) : (
+                    <FiAlertTriangle className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider">
+                    Dependencies
+                  </div>
+                  <div className="text-[10px] opacity-50 font-bold">
+                    {nodeModulesExist
+                      ? "Ready to build"
+                      : "Missing node_modules"}
+                  </div>
+                </div>
+                {!nodeModulesExist && nodeModulesExist !== null && (
+                  <button
+                    onClick={() => onRunAction("install")}
+                    disabled={running}
+                    className="btn btn-error btn-xs ml-auto rounded-lg font-black h-8 px-3"
+                  >
+                    INSTALL
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 p-4 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shadow-sm transition-all">
+                  <FiHash className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider">
+                    Plugins
+                  </div>
+                  <div className="text-[10px] opacity-50 font-bold">
+                    {activeProject?.plugins_count || 0} packages installed
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Sidebar Column */}
+        <div className="lg:col-span-4 flex flex-col gap-5">
           {/* Maintenance & Tools Section */}
-          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm">
+          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-6 shadow-sm">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
-                <FiShield className="w-3.5 h-3.5 text-info" /> Maintenance &
-                Tools
+                <FiShield className="w-3.5 h-3.5 text-info" /> Maintenance
               </h3>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 {
                   id: "doctor",
@@ -899,82 +947,6 @@ export function DashboardPage(props: DashboardPageProps) {
                   </span>
                 </button>
               ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Column */}
-        <div className="lg:col-span-4 flex flex-col gap-5">
-          {/* Project Health Section */}
-          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
-                <FiActivity className="w-3.5 h-3.5" /> Project Health
-              </h3>
-              <button
-                onClick={checkProjectHealth}
-                className={`btn btn-ghost btn-xs btn-circle h-7 w-7 min-h-0 ${checkingHealth ? "animate-spin" : "opacity-30 hover:opacity-100 bg-base-200/50"}`}
-              >
-                <FiRefreshCw className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-all ${nodeModulesExist ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}
-                >
-                  {nodeModulesExist ? (
-                    <FiCheckCircle className="w-5 h-5" />
-                  ) : (
-                    <FiAlertTriangle className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-wider">
-                    Dependencies
-                  </div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    {nodeModulesExist
-                      ? "Ready to build"
-                      : "Missing node_modules"}
-                  </div>
-                </div>
-              </div>
-
-              {!nodeModulesExist && nodeModulesExist !== null && (
-                <div className="p-4 rounded-2xl bg-error/5 border border-error/10 text-error flex flex-col gap-3">
-                  <p className="text-[10px] leading-relaxed font-bold">
-                    Dependencies not found.
-                  </p>
-                  <button
-                    onClick={() => onRunAction("install")}
-                    disabled={running}
-                    className="btn btn-error btn-sm w-full text-[10px] rounded-xl h-8 font-black"
-                  >
-                    {running && currentAction === "install" ? (
-                      <span className="loading loading-spinner loading-xs mr-2"></span>
-                    ) : (
-                      <FiDownload className="w-3.5 h-3.5 mr-2" />
-                    )}
-                    RUN INSTALL
-                  </button>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shadow-sm transition-all">
-                  <FiHash className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-[11px] font-black uppercase tracking-wider">
-                    Plugins
-                  </div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    {activeProject?.plugins_count || 0} packages installed
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 

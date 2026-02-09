@@ -205,7 +205,7 @@ export function ResourceConfigPage({
   };
 
   return (
-    <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
         <div>

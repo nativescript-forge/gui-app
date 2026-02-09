@@ -1,19 +1,19 @@
 import { FiGithub, FiGlobe } from "react-icons/fi";
 
 interface AboutModalProps {
-  show: boolean;
+  isOpen: boolean;
   onClose: () => void;
   brandIconSrc: string;
   appInfo: { name: string; version: string };
 }
 
 export function AboutModal({
-  show,
+  isOpen,
   onClose,
   brandIconSrc,
   appInfo,
 }: AboutModalProps) {
-  if (!show) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="modal modal-open">

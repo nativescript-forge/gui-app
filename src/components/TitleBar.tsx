@@ -1,22 +1,9 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getName, getVersion } from "@tauri-apps/api/app";
-import { invoke } from "@tauri-apps/api/core";
-import {
-  FiSun,
-  FiMoon,
-  FiPlay,
-  FiCpu,
-  FiLoader,
-  FiSmartphone,
-  FiChevronDown,
-  FiRefreshCw,
-  FiAlertCircle,
-  FiPackage,
-  FiLogOut,
-} from "react-icons/fi";
-import { SiAndroid, SiApple } from "react-icons/si";
-import type { ProjectRow, Route, Theme, AdbDevice } from "../app/types";
+import { FiSun, FiMoon, FiLoader, FiPackage, FiLogOut } from "react-icons/fi";
+import { LuRocket } from "react-icons/lu";
+import type { ProjectRow, Route, Theme } from "../app/types";
 
 // Sub-components
 import { FileMenu } from "./TitleBar/FileMenu";
@@ -63,6 +50,11 @@ interface TitleBarProps {
   theme: Theme;
   onToggleTheme: () => void;
   onOpenBuildModal: () => void;
+  onOpenRunModal: (
+    platform: "android" | "ios" | null,
+    action?: "run" | "debug",
+  ) => void;
+  isMac: boolean;
 }
 
 export function TitleBar({
@@ -80,103 +72,9 @@ export function TitleBar({
   theme,
   onToggleTheme,
   onOpenBuildModal,
+  onOpenRunModal,
+  isMac,
 }: TitleBarProps) {
-  const [devices, setDevices] = useState<AdbDevice[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [platform, setPlatform] = useState<"android" | "ios" | null>(null);
-  const [projectPackages, setProjectPackages] = useState<
-    Record<string, string>
-  >({});
-
-  useEffect(() => {
-    const fetchPackages = async () => {
-      if (!activeProjectPath) return;
-      try {
-        const pkgs = (await invoke("get_project_packages", {
-          projectPath: activeProjectPath,
-        })) as Record<string, string>;
-        setProjectPackages(pkgs);
-
-        // Auto-switch platform if only one is available
-        const hasAndroid = !!pkgs["@nativescript/android"];
-        const hasIos = !!pkgs["@nativescript/ios"];
-        if (hasAndroid && !hasIos) setPlatform("android");
-        else if (!hasAndroid && hasIos) setPlatform("ios");
-        else if (!hasAndroid && !hasIos) setPlatform(null);
-        else if (hasAndroid && hasIos && platform === null)
-          setPlatform("android");
-      } catch (e) {
-        console.error("Failed to fetch project packages in TitleBar:", e);
-      }
-    };
-    fetchPackages();
-  }, [activeProjectPath]);
-
-  const hasAndroidPackage = !!projectPackages["@nativescript/android"];
-  const hasIosPackage = !!projectPackages["@nativescript/ios"];
-
-  const scanDevices = async () => {
-    setScanning(true);
-    try {
-      const result = (await invoke("get_adb_devices")) as AdbDevice[];
-      setDevices(result);
-
-      // Auto-select if no device selected or selected device not in new list
-      const platformDevices = result.filter((d) => d.platform === platform);
-      if (platformDevices.length > 0) {
-        const isSelectedStillValid = platformDevices.some(
-          (d) => d.id === selectedDeviceId,
-        );
-        if (!selectedDeviceId || !isSelectedStillValid) {
-          setSelectedDeviceId(platformDevices[0].id);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to scan devices:", e);
-    } finally {
-      setScanning(false);
-    }
-  };
-
-  // Effect to auto-select device when platform changes
-  useEffect(() => {
-    if (platform && devices.length > 0) {
-      const platformDevices = devices.filter((d) => d.platform === platform);
-      if (platformDevices.length > 0) {
-        const isSelectedStillValid = platformDevices.some(
-          (d) => d.id === selectedDeviceId,
-        );
-        if (!selectedDeviceId || !isSelectedStillValid) {
-          setSelectedDeviceId(platformDevices[0].id);
-        }
-      } else {
-        setSelectedDeviceId(null);
-      }
-    }
-  }, [platform, devices]);
-
-  useEffect(() => {
-    if (currentRoute.startsWith("app-")) {
-      scanDevices();
-    }
-  }, [currentRoute]);
-
-  const selectedDevice = devices.find(
-    (d) => d.id === selectedDeviceId && d.platform === platform,
-  );
-
-  const handleRun = () => {
-    if (!platform) return;
-    const action = platform === "android" ? "run-android" : "run-ios";
-    onRunAction(action, selectedDeviceId || undefined);
-  };
-
-  const handleDebug = () => {
-    if (!platform) return;
-    const action = platform === "android" ? "debug-android" : "debug-ios";
-    onRunAction(action, selectedDeviceId || undefined);
-  };
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
@@ -324,286 +222,34 @@ export function TitleBar({
         </div>
       </div>
 
-      {/* Center: Global App Switching & Dashboard Actions */}
+      {/* Center: Dashboard Actions */}
       <div
-        className="flex-1 flex justify-center items-center h-full gap-4 max-w-[60%]"
+        className="flex-1 flex justify-center items-center h-full gap-3 max-w-[60%]"
         {...dragProps}
       >
         {currentRoute.startsWith("app-") && (
           <div className="flex items-center gap-2" {...dragProps}>
-            {/* Platform & Device Selector */}
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-md p-0.5">
-              {/* Platform Toggle */}
-              <div className="flex bg-black/20 rounded p-0.5">
-                <div
-                  className="tooltip tooltip-bottom"
-                  data-tip={
-                    hasAndroidPackage
-                      ? "Select Android Platform"
-                      : "Android platform not installed"
-                  }
-                >
-                  <button
-                    onClick={() => hasAndroidPackage && setPlatform("android")}
-                    disabled={!hasAndroidPackage}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
-                      platform === "android" && hasAndroidPackage
-                        ? "bg-success/20 text-success shadow-sm"
-                        : hasAndroidPackage
-                          ? "text-white/40 hover:text-white/60"
-                          : "text-white/10 cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    <SiAndroid className="w-3 h-3" />
-                    {platform === "android" && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider">
-                        Android
-                      </span>
-                    )}
-                  </button>
-                </div>
-                <div
-                  className="tooltip tooltip-bottom"
-                  data-tip={
-                    hasIosPackage
-                      ? "Select iOS Platform"
-                      : "iOS platform not installed"
-                  }
-                >
-                  <button
-                    onClick={() => hasIosPackage && setPlatform("ios")}
-                    disabled={!hasIosPackage}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded transition-all ${
-                      platform === "ios" && hasIosPackage
-                        ? "bg-info/20 text-info shadow-sm"
-                        : hasIosPackage
-                          ? "text-white/40 hover:text-white/60"
-                          : "text-white/10 cursor-not-allowed opacity-50"
-                    }`}
-                  >
-                    <SiApple className="w-3 h-3" />
-                    {platform === "ios" && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider">
-                        iOS
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Device Dropdown */}
-              <div className="dropdown dropdown-bottom">
-                <div
-                  tabIndex={0}
-                  role="button"
-                  className="flex items-center gap-2 px-2 py-1 hover:bg-white/10 rounded transition-colors"
-                >
-                  {scanning ? (
-                    <FiRefreshCw className="w-3.5 h-3.5 text-primary animate-spin" />
-                  ) : (
-                    <FiSmartphone
-                      className={`w-3.5 h-3.5 ${
-                        selectedDevice ? "text-success" : "text-white/40"
-                      }`}
-                    />
-                  )}
-                  <div className="flex flex-col items-start max-w-[120px]">
-                    <span className="text-[10px] font-medium truncate w-full">
-                      {selectedDevice ? selectedDevice.model : "No Device"}
-                    </span>
-                    {selectedDevice && (
-                      <span
-                        className={`text-[8px] leading-none ${
-                          selectedDevice.status === "device"
-                            ? "text-success/60"
-                            : selectedDevice.status === "unauthorized"
-                              ? "text-warning/60"
-                              : "text-white/40"
-                        }`}
-                      >
-                        {selectedDevice.id}
-                      </span>
-                    )}
-                  </div>
-                  <FiChevronDown className="w-3 h-3 opacity-40" />
-                </div>
-
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content z-[100] menu p-1 shadow-2xl bg-[#252525] border border-white/10 rounded-md w-64 mt-1 text-[12px]"
-                >
-                  <div className="px-3 py-2 flex justify-between items-center">
-                    <span className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-                      Devices
-                    </span>
-                    <div
-                      className="tooltip tooltip-left"
-                      data-tip="Scan for connected devices"
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          scanDevices();
-                        }}
-                        className={`p-1 hover:bg-white/10 rounded ${
-                          scanning ? "animate-spin text-primary" : ""
-                        }`}
-                      >
-                        <FiRefreshCw className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="divider my-0 opacity-10"></div>
-
-                  {devices.length === 0 ? (
-                    <div className="p-4 flex flex-col items-center gap-2 text-center">
-                      <FiAlertCircle className="w-6 h-6 text-warning/50" />
-                      <p className="text-[11px] text-white/60">
-                        No devices detected
-                      </p>
-                      <div className="text-[9px] text-white/30 bg-white/5 p-2 rounded border border-white/5">
-                        Tip: Make sure ADB is installed and USB Debugging is
-                        enabled.
-                      </div>
-                    </div>
-                  ) : (
-                    devices
-                      .filter((d) => d.platform === platform)
-                      .map((device) => (
-                        <li key={device.id}>
-                          <button
-                            onClick={() => setSelectedDeviceId(device.id)}
-                            className={`flex items-center justify-between py-2 ${
-                              selectedDeviceId === device.id
-                                ? "bg-primary/10 text-primary"
-                                : ""
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <FiSmartphone
-                                className={`w-4 h-4 ${
-                                  device.status === "device"
-                                    ? "text-success/70"
-                                    : device.status === "unauthorized"
-                                      ? "text-warning/70"
-                                      : "text-white/30"
-                                }`}
-                              />
-                              <div className="flex flex-col items-start">
-                                <span className="font-medium">
-                                  {device.model}
-                                </span>
-                                <span
-                                  className={`text-[9px] uppercase tracking-tighter ${
-                                    device.status === "device"
-                                      ? "text-success/50"
-                                      : device.status === "unauthorized"
-                                        ? "text-warning/50"
-                                        : "text-white/30"
-                                  }`}
-                                >
-                                  {device.status} • {device.id}
-                                </span>
-                              </div>
-                            </div>
-                            {selectedDeviceId === device.id && (
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--p),0.5)]" />
-                            )}
-                          </button>
-                        </li>
-                      ))
-                  )}
-
-                  {devices.filter((d) => d.platform === platform).length ===
-                    0 &&
-                    devices.length > 0 && (
-                      <div className="p-3 text-center text-[10px] opacity-40 italic">
-                        No {platform} devices available.
-                      </div>
-                    )}
-
-                  <div className="divider my-1 opacity-10"></div>
-                  <li>
-                    <button
-                      onClick={() => setRoute("app-platform-config")}
-                      className="text-[11px] text-primary hover:bg-primary/10 py-2 group flex items-center justify-center gap-2"
-                    >
-                      <FiAlertCircle className="w-3.5 h-3.5" />
-                      <span>ADB not found? Check Doctor</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            {/* Quick Run Buttons */}
-            <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
-              <div
-                className="tooltip tooltip-bottom"
-                data-tip={
-                  actionsRunning
-                    ? "Action already running"
-                    : !selectedDevice
-                      ? "Connect/select a device first"
-                      : (platform === "android" && !hasAndroidPackage) ||
-                          (platform === "ios" && !hasIosPackage)
-                        ? `${platform === "android" ? "Android" : "iOS"} platform not installed in project`
-                        : `Run on ${selectedDevice.model}`
-                }
+            {/* Launch App Button */}
+            <div
+              className="tooltip tooltip-bottom"
+              data-tip={
+                actionsRunning ? "Action already running" : "Launch Application"
+              }
+            >
+              <button
+                onClick={() => onOpenRunModal(null)}
+                disabled={actionsRunning}
+                className="flex items-center gap-2 px-3 py-1.5 bg-success/10 hover:bg-success/20 border border-success/20 rounded-md text-success transition-all group active:scale-95 disabled:opacity-50"
               >
-                <button
-                  onClick={handleRun}
-                  disabled={
-                    actionsRunning ||
-                    !selectedDevice ||
-                    !platform ||
-                    (platform === "android" && !hasAndroidPackage) ||
-                    (platform === "ios" && !hasIosPackage)
-                  }
-                  className="px-2 py-1 hover:bg-white/10 rounded text-success transition-colors flex items-center gap-1.5 group disabled:opacity-30 w-full"
-                >
-                  {actionsRunning ? (
-                    <FiLoader className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <FiPlay className="w-3.5 h-3.5" />
-                  )}
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                    Run
-                  </span>
-                </button>
-              </div>
-              <div className="w-[1px] h-4 bg-white/10 mx-0.5"></div>
-              <div
-                className="tooltip tooltip-bottom"
-                data-tip={
-                  actionsRunning
-                    ? "Action already running"
-                    : !selectedDevice
-                      ? "Connect/select a device first"
-                      : (platform === "android" && !hasAndroidPackage) ||
-                          (platform === "ios" && !hasIosPackage)
-                        ? `${platform === "android" ? "Android" : "iOS"} platform not installed in project`
-                        : `Debug on ${selectedDevice.model}`
-                }
-              >
-                <button
-                  onClick={handleDebug}
-                  disabled={
-                    actionsRunning ||
-                    !selectedDevice ||
-                    !platform ||
-                    (platform === "android" && !hasAndroidPackage) ||
-                    (platform === "ios" && !hasIosPackage)
-                  }
-                  className="px-2 py-1 hover:bg-white/10 rounded text-info transition-colors flex items-center gap-1.5 group disabled:opacity-30 w-full"
-                >
-                  <FiCpu className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
-                    Debug
-                  </span>
-                </button>
-              </div>
+                {actionsRunning ? (
+                  <FiLoader className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LuRocket className="w-3.5 h-3.5" />
+                )}
+                <span className="text-[10px] font-bold uppercase tracking-wider hidden lg:inline">
+                  Launch App
+                </span>
+              </button>
             </div>
 
             <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
@@ -660,7 +306,7 @@ export function TitleBar({
 
       {/* About Modal */}
       <AboutModal
-        show={showAboutModal}
+        isOpen={showAboutModal}
         onClose={() => setShowAboutModal(false)}
         brandIconSrc={brandIconSrc}
         appInfo={appInfo}

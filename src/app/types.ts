@@ -82,6 +82,33 @@ export type AdbDevice = {
   platform: "android" | "ios" | "visionos";
 };
 
+export type RunConfig = {
+  platform: "android" | "ios";
+  action: "run" | "debug";
+  mode?: "debug" | "release";
+  format?: "apk" | "aab" | "ipa";
+  buildType?: "local" | "cloud" | "simulator";
+  deviceId?: string;
+  emulator?: boolean;
+  debugBrk?: boolean;
+  start?: boolean;
+  timeout?: number;
+  noWatch?: boolean;
+  clean?: boolean;
+  noHmr?: boolean;
+  aab?: boolean;
+  force?: boolean;
+  uglify?: boolean;
+  aot?: boolean;
+  snapshot?: boolean;
+  v8cache?: boolean;
+  compileSnapshot?: boolean;
+  report?: boolean;
+  sourceMap?: boolean;
+  hiddenSourceMap?: boolean;
+  additionalOptions?: string;
+};
+
 export type BuildConfig = {
   platform: "android" | "ios";
   mode: "debug" | "release";
@@ -95,6 +122,7 @@ export type BuildConfig = {
   clean?: boolean;
   aot?: boolean;
   snapshot?: boolean;
+  v8cache?: boolean;
   compileSnapshot?: boolean;
   uglify?: boolean;
   report?: boolean;

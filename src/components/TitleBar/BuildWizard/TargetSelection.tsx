@@ -3,7 +3,9 @@ import type { BuildConfig } from "../../../app/types";
 
 interface TargetSelectionProps {
   buildConfig: BuildConfig;
-  setBuildConfig: (config: BuildConfig | ((prev: BuildConfig) => BuildConfig)) => void;
+  setBuildConfig: (
+    config: BuildConfig | ((prev: BuildConfig) => BuildConfig),
+  ) => void;
 }
 
 export function TargetSelection({
@@ -11,91 +13,83 @@ export function TargetSelection({
   setBuildConfig,
 }: TargetSelectionProps) {
   return (
-    <div className="space-y-3 py-1">
-      <div className="text-center mb-3">
-        <h3 className="text-base font-bold text-base-content">
-          Select Build Target
+    <div className="space-y-6 py-2">
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-black text-base-content uppercase tracking-tight">
+          Select Build Type
         </h3>
-        <p className="text-xs text-base-content/60">
+        <p className="text-sm text-base-content/60 font-medium">
           Choose how you want to build your application
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+      {/* Build Type Selection */}
+      <div className="grid grid-cols-2 gap-4">
         <button
-          className={`flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all ${
+          className={`flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-all ${
             buildConfig.buildType === "local"
-              ? "border-primary bg-primary/10 shadow-md"
-              : "border-base-300 hover:border-primary/50 bg-base-200/50"
+              ? "border-primary bg-primary/10 shadow-lg shadow-primary/10 scale-[1.02]"
+              : "border-base-300 hover:border-primary/50 bg-base-200/50 hover:scale-[1.01]"
           }`}
-          onClick={() =>
-            setBuildConfig({ ...buildConfig, buildType: "local" })
-          }
+          onClick={() => setBuildConfig({ ...buildConfig, buildType: "local" })}
         >
           <div
-            className={`p-2.5 rounded-full ${buildConfig.buildType === "local" ? "bg-primary text-primary-content" : "bg-base-300 opacity-50"}`}
+            className={`p-4 rounded-2xl ${buildConfig.buildType === "local" ? "bg-primary text-primary-content" : "bg-base-300 text-base-content/40"}`}
           >
-            <FiCpu className="w-5 h-5" />
+            <FiCpu className="w-7 h-7" />
           </div>
           <div className="text-center">
-            <div className="font-bold text-xs text-base-content">
+            <div className="font-black text-sm text-base-content uppercase tracking-wider">
               Local Build
             </div>
-            <div className="text-[10px] text-base-content/60 mt-0.5 text-balance">
-              Build using your local machine resources
+            <div className="text-[10px] text-base-content/60 mt-1.5 font-bold leading-relaxed max-w-[140px]">
+              Build using your own machine resources
             </div>
           </div>
         </button>
 
         {buildConfig.platform === "ios" ? (
           <button
-            className={`flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all ${
+            className={`flex flex-col items-center gap-4 p-6 rounded-3xl border-2 transition-all ${
               buildConfig.buildType === "simulator"
-                ? "border-primary bg-primary/10 shadow-md"
-                : "border-base-300 hover:border-primary/50 bg-base-200/50"
+                ? "border-primary bg-primary/10 shadow-lg shadow-primary/10 scale-[1.02]"
+                : "border-base-300 hover:border-primary/50 bg-base-200/50 hover:scale-[1.01]"
             }`}
             onClick={() =>
               setBuildConfig({ ...buildConfig, buildType: "simulator" })
             }
           >
             <div
-              className={`p-2.5 rounded-full ${buildConfig.buildType === "simulator" ? "bg-primary text-primary-content" : "bg-base-300 opacity-50"}`}
+              className={`p-4 rounded-2xl ${buildConfig.buildType === "simulator" ? "bg-primary text-primary-content" : "bg-base-300 text-base-content/40"}`}
             >
-              <FiSmartphone className="w-5 h-5" />
+              <FiSmartphone className="w-7 h-7" />
             </div>
             <div className="text-center">
-              <div className="font-bold text-xs text-base-content">
-                Simulator Build
+              <div className="font-black text-sm text-base-content uppercase tracking-wider">
+                Simulator
               </div>
-              <div className="text-[10px] text-base-content/60 mt-0.5 text-balance">
-                Build specifically for iOS Simulator
+              <div className="text-[10px] text-base-content/60 mt-1.5 font-bold leading-relaxed max-w-[140px]">
+                Build for iOS Simulator development
               </div>
             </div>
           </button>
         ) : (
-          <div className="relative group opacity-60 cursor-not-allowed grayscale">
-            <div
-              className={`flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all w-full h-full ${
-                buildConfig.buildType === "cloud"
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-base-300 hover:border-primary/50 bg-base-200/50"
-              }`}
-            >
-              <div
-                className={`p-2.5 rounded-full ${buildConfig.buildType === "cloud" ? "bg-primary text-primary-content" : "bg-base-300 opacity-50"}`}
-              >
-                <FiCloud className="w-5 h-5" />
+          <div className="relative group opacity-40 cursor-not-allowed grayscale h-full">
+            <div className="flex flex-col items-center gap-4 p-6 rounded-3xl border-2 border-base-300 bg-base-200/50 w-full h-full">
+              <div className="p-4 rounded-2xl bg-base-300 text-base-content/40">
+                <FiCloud className="w-7 h-7" />
               </div>
               <div className="text-center">
-                <div className="font-bold text-xs text-base-content">
+                <div className="font-black text-sm text-base-content uppercase tracking-wider">
                   Cloud Build
                 </div>
-                <div className="text-[10px] text-base-content/60 mt-0.5 text-balance">
+                <div className="text-[10px] text-base-content/60 mt-1.5 font-bold leading-relaxed max-w-[140px]">
                   Build on Norrix Cloud Infrastructure
                 </div>
               </div>
             </div>
-            <div className="absolute top-2 right-2 badge badge-warning badge-[9px] font-bold shadow-sm h-3.5 px-1.5 leading-none">
-              COMING SOON
+            <div className="absolute top-3 right-3 badge badge-warning badge-xs font-black shadow-sm">
+              SOON
             </div>
           </div>
         )}
