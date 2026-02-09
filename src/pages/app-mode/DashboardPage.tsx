@@ -28,10 +28,10 @@ import {
   FiCommand,
   FiLayers,
   FiX,
-  FiPlay,
   FiChevronRight,
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
+import { LuRocket } from "react-icons/lu";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { detectPlatforms, PlatformStatus } from "../../app/platformDetection";
 
@@ -735,7 +735,7 @@ export function DashboardPage(props: DashboardPageProps) {
                           : "bg-base-300"
                       }`}
                     >
-                      <FiPlay className="w-6 h-6" />
+                      <LuRocket className="w-6 h-6" />
                     </div>
                     <div className="text-left truncate">
                       <div className="font-bold text-lg tracking-tight truncate">

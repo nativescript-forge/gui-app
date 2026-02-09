@@ -220,7 +220,7 @@ pub async fn set_ns_package_manager(
     let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args = ["package-manager", "set", &pm];
-        run_resolved_streaming(&window, state, &cli, &args, None)
+        run_resolved_streaming(&window, state, &cli, &args, None, "package-manager".to_string(), None, None)
     }).await.map_err(|e| e.to_string())??;
 
     Ok(CommandResult {
@@ -802,7 +802,7 @@ pub async fn run_npm(
     let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-        run_resolved_streaming(&window, state, &cli, &args_refs, cwd.as_deref())
+        run_resolved_streaming(&window, state, &cli, &args_refs, cwd.as_deref(), "npm".to_string(), None, None)
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -1045,10 +1045,10 @@ pub async fn run_ns(
         _ => return Err("Unknown action".to_string()),
     };
 
-    if let Some(id) = device_id {
+    if let Some(id) = &device_id {
         if !id.is_empty() {
             args.push("--device".to_string());
-            args.push(id);
+            args.push(id.clone());
         }
     }
 
@@ -1062,6 +1062,24 @@ pub async fn run_ns(
     let project_path_owned = project_path.clone();
     let build_config_owned = build_config.clone();
 
+    let action_owned = action.clone();
+    let device_id_owned = device_id.clone();
+    
+    // Extract package name (appId) from package.json if possible
+    let pkg_path = std::path::Path::new(&project_path).join("package.json");
+    let package_name = if pkg_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(pkg_path) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                // NativeScript appId is often in nativescript.id or just the name
+                v.get("nativescript")
+                    .and_then(|ns| ns.get("id"))
+                    .and_then(|id| id.as_str())
+                    .or_else(|| v.get("name").and_then(|n| n.as_str()))
+                    .map(|s| s.to_string())
+            } else { None }
+        } else { None }
+    } else { None };
+
     let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
 
@@ -1070,13 +1088,13 @@ pub async fn run_ns(
             if config.clean {
                 let _ = window.emit("create-project-log", LogPayload { message: "Starting clean build...\n".to_string() });
                 let clean_args = ["clean"];
-                let _ = run_resolved_streaming(&window, state.clone(), &cli, &clean_args, Some(&project_path_owned));
+                let _ = run_resolved_streaming(&window, state.clone(), &cli, &clean_args, Some(&project_path_owned), "clean".to_string(), None, None);
                 let _ = window.emit("create-project-log", LogPayload { message: "\n--- Clean completed, starting build ---\n".to_string() });
             }
         }
 
         let args_str: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
-        run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned))
+        run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned), action_owned, device_id_owned, package_name)
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -1093,7 +1111,24 @@ pub async fn run_ns(
 use tauri::{Emitter, State, Manager};
 use std::sync::Mutex;
 
-pub struct ProcessState(pub Mutex<Option<std::process::Child>>);
+pub struct ActiveProcess {
+    pub child: std::process::Child,
+    pub action: String,
+    pub device_id: Option<String>,
+    pub package_name: Option<String>,
+}
+
+pub struct ProcessState(pub Mutex<Option<ActiveProcess>>);
+
+#[derive(serde::Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessStatusPayload {
+    pub status: String, // "starting", "building", "running", "finished", "error", "terminated"
+    pub action: String,
+    pub device_id: Option<String>,
+    pub exit_code: Option<i32>,
+    pub message: Option<String>,
+}
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -1109,9 +1144,20 @@ pub fn run_resolved_streaming(
     cli: &ResolvedCli,
     args: &[&str],
     cwd: Option<&str>,
+    action: String,
+    device_id: Option<String>,
+    package_name: Option<String>,
 ) -> Result<CommandResult, String> {
     let mut full_args = cli.base_args.clone();
     full_args.extend(args.iter().map(|a| a.to_string()));
+
+    let _ = window.emit("ns-process-status", ProcessStatusPayload {
+        status: "starting".to_string(),
+        action: action.clone(),
+        device_id: device_id.clone(),
+        exit_code: None,
+        message: Some("Initializing...".to_string()),
+    });
 
     let mut cmd = Command::new(&cli.launcher);
     cmd.args(full_args.clone());
@@ -1133,6 +1179,13 @@ pub fn run_resolved_streaming(
     let mut child = cmd.spawn().map_err(|e| {
         let err_msg = format!("Failed to spawn command: {}\n", e);
         let _ = window.emit("create-project-log", LogPayload { message: err_msg.clone() });
+        let _ = window.emit("ns-process-status", ProcessStatusPayload {
+            status: "error".to_string(),
+            action: action.clone(),
+            device_id: device_id.clone(),
+            exit_code: None,
+            message: Some(err_msg.clone()),
+        });
         e.to_string()
     })?;
 
@@ -1154,27 +1207,65 @@ pub fn run_resolved_streaming(
     // Store child in state
     {
         let mut lock = state.0.lock().unwrap();
-        *lock = Some(child);
+        *lock = Some(ActiveProcess {
+            child,
+            action: action.clone(),
+            device_id: device_id.clone(),
+            package_name: package_name.clone(),
+        });
     }
 
     let window_clone = window.clone();
+    let action_clone = action.clone();
+    let device_id_clone = device_id.clone();
     let stdout_thread = std::thread::spawn(move || {
         use std::io::{BufRead, BufReader};
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
             if let Ok(line_content) = line {
                 let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
+                
+                // Parse status
+                if line_content.contains("Preparing project...") || line_content.contains("Building project...") {
+                    let _ = window_clone.emit("ns-process-status", ProcessStatusPayload {
+                        status: "building".to_string(),
+                        action: action_clone.clone(),
+                        device_id: device_id_clone.clone(),
+                        exit_code: None,
+                        message: Some(line_content.clone()),
+                    });
+                } else if line_content.contains("Successfully synced on device") || line_content.contains("Successfully installed on device") {
+                    let _ = window_clone.emit("ns-process-status", ProcessStatusPayload {
+                        status: "running".to_string(),
+                        action: action_clone.clone(),
+                        device_id: device_id_clone.clone(),
+                        exit_code: None,
+                        message: Some("App is running".to_string()),
+                    });
+                }
             }
         }
     });
 
     let window_clone = window.clone();
+    let action_clone = action.clone();
+    let device_id_clone = device_id.clone();
     let stderr_thread = std::thread::spawn(move || {
         use std::io::{BufRead, BufReader};
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             if let Ok(line_content) = line {
                 let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
+                
+                if line_content.to_lowercase().contains("error") {
+                    let _ = window_clone.emit("ns-process-status", ProcessStatusPayload {
+                        status: "error".to_string(),
+                        action: action_clone.clone(),
+                        device_id: device_id_clone.clone(),
+                        exit_code: None,
+                        message: Some(line_content.clone()),
+                    });
+                }
             }
         }
     });
@@ -1183,8 +1274,8 @@ pub fn run_resolved_streaming(
     let status = loop {
         {
             let mut lock = state.0.lock().unwrap();
-            if let Some(child) = lock.as_mut() {
-                match child.try_wait() {
+            if let Some(process) = lock.as_mut() {
+                match process.child.try_wait() {
                     Ok(Some(status)) => break Ok(status),
                     Ok(None) => {} // Still running
                     Err(e) => break Err(e.to_string()),
@@ -1200,6 +1291,14 @@ pub fn run_resolved_streaming(
     let _ = stderr_thread.join();
 
     let status = status?;
+    
+    let _ = window.emit("ns-process-status", ProcessStatusPayload {
+        status: if status.success() { "finished".to_string() } else { "error".to_string() },
+        action: action.clone(),
+        device_id: device_id.clone(),
+        exit_code: status.code(),
+        message: Some(format!("Process exited with status: {}", status)),
+    });
 
     Ok(CommandResult {
         status_code: status.code(),
@@ -1256,14 +1355,23 @@ pub async fn get_ns_report() -> Result<NsReport, String> {
 #[tauri::command]
 pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessState>) -> Result<(), String> {
     let mut lock = state.0.lock().unwrap();
-    if let Some(child) = lock.take() {
+    if let Some(process) = lock.take() {
         let _ = window.emit("create-project-log", LogPayload { message: "\n--- Process stop requested ---\n".to_string() });
+        
+        let _ = window.emit("ns-process-status", ProcessStatusPayload {
+            status: "terminated".to_string(),
+            action: process.action.clone(),
+            device_id: process.device_id.clone(),
+            exit_code: None,
+            message: Some("Process termination requested".to_string()),
+        });
+
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             // On Windows, taskkill /F /T /PID is better for killing process trees
-            let pid = child.id();
+            let pid = process.child.id();
             let _ = Command::new("taskkill")
                 .args(["/F", "/T", "/PID", &pid.to_string()])
                 .creation_flags(CREATE_NO_WINDOW)
@@ -1271,9 +1379,32 @@ pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessStat
         }
         #[cfg(not(target_os = "windows"))]
         {
-            let mut child = child;
-            let _ = child.kill();
+            let _ = process.child.kill();
         }
+
+        // Try to force stop the app on the device if it's Android and we have package name
+        if let (Some(device_id), Some(pkg)) = (process.device_id, process.package_name) {
+            if process.action.contains("android") {
+                let _ = window.emit("create-project-log", LogPayload { message: format!("Stopping app {} on device {}...\n", pkg, device_id) });
+                
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    const CREATE_NO_WINDOW: u32 = 0x08000000;
+                    let _ = Command::new("adb")
+                        .args(["-s", &device_id, "shell", "am", "force-stop", &pkg])
+                        .creation_flags(CREATE_NO_WINDOW)
+                        .output();
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let _ = Command::new("adb")
+                        .args(["-s", &device_id, "shell", "am", "force-stop", &pkg])
+                        .output();
+                }
+            }
+        }
+
         let _ = window.emit("create-project-log", LogPayload { message: "--- Process terminated ---\n".to_string() });
     }
     Ok(())
@@ -1332,7 +1463,7 @@ pub async fn create_ns_project(
     let result = tauri::async_runtime::spawn_blocking(move || {
         let state = window.state::<ProcessState>();
         let args_refs: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
-        run_resolved_streaming(&window, state, &cli, &args_refs, Some(&parent_path))
+        run_resolved_streaming(&window, state, &cli, &args_refs, Some(&parent_path), "create".to_string(), None, None)
     })
     .await
     .map_err(|e| e.to_string())??;

@@ -24,6 +24,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { AppShell } from "./components/AppShell";
 import { DiscoverModal } from "./components/DiscoverModal";
 import { TitleBar } from "./components/TitleBar";
+import { StatusBar } from "./components/StatusBar";
 
 // Pages
 import { HomePage } from "./pages/main/HomePage";
@@ -233,21 +234,78 @@ function App() {
     };
   }, []);
 
+  const [processStatus, setProcessStatus] = useState<{
+    status:
+      | "starting"
+      | "building"
+      | "running"
+      | "finished"
+      | "error"
+      | "terminated";
+    action: string;
+    deviceId?: string;
+    exitCode?: number;
+    message?: string;
+  } | null>(null);
+
   useEffect(() => {
-    const unlisten = listen<{ message: string }>(
+    const unlistenStatus = listen<{
+      status:
+        | "starting"
+        | "building"
+        | "running"
+        | "finished"
+        | "error"
+        | "terminated";
+      action: string;
+      deviceId?: string;
+      exitCode?: number;
+      message?: string;
+    }>("ns-process-status", (event) => {
+      const payload = event.payload;
+      setProcessStatus(payload);
+
+      if (
+        payload.status === "finished" ||
+        payload.status === "error" ||
+        payload.status === "terminated"
+      ) {
+        setActionsRunning(false);
+      } else {
+        setActionsRunning(true);
+      }
+
+      if (payload.status === "error") {
+        const projectName =
+          actionsProjectPath?.split(/[\\/]/).pop() || "Project";
+        logActivity(
+          "app-run",
+          `Error in ${payload.action} on ${projectName}: ${payload.message}`,
+          "error",
+          payload,
+        );
+      }
+    });
+
+    const unlistenLog = listen<{ message: string }>(
       "create-project-log",
       (event) => {
         const message = event.payload.message;
-        setLogText((prev) => prev + message);
+        setLogText((prev) => {
+          // Simple throttling: if log is too big, trim it
+          const next = prev + message;
+          if (next.length > 50000) {
+            return next.slice(-40000);
+          }
+          return next;
+        });
         setIsTerminalVisible(true);
 
         // Detect build output path (APK, AAB, IPA, APP)
-        // Matches typical NativeScript output: path/to/app.apk or path/to/app.aab
         const pathRegex =
           /([a-zA-Z]:\\[^:\n]+\.(?:apk|aab|ipa|app))|(\/[^\n]+\.(?:apk|aab|ipa|app))/gi;
         const matches = message.match(pathRegex);
         if (matches && matches.length > 0) {
-          // Get the last match as it's usually the final output path
           const detectedPath = matches[matches.length - 1].trim();
           setBuildOutputPath(detectedPath);
         }
@@ -255,9 +313,10 @@ function App() {
     );
 
     return () => {
-      unlisten.then((f) => f());
+      unlistenStatus.then((f) => f());
+      unlistenLog.then((f) => f());
     };
-  }, []);
+  }, [actionsProjectPath]);
 
   const splashStartRef = useRef<number>(Date.now());
 
@@ -788,8 +847,8 @@ function App() {
       console.error(`Command ${command} failed:`, err);
       setLogText((prev) => prev + `\nError: ${err}\n`);
     } finally {
-      setActionsRunning(false);
-      setCurrentAction(null);
+      // Don't set actionsRunning to false here, as streaming might still be happening
+      // The event listener for ns-process-status will handle it
     }
   }
 
@@ -1070,6 +1129,8 @@ function App() {
 
   return (
     <div data-theme={theme} className="flex flex-col h-screen overflow-hidden">
+      <StatusBar processStatus={processStatus} onStop={stopRunningAction} />
+
       <TitleBar
         projects={projects}
         activeProjectPath={activeProjectPath}
