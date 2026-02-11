@@ -35,8 +35,10 @@ import { PluginsPage } from "./pages/app-mode/PluginsPage";
 import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
 import { ProjectConfigPage } from "./pages/app-mode/ProjectConfigPage";
 import { ResourceConfigPage } from "./pages/app-mode/ResourceConfigPage";
+import { FontConfigPage } from "./pages/app-mode/FontConfigPage";
 import { SettingsPage } from "./pages/main/SettingsPage";
 import { ActivityPage } from "./pages/main/ActivityPage";
+import { ensureNsForgeDir } from "./app/projectConfig";
 import {
   CreateProjectPage,
   type ProjectConfig,
@@ -841,6 +843,7 @@ function App() {
     setIsTerminalVisible(true);
     setActionsRunning(true);
     setCurrentAction("settings");
+    setProcessStatus({ status: "running", action: "settings" });
     try {
       await invoke(command, args);
     } catch (err) {
@@ -855,6 +858,7 @@ function App() {
   async function runDoctor() {
     setActionsRunning(true);
     setCurrentAction("doctor");
+    setProcessStatus({ status: "running", action: "doctor" });
     const startTime = Date.now();
     // If we have an active project, go to app-platform-config, else maybe stay on home doctor if it existed?
     // User wants doctor in Application context.
@@ -885,6 +889,9 @@ function App() {
     } finally {
       setActionsRunning(false);
       setCurrentAction(null);
+      setProcessStatus((prev) =>
+        prev ? { ...prev, status: "finished", action: prev.action } : null,
+      );
     }
   }
 
@@ -933,6 +940,7 @@ function App() {
     if (!actionsProjectPath) return "";
     setActionsRunning(true);
     setCurrentAction(action);
+    setProcessStatus({ status: "running", action });
     setBuildOutputPath(null);
     setLogText("");
     setIsTerminalVisible(true);
@@ -1020,6 +1028,9 @@ function App() {
     } finally {
       setActionsRunning(false);
       setCurrentAction(null);
+      setProcessStatus((prev) =>
+        prev ? { ...prev, status: "finished", action: prev.action } : null,
+      );
     }
   }
 
@@ -1027,6 +1038,7 @@ function App() {
     if (!actionsProjectPath && !cwd) return;
     setActionsRunning(true);
     setCurrentAction("npm");
+    setProcessStatus({ status: "running", action: "npm" });
     setIsTerminalVisible(true);
     setLogText("");
     const path = cwd || actionsProjectPath || "";
@@ -1075,6 +1087,9 @@ function App() {
     } finally {
       setActionsRunning(false);
       setCurrentAction(null);
+      setProcessStatus((prev) =>
+        prev ? { ...prev, status: "finished", action: prev.action } : null,
+      );
     }
   }
 
@@ -1082,6 +1097,8 @@ function App() {
     setActiveProjectPath(path);
     if (path) {
       setActionsProjectPath(path);
+      // Ensure .nsforge directory exists
+      ensureNsForgeDir(path).catch(console.error);
     }
 
     // Re-analyze on select to keep metadata fresh
@@ -1129,8 +1146,6 @@ function App() {
 
   return (
     <div data-theme={theme} className="flex flex-col h-screen overflow-hidden">
-      <StatusBar processStatus={processStatus} onStop={stopRunningAction} />
-
       <TitleBar
         projects={projects}
         activeProjectPath={activeProjectPath}
@@ -1294,6 +1309,13 @@ function App() {
               }}
             />
           )}
+          {route === "app-fonts" && (
+            <FontConfigPage
+              projectPath={actionsProjectPath}
+              onRunAction={runAction}
+              isRunning={actionsRunning}
+            />
+          )}
           {route === "app-permissions" && (
             <PermissionsPage
               projectPath={actionsProjectPath!}
@@ -1379,6 +1401,7 @@ function App() {
         setIsVisible={setIsTerminalVisible}
         onStop={stopRunningAction}
         buildOutputPath={buildOutputPath}
+        processStatus={processStatus}
       />
 
       {/* DaisyUI Toast */}

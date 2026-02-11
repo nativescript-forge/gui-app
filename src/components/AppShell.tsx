@@ -16,6 +16,7 @@ import {
   FiSmartphone,
   FiChevronDown,
   FiLayers,
+  FiType,
 } from "react-icons/fi";
 import type { ProjectRow, Route, Theme } from "../app/types";
 
@@ -116,6 +117,7 @@ export function AppShell(props: AppShellProps) {
   const appSidebarItems: SidebarItem[] = [
     { id: "app-actions", label: "Dashboard", icon: FiGrid },
     { id: "app-resources", label: "Resource Config", icon: FiLayers },
+    { id: "app-fonts", label: "Font Config", icon: FiType },
     { id: "app-config", label: "Project Config", icon: FiSettings },
     { id: "app-platform-config", label: "Platform Config", icon: FiSmartphone },
     { id: "app-plugins", label: "Install Plugin", icon: FiPackage },

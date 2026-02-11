@@ -22,6 +22,30 @@ pub fn write_text_file(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn create_dir(path: String) -> Result<(), String> {
+    println!("Creating directory: {}", path);
+    fs::create_dir_all(path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn copy_file(src: String, dest: String) -> Result<(), String> {
+    println!("Copying file: {} -> {}", src, dest);
+    fs::copy(src, dest).map(|_| ()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn read_dir(path: String) -> Result<Vec<String>, String> {
+    let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
+    let mut files = Vec::new();
+    for entry in entries.flatten() {
+        if let Some(name) = entry.file_name().to_str() {
+            files.push(name.to_string());
+        }
+    }
+    Ok(files)
+}
+
+#[tauri::command]
 pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {

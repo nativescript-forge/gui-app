@@ -9,6 +9,7 @@ export type Route =
   | "app-config"
   | "app-platform-config"
   | "app-resources"
+  | "app-fonts"
   | "activity"
   | "settings";
 

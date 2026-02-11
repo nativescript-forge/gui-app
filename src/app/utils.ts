@@ -21,3 +21,13 @@ export function shortenPath(path: string, maxSegments: number = 3): string {
   const prefix = drive ? `${drive}${separator}` : separator;
   return `${prefix}...${separator}${lastSegments.join(separator)}`;
 }
+
+/**
+ * Strips ANSI escape codes from a string.
+ */
+export function stripAnsi(str: string): string {
+  if (!str) return "";
+  // eslint-disable-next-line no-control-regex
+  const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+  return str.replace(ansiRegex, "");
+}

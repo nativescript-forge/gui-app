@@ -934,6 +934,7 @@ pub async fn run_ns(
             }
             res_args
         }
+        "fonts" => vec!["fonts".to_string()],
         "build" => {
             if let Some(config) = &build_config {
                 let mut b_args = vec!["build".to_string(), config.platform.clone()];
@@ -1094,7 +1095,13 @@ pub async fn run_ns(
         }
 
         let args_str: Vec<&str> = args_owned.iter().map(|s| s.as_str()).collect();
-        run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned), action_owned, device_id_owned, package_name)
+
+        if action_owned == "fonts" {
+            // Use non-streaming version for fonts to get stdout directly
+            run_resolved(&cli, &args_str, Some(&project_path_owned))
+        } else {
+            run_resolved_streaming(&window, state, &cli, &args_str, Some(&project_path_owned), action_owned, device_id_owned, package_name)
+        }
     })
     .await
     .map_err(|e| e.to_string())??;
