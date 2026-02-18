@@ -13,7 +13,7 @@ import {
   FiChevronDown,
 } from "react-icons/fi";
 import Database from "@tauri-apps/plugin-sql";
-import type { ActivityLog } from "../../app/types";
+import type { ActivityLog } from "../../shared/types";
 
 type ActivityPageProps = {
   db: Database | null;

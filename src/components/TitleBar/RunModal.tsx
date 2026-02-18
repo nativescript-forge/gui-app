@@ -1,12 +1,12 @@
 import { FiPlay, FiX, FiArrowRight, FiArrowLeft, FiZap } from "react-icons/fi";
 import { useState, useEffect } from "react";
-import type { RunConfig, AdbDevice } from "../../app/types";
+import type { RunConfig, AdbDevice } from "../../shared/types";
 import { ActionSelection } from "./RunWizard/ActionSelection";
 import { DeviceSelection } from "./RunWizard/DeviceSelection";
 import { RunOptions } from "./RunWizard/RunOptions";
 import { RunPreview } from "./RunWizard/RunPreview";
 import { invoke } from "@tauri-apps/api/core";
-import { PlatformStatus } from "../../app/platformDetection";
+import { PlatformStatus } from "../../shared/platformDetection";
 
 interface RunModalProps {
   isOpen: boolean;

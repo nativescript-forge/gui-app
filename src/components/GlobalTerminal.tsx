@@ -11,7 +11,7 @@ import {
   FiFolder,
 } from "react-icons/fi";
 import { invoke } from "@tauri-apps/api/core";
-import { stripAnsi } from "../app/utils";
+import { stripAnsi } from "../shared/utils";
 
 interface GlobalTerminalProps {
   logs: string;

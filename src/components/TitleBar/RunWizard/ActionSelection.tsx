@@ -1,7 +1,7 @@
 import { FiPlay, FiZap, FiInfo } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
-import type { RunConfig } from "../../../app/types";
-import { PlatformStatus } from "../../../app/platformDetection";
+import type { RunConfig } from "../../../shared/types";
+import { PlatformStatus } from "../../../shared/platformDetection";
 
 interface ActionSelectionProps {
   runConfig: RunConfig;

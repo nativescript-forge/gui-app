@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FiImage,
   FiLayout,
@@ -13,9 +13,9 @@ import {
   FiBattery,
   FiSmartphone,
 } from "react-icons/fi";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
-import { exists, readFile } from "@tauri-apps/plugin-fs";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 type ActionType =
   | "resources-update"
@@ -65,50 +65,92 @@ export function ResourceConfigPage({
 
   const projectName = projectPath?.split(/[\\/]/).pop() || "Project";
 
-  // Fetch current assets from project
-  useEffect(() => {
-    const checkCurrentAssets = async () => {
-      if (!projectPath) return;
+  const checkCurrentAssets = useCallback(async () => {
+    if (!projectPath) return;
 
+    try {
+      // Try backend helper first for icon (returns data URL if available)
       try {
-        const iconPaths = [
-          "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
-          "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
-          "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
-        ];
-
-        const splashPaths = [
-          "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
-          "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
-          "App_Resources/iOS/Assets.xcassets/LaunchScreen.aspectfill.imageset/launch_screen.png",
-        ];
-
-        let foundIcon = null;
-        for (const p of iconPaths) {
-          const fullPath = await join(projectPath, p);
-          if (await exists(fullPath)) {
-            foundIcon = convertFileSrc(fullPath);
-            break;
-          }
+        const b64Icon = await invoke<string>("get_project_icon", {
+          path: projectPath,
+        });
+        if (b64Icon) {
+          setCurrentAssets((prev) => ({ ...prev, icon: b64Icon }));
         }
-
-        let foundSplash = null;
-        for (const p of splashPaths) {
-          const fullPath = await join(projectPath, p);
-          if (await exists(fullPath)) {
-            foundSplash = convertFileSrc(fullPath);
-            break;
-          }
-        }
-
-        setCurrentAssets({ icon: foundIcon, splash: foundSplash });
-      } catch (err) {
-        console.error("Failed to check current assets:", err);
+      } catch {
+        // ignore and fall back to manual checks
       }
-    };
 
-    checkCurrentAssets();
+      const iconPaths = [
+        "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+      ];
+
+      const splashPaths = [
+        "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
+        "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
+        "App_Resources/iOS/Assets.xcassets/LaunchScreen.aspectfill.imageset/launch_screen.png",
+      ];
+
+      let foundIcon: string | null = null;
+      for (const p of iconPaths) {
+        const fullPath = await join(projectPath, p);
+        try {
+          const bytes = await readFile(fullPath);
+          const blob = new Blob([bytes], { type: "image/png" });
+          foundIcon = URL.createObjectURL(blob);
+          break;
+        } catch {
+          try {
+            foundIcon = convertFileSrc(fullPath) + `?t=${Date.now()}`;
+            break;
+          } catch {
+            // continue
+          }
+        }
+      }
+
+      let foundSplash: string | null = null;
+      for (const p of splashPaths) {
+        const fullPath = await join(projectPath, p);
+        try {
+          const bytes = await readFile(fullPath);
+          const blob = new Blob([bytes], { type: "image/png" });
+          foundSplash = URL.createObjectURL(blob);
+          break;
+        } catch {
+          try {
+            foundSplash = convertFileSrc(fullPath) + `?t=${Date.now()}`;
+            break;
+          } catch {
+            // continue
+          }
+        }
+      }
+
+      setCurrentAssets({ icon: foundIcon, splash: foundSplash });
+    } catch (err) {
+      console.error("Failed to check current assets:", err);
+    }
   }, [projectPath]);
+
+  // Initial and projectPath changes
+  useEffect(() => {
+    checkCurrentAssets();
+  }, [projectPath, checkCurrentAssets]);
+
+  // Refresh when resource-related action finishes
+  useEffect(() => {
+    if (
+      !running &&
+      (currentAction === "resources-generate-icons" ||
+        currentAction === "resources-generate-splashes" ||
+        currentAction === "resources-update")
+    ) {
+      checkCurrentAssets();
+    }
+  }, [running, currentAction, checkCurrentAssets]);
 
   useEffect(() => {
     const loadPreview = async () => {
@@ -348,55 +390,6 @@ export function ResourceConfigPage({
                   </div>
                 )}
 
-                {/* Current Assets Display */}
-                {(currentAssets.icon || currentAssets.splash) && (
-                  <div className="p-4 rounded-2xl bg-base-200/30 border border-base-300 space-y-4">
-                    <label className="text-[9px] font-black uppercase tracking-[0.2em] opacity-40 px-1">
-                      Current Project Assets
-                    </label>
-                    <div className="flex gap-4">
-                      {currentAssets.icon && (
-                        <div className="flex items-center gap-3 p-2 pr-4 bg-base-100 rounded-xl border border-base-200 shadow-sm">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-base-200">
-                            <img
-                              src={currentAssets.icon}
-                              className="w-full h-full object-cover"
-                              alt="Current Icon"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-[10px] font-black">
-                              Current Icon
-                            </div>
-                            <div className="text-[9px] opacity-40 uppercase">
-                              mipmap-xxxhdpi
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      {currentAssets.splash && (
-                        <div className="flex items-center gap-3 p-2 pr-4 bg-base-100 rounded-xl border border-base-200 shadow-sm">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-base-200 bg-black/5">
-                            <img
-                              src={currentAssets.splash}
-                              className="w-full h-full object-contain p-1"
-                              alt="Current Splash"
-                            />
-                          </div>
-                          <div>
-                            <div className="text-[10px] font-black">
-                              Current Splash
-                            </div>
-                            <div className="text-[9px] opacity-40 uppercase">
-                              drawable-xxxhdpi
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Info Box */}
                 <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 space-y-2">
                   <h4 className="text-xs font-bold flex items-center gap-2 text-primary">
@@ -432,150 +425,40 @@ export function ResourceConfigPage({
             </div>
           </div>
 
-          {/* Right Column: Preview */}
+          {/* Right Column: Current Asset */}
           <div className="lg:col-span-5">
             <div className="sticky top-6 space-y-6">
               <div className="card bg-base-100 border border-base-300 rounded-3xl overflow-hidden h-fit shadow-sm">
-                <div className="p-6 bg-base-200/50 border-b border-base-300 flex justify-between items-center">
+                <div className="p-6 bg-base-200/50 border-b border-base-300">
                   <h3 className="text-sm font-black uppercase tracking-widest opacity-60 flex items-center gap-2">
-                    <FiImage className="w-3 h-3" /> Live Preview
+                    <FiImage className="w-3 h-3" />
+                    {selectedAction === "resources-generate-icons"
+                      ? "Current Icon"
+                      : selectedAction === "resources-generate-splashes"
+                        ? "Current Splash"
+                        : "Current Asset"}
                   </h3>
-                  {previewUrl && (
-                    <span className="badge badge-success badge-sm font-bold text-[9px] uppercase tracking-widest">
-                      New Asset
-                    </span>
-                  )}
                 </div>
-                <div className="p-8 flex flex-col items-center justify-center min-h-[500px] bg-base-50/50">
-                  {selectedAction === "resources-update" ? (
-                    <div className="flex flex-col items-center text-center space-y-4 opacity-20">
-                      <FiLayout className="w-32 h-32 stroke-[1]" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-black uppercase tracking-tighter">
-                          Structure Update
-                        </p>
-                        <p className="text-[10px] max-w-[200px]">
-                          No visual preview for folder structure changes.
-                        </p>
-                      </div>
-                    </div>
-                  ) : previewUrl ? (
-                    <div className="space-y-12 w-full animate-in zoom-in-95 duration-500">
-                      {/* Icon Preview */}
-                      {selectedAction === "resources-generate-icons" && (
-                        <div className="flex flex-col items-center gap-8">
-                          <div className="flex flex-col items-center gap-4">
-                            <div className="w-40 h-40 rounded-[24%] overflow-hidden border-4 border-white">
-                              <img
-                                src={previewUrl}
-                                className="w-full h-full object-cover"
-                                alt="Icon Preview"
-                              />
-                            </div>
-                            <div className="px-4 py-1.5 rounded-full bg-base-200 text-[10px] font-black uppercase tracking-widest opacity-60">
-                              iOS Squircle
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-center gap-4">
-                            <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white">
-                              <img
-                                src={previewUrl}
-                                className="w-full h-full object-cover"
-                                alt="Icon Preview"
-                              />
-                            </div>
-                            <div className="px-4 py-1.5 rounded-full bg-base-200 text-[10px] font-black uppercase tracking-widest opacity-60">
-                              Android Circle
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Splash Preview - REAL SIMULATION */}
-                      {selectedAction === "resources-generate-splashes" && (
-                        <div className="flex flex-col items-center gap-6">
-                          {/* Device Frame */}
-                          <div className="relative group">
-                            {/* Device Outer Frame */}
-                            <div className="w-[280px] h-[580px] rounded-[3rem] bg-slate-900 p-3 shadow-[0_40px_100px_rgba(0,0,0,0.3)] ring-1 ring-white/10 relative">
-                              {/* Inner Screen */}
-                              <div
-                                className="w-full h-full rounded-[2.2rem] shadow-inner overflow-hidden relative flex flex-col transition-colors duration-500"
-                                style={{ backgroundColor }}
-                              >
-                                {/* Status Bar Simulation */}
-                                <div className="h-10 w-full flex justify-between items-center px-8 z-20">
-                                  <div className="text-[11px] font-bold text-white/80 flex items-center gap-1">
-                                    <FiClock className="w-2.5 h-2.5" /> 9:41
-                                  </div>
-                                  <div className="flex items-center gap-1.5 text-white/80">
-                                    <FiWifi className="w-3 h-3" />
-                                    <FiBattery className="w-3.5 h-3.5" />
-                                  </div>
-                                </div>
-
-                                {/* Dynamic Island / Notch */}
-                                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-6 bg-black rounded-full z-30" />
-
-                                {/* Logo Centering Area */}
-                                <div className="flex-1 flex items-center justify-center p-12 z-10">
-                                  <div className="w-full max-w-[160px] animate-in fade-in zoom-in-75 duration-700">
-                                    <img
-                                      src={previewUrl}
-                                      className="w-full h-auto object-contain"
-                                      alt="Splash Preview"
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* Bottom Indicator */}
-                                <div className="h-8 w-full flex items-end justify-center pb-2 z-20">
-                                  <div className="w-32 h-1.5 bg-white/30 rounded-full" />
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Device Side Buttons Mockup */}
-                            <div className="absolute top-24 -right-1 w-1 h-16 bg-slate-800 rounded-l-md" />
-                            <div className="absolute top-20 -left-1 w-1 h-12 bg-slate-800 rounded-r-md" />
-                            <div className="absolute top-36 -left-1 w-1 h-16 bg-slate-800 rounded-r-md" />
-                            <div className="absolute top-56 -left-1 w-1 h-16 bg-slate-800 rounded-r-md" />
-                          </div>
-                          <div className="px-6 py-2 rounded-full bg-base-200 text-[10px] font-black uppercase tracking-[0.2em] opacity-60">
-                            Mobile Simulation
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                <div className="p-8 flex items-center justify-center min-h-[420px] bg-base-50/50">
+                  {selectedAction === "resources-generate-icons" &&
+                  currentAssets.icon ? (
+                    <img
+                      src={currentAssets.icon}
+                      className="max-h-[380px] object-contain"
+                      alt="Current Icon"
+                    />
+                  ) : selectedAction === "resources-generate-splashes" &&
+                    currentAssets.splash ? (
+                    <img
+                      src={currentAssets.splash}
+                      className="w-full max-h-[420px] object-contain"
+                      alt="Current Splash"
+                    />
                   ) : (
-                    <div className="flex flex-col items-center text-center space-y-6 opacity-20">
-                      <div className="w-32 h-32 rounded-3xl border-4 border-dashed border-base-content/20 flex items-center justify-center">
-                        <FiUploadCloud className="w-12 h-12" />
-                      </div>
-                      <div className="space-y-2">
-                        <p className="text-sm font-black uppercase tracking-widest">
-                          No Asset Selected
-                        </p>
-                        <p className="text-[10px] max-w-[200px]">
-                          Select a source image to visualize the generated
-                          results.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handlePickFile}
-                        className="btn btn-ghost btn-sm text-xs font-bold border border-base-content/10"
-                      >
-                        Choose Image Source
-                      </button>
+                    <div className="text-[11px] opacity-40">
+                      No asset available for this action
                     </div>
                   )}
-                </div>
-                <div className="p-4 bg-base-200/50 border-t border-base-300">
-                  <p className="text-[9px] text-center opacity-40 font-medium italic">
-                    * Simulation is a high-fidelity mockup. Actual appearance
-                    may vary by device and OS version.
-                  </p>
                 </div>
               </div>
             </div>

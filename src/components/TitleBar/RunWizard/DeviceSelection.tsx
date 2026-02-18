@@ -4,7 +4,7 @@ import {
   FiAlertCircle,
   FiCpu,
 } from "react-icons/fi";
-import type { AdbDevice, RunConfig } from "../../../app/types";
+import type { AdbDevice, RunConfig } from "../../../shared/types";
 
 interface DeviceSelectionProps {
   runConfig: RunConfig;

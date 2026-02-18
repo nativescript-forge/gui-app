@@ -4,7 +4,7 @@ import type {
   BuildConfig,
   RunConfig,
   Route,
-} from "../../app/types";
+} from "../../shared/types";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -33,7 +33,7 @@ import {
 import { SiAndroid, SiApple } from "react-icons/si";
 import { LuRocket } from "react-icons/lu";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { detectPlatforms, PlatformStatus } from "../../app/platformDetection";
+import { detectPlatforms, PlatformStatus } from "../../shared/platformDetection";
 
 export type DashboardPageProps = {
   projects: ProjectRow[];

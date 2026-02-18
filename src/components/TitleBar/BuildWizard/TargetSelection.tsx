@@ -1,5 +1,5 @@
 import { FiCpu, FiSmartphone, FiCloud } from "react-icons/fi";
-import type { BuildConfig } from "../../../app/types";
+import type { BuildConfig } from "../../../shared/types";
 
 interface TargetSelectionProps {
   buildConfig: BuildConfig;

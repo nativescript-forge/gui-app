@@ -14,10 +14,10 @@ import type {
   CommandResult,
   RunConfig,
   BuildConfig,
-} from "./app/types";
-import { getBrandAssets } from "./app/brand";
-import { redactCommand, formatDuration } from "./app/logging";
-import { detectPlatforms, PlatformStatus } from "./app/platformDetection";
+} from "./shared/types";
+import { getBrandAssets } from "./shared/brand";
+import { redactCommand, formatDuration } from "./shared/logging";
+import { detectPlatforms, PlatformStatus } from "./shared/platformDetection";
 
 // Components
 import { SplashScreen } from "./components/SplashScreen";
@@ -38,7 +38,7 @@ import { ResourceConfigPage } from "./pages/app-mode/ResourceConfigPage";
 import { FontConfigPage } from "./pages/app-mode/FontConfigPage";
 import { SettingsPage } from "./pages/main/SettingsPage";
 import { ActivityPage } from "./pages/main/ActivityPage";
-import { ensureNsForgeDir } from "./app/projectConfig";
+import { ensureNsForgeDir } from "./shared/projectConfig";
 import {
   CreateProjectPage,
   type ProjectConfig,

@@ -1,13 +1,13 @@
 import { FiPackage, FiX, FiArrowRight, FiArrowLeft } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { BuildConfig, ProjectRow } from "../../app/types";
+import type { BuildConfig, ProjectRow } from "../../shared/types";
 import type Database from "@tauri-apps/plugin-sql";
 import { TargetSelection } from "./BuildWizard/TargetSelection";
 import { LocalBuildFlow } from "./BuildWizard/LocalBuildFlow";
 import { CloudBuildFlow } from "./BuildWizard/CloudBuildFlow";
 import { BuildWizardPreview } from "./BuildWizard/BuildWizardPreview";
-import type { PlatformStatus } from "../../app/platformDetection";
+import type { PlatformStatus } from "../../shared/platformDetection";
 
 interface BuildModalProps {
   isOpen: boolean;

@@ -1,5 +1,5 @@
 import { FiCloud, FiInfo } from "react-icons/fi";
-import type { BuildConfig } from "../../../app/types";
+import type { BuildConfig } from "../../../shared/types";
 
 interface CloudBuildFlowProps {
   wizardStep: number;

@@ -1,4 +1,4 @@
-import type { Theme } from "../app/types";
+import type { Theme } from "../shared/types";
 
 type SplashScreenProps = {
   theme: Theme;

@@ -7,7 +7,7 @@ import {
   FiDownload,
   FiInfo,
 } from "react-icons/fi";
-import type { Route } from "../../app/types";
+import type { Route } from "../../shared/types";
 
 interface HelpMenuProps {
   setRoute: (route: Route) => void;

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Database from "@tauri-apps/plugin-sql";
-import type { ProjectRow } from "../../app/types";
-import { parsePlatforms } from "../../app/platforms";
+import type { ProjectRow } from "../../shared/types";
+import { parsePlatforms } from "../../shared/platforms";
 import { invoke } from "@tauri-apps/api/core";
 import {
   FiArrowRight,

@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getName, getVersion } from "@tauri-apps/api/app";
 import { FiSun, FiMoon, FiLoader, FiPackage, FiLogOut } from "react-icons/fi";
 import { LuRocket } from "react-icons/lu";
-import type { ProjectRow, Route, Theme } from "../app/types";
+import type { ProjectRow, Route, Theme } from "../shared/types";
 
 // Sub-components
 import { FileMenu } from "./TitleBar/FileMenu";

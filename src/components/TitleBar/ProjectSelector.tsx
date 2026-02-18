@@ -1,5 +1,5 @@
 import { FiChevronDown, FiPlus } from "react-icons/fi";
-import type { ProjectRow } from "../../app/types";
+import type { ProjectRow } from "../../shared/types";
 
 interface ProjectSelectorProps {
   projects: ProjectRow[];

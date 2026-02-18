@@ -17,8 +17,10 @@ import {
   FiChevronDown,
   FiLayers,
   FiType,
+  FiChevronsLeft,
+  FiChevronsRight,
 } from "react-icons/fi";
-import type { ProjectRow, Route, Theme } from "../app/types";
+import type { ProjectRow, Route, Theme } from "../shared/types";
 
 interface SidebarItem {
   id: string;
@@ -60,6 +62,7 @@ export function AppShell(props: AppShellProps) {
     version: "0.1.0",
   });
   const [projectIcons, setProjectIcons] = useState<Record<string, string>>({});
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const fetchInfo = async () => {
@@ -172,92 +175,187 @@ export function AppShell(props: AppShellProps) {
             aria-label="close sidebar"
             className="drawer-overlay"
           />
-          <aside className="w-72 bg-base-100 border-r border-base-200 h-full flex flex-col transition-all duration-300 pt-2">
+          <aside
+            className={`${isSidebarCollapsed ? "w-20" : "w-72"} bg-base-100 border-r border-base-200 h-full flex flex-col transition-all duration-300 pt-2`}
+          >
             {/* Logo Section */}
-            <div className="p-8 pb-4 pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-1 rounded-2xl bg-base-200 text-base-content border border-base-300 shadow-sm">
+            <div
+              className={`${isSidebarCollapsed ? "px-4 py-6" : "p-8 pb-4 pt-6"} transition-all duration-300`}
+            >
+              <div
+                className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}
+              >
+                <div
+                  className={`${isSidebarCollapsed ? "w-12 h-12 flex items-center justify-center" : "p-1"} rounded-2xl bg-base-200 text-base-content border border-base-300 shadow-sm transition-all duration-300`}
+                >
                   <img
                     src={props.brandIconSrc}
-                    className="w-10 h-10 object-contain"
+                    className={`${isSidebarCollapsed ? "w-8 h-8" : "w-10 h-10"} object-contain transition-all duration-300`}
                     alt="Logo"
                   />
                 </div>
-                <div>
-                  <div className="font-black tracking-tighter text-xl leading-none">
-                    FORGE
+                {!isSidebarCollapsed && (
+                  <div>
+                    <div className="font-black tracking-tighter text-xl leading-none">
+                      FORGE
+                    </div>
+                    <div className="text-[10px] opacity-40 font-bold tracking-[0.2em] uppercase mt-1">
+                      NativeScript
+                    </div>
                   </div>
-                  <div className="text-[10px] opacity-40 font-bold tracking-[0.2em] uppercase mt-1">
-                    NativeScript
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
             {/* Navigation */}
-            <div className="flex-1 px-4 py-6 pb-24 space-y-8 overflow-y-auto overflow-x-hidden">
+            <div
+              className={`flex-1 py-6 pb-24 space-y-8 overflow-y-auto overflow-x-hidden ${isSidebarCollapsed ? "px-3" : "px-4"}`}
+            >
               {/* Context Switcher (Only in App Mode) */}
               {props.isAppMode && (
-                <div className="space-y-3">
-                  <button
-                    onClick={() => props.setRoute("home")}
-                    className="btn btn-ghost btn-sm w-full justify-start gap-2 text-primary hover:bg-primary/10 transition-colors duration-200"
-                  >
-                    <FiChevronLeft className="h-4 w-4" />
-                    <span className="font-bold">Back to Home</span>
-                  </button>
-
-                  <div className="dropdown w-full">
-                    <div
-                      tabIndex={0}
-                      role="button"
-                      className="btn btn-ghost btn-sm w-full font-bold flex items-center justify-between px-2 h-auto min-h-[2.8rem] bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30"
+                <div
+                  className={`${isSidebarCollapsed ? "flex flex-col items-center space-y-3" : "space-y-3"}`}
+                >
+                  {isSidebarCollapsed ? (
+                    <button
+                      onClick={() => {
+                        props.setRoute("home");
+                        if (window.innerWidth < 1024) {
+                          const drawer = document.getElementById(
+                            "nsf-drawer",
+                          ) as HTMLInputElement;
+                          if (drawer) drawer.checked = false;
+                        }
+                      }}
+                      className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-sm w-full justify-start gap-2"} text-primary hover:bg-primary/10 transition-colors duration-200`}
+                      title="Back to Home"
                     >
-                      <div className="flex items-center gap-3 truncate">
-                        {props.activeProjectPath &&
-                        projectIcons[props.activeProjectPath] ? (
-                          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-base-300">
-                            <img
-                              src={projectIcons[props.activeProjectPath]}
-                              className="w-full h-full object-cover"
-                              alt="Project Icon"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--p),0.5)]" />
-                        )}
-                        <div className="flex flex-col items-start truncate">
-                          <span className="truncate text-xs font-bold">
-                            {props.projects.find(
-                              (p) => p.path === props.activeProjectPath,
-                            )?.name || "Select Project"}
-                          </span>
-                          {props.activeProjectPath && (
-                            <span
-                              className={`text-[8px] font-black uppercase leading-none mt-1 tracking-wider ${getFrameworkColor(props.projects.find((p) => p.path === props.activeProjectPath)?.framework || null)}`}
+                      <FiChevronLeft className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        props.setRoute("home");
+                        if (window.innerWidth < 1024) {
+                          const drawer = document.getElementById(
+                            "nsf-drawer",
+                          ) as HTMLInputElement;
+                          if (drawer) drawer.checked = false;
+                        }
+                      }}
+                      className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-sm w-full justify-start gap-2"} text-primary hover:bg-primary/10 transition-colors duration-200`}
+                    >
+                      <FiChevronLeft className="h-4 w-4" />
+                      <span className="font-bold">Back to Home</span>
+                    </button>
+                  )}
+
+                  <div
+                    className={`dropdown ${isSidebarCollapsed ? "w-auto" : "w-full"}`}
+                  >
+                    {isSidebarCollapsed ? (
+                      <div
+                        tabIndex={0}
+                        role="button"
+                        title={
+                          props.projects.find(
+                            (p) => p.path === props.activeProjectPath,
+                          )?.name || "Select Project"
+                        }
+                        className={`btn btn-ghost btn-square justify-center font-bold flex items-center bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30`}
+                      >
+                        <div className={`flex items-center justify-center`}>
+                          {props.activeProjectPath &&
+                          projectIcons[props.activeProjectPath] ? (
+                            <div
+                              className={`w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-base-300`}
                             >
-                              {props.projects.find(
-                                (p) => p.path === props.activeProjectPath,
-                              )?.framework || "Plain"}
-                            </span>
+                              <img
+                                src={projectIcons[props.activeProjectPath]}
+                                className="w-full h-full object-cover"
+                                alt="Project Icon"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className={`w-8 h-8 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--p),0.5)]`}
+                            />
                           )}
                         </div>
                       </div>
-                      <FiChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
-                    </div>
+                    ) : (
+                      <div
+                        tabIndex={0}
+                        role="button"
+                        className={`btn btn-ghost btn-sm w-full justify-between font-bold flex items-center px-2 h-auto min-h-[2.8rem] bg-base-100 border-base-300 hover:bg-base-100 hover:border-primary/30`}
+                      >
+                        <div className={`flex items-center gap-3 truncate`}>
+                          {props.activeProjectPath &&
+                          projectIcons[props.activeProjectPath] ? (
+                            <div
+                              className={`w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-base-300`}
+                            >
+                              <img
+                                src={projectIcons[props.activeProjectPath]}
+                                className="w-full h-full object-cover"
+                                alt="Project Icon"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className={`w-2 h-2 rounded-full bg-primary animate-pulse shadow-[0_0_8px_rgba(var(--p),0.5)]`}
+                            />
+                          )}
+                          {!isSidebarCollapsed && (
+                            <div className="flex flex-col items-start truncate">
+                              <span className="truncate text-xs font-bold">
+                                {props.projects.find(
+                                  (p) => p.path === props.activeProjectPath,
+                                )?.name || "Select Project"}
+                              </span>
+                              {props.activeProjectPath && (
+                                <span
+                                  className={`text-[8px] font-black uppercase leading-none mt-1 tracking-wider ${getFrameworkColor(
+                                    props.projects.find(
+                                      (p) => p.path === props.activeProjectPath,
+                                    )?.framework || null,
+                                  )}`}
+                                >
+                                  {props.projects.find(
+                                    (p) => p.path === props.activeProjectPath,
+                                  )?.framework || "Plain"}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {!isSidebarCollapsed && (
+                          <FiChevronDown className="w-3 h-3 opacity-50 flex-shrink-0" />
+                        )}
+                      </div>
+                    )}
                     <ul
                       tabIndex={0}
-                      className="dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl w-[calc(100%+1.5rem)] -left-3 mt-2 animate-in fade-in zoom-in-95 duration-200"
+                      className={`dropdown-content z-[100] menu p-1 shadow-2xl bg-base-100 border border-base-200 rounded-xl ${isSidebarCollapsed ? "w-64 left-20" : "w-[calc(100%+1.5rem)] -left-3"} mt-2 animate-in fade-in zoom-in-95 duration-200`}
                     >
-                      <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-base-200 mb-1">
-                        Select Application
-                      </div>
+                      {!isSidebarCollapsed && (
+                        <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-base-200 mb-1">
+                          Select Application
+                        </div>
+                      )}
                       {props.projects.map((p) => (
                         <li key={p.path}>
                           <button
                             onClick={(e) => {
                               props.onSelectProject(p.path);
                               closeDropdown(e);
+                              // Close drawer on mobile when project is selected
+                              if (window.innerWidth < 1024) {
+                                const drawer = document.getElementById(
+                                  "nsf-drawer",
+                                ) as HTMLInputElement;
+                                if (drawer) drawer.checked = false;
+                              }
                             }}
                             className={`flex items-center gap-3 py-3 rounded-lg ${
                               props.activeProjectPath === p.path
@@ -284,16 +382,18 @@ export function AppShell(props: AppShellProps) {
                                 />
                               )}
                             </div>
-                            <div className="flex flex-col items-start overflow-hidden">
-                              <span className="truncate text-sm w-full ">
-                                {p.name}
-                              </span>
-                              <span
-                                className={`text-[8px] font-black uppercase tracking-wider mt-1 ${getFrameworkColor(p.framework)}`}
-                              >
-                                {p.framework || "Plain"}
-                              </span>
-                            </div>
+                            {!isSidebarCollapsed && (
+                              <div className="flex flex-col items-start overflow-hidden">
+                                <span className="truncate text-sm w-full ">
+                                  {p.name}
+                                </span>
+                                <span
+                                  className={`text-[8px] font-black uppercase tracking-wider mt-1 ${getFrameworkColor(p.framework)}`}
+                                >
+                                  {p.framework || "Plain"}
+                                </span>
+                              </div>
+                            )}
                           </button>
                         </li>
                       ))}
@@ -307,12 +407,85 @@ export function AppShell(props: AppShellProps) {
                 </div>
               )}
 
-              <div>
-                <div className="px-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-4">
-                  {props.isAppMode ? "Project Tools" : "Main Navigation"}
+              <div
+                className={`${isSidebarCollapsed ? "px-3" : ""} transition-all duration-300`}
+              >
+                {!isSidebarCollapsed && (
+                  <div className="px-4 text-[10px] font-black uppercase tracking-[0.2em] opacity-30 mb-4">
+                    {props.isAppMode ? "Project Tools" : "Main Navigation"}
+                  </div>
+                )}
+                <div
+                  className={`${isSidebarCollapsed ? "space-y-2 flex flex-col items-center" : "space-y-1"} transition-all duration-300`}
+                >
+                  {sidebarItems.map((item) =>
+                    isSidebarCollapsed ? (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (item.onClick) {
+                            item.onClick();
+                          } else {
+                            props.setRoute(item.id as Route);
+                          }
+                          if (window.innerWidth < 1024) {
+                            const drawer = document.getElementById(
+                              "nsf-drawer",
+                            ) as HTMLInputElement;
+                            if (drawer) drawer.checked = false;
+                          }
+                        }}
+                        className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-block justify-start gap-3"} rounded-xl transition-all duration-200 ${
+                          props.route === item.id
+                            ? "bg-primary/10 text-primary font-bold shadow-sm"
+                            : "hover:bg-base-200 opacity-70 hover:opacity-100"
+                        }`}
+                        title={item.label}
+                      >
+                        <item.icon
+                          className={`h-4 w-4 ${props.route === item.id ? "text-primary" : ""}`}
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (item.onClick) {
+                            item.onClick();
+                          } else {
+                            props.setRoute(item.id as Route);
+                          }
+                          if (window.innerWidth < 1024) {
+                            const drawer = document.getElementById(
+                              "nsf-drawer",
+                            ) as HTMLInputElement;
+                            if (drawer) drawer.checked = false;
+                          }
+                        }}
+                        className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-block justify-start gap-3"} rounded-xl transition-all duration-200 ${
+                          props.route === item.id
+                            ? "bg-primary/10 text-primary font-bold shadow-sm"
+                            : "hover:bg-base-200 opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        <item.icon
+                          className={`h-4 w-4 ${props.route === item.id ? "text-primary" : ""}`}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    ),
+                  )}
                 </div>
-                <div className="space-y-1">
-                  {sidebarItems.map((item) => (
+              </div>
+            </div>
+
+            {/* Bottom Menu Section */}
+            {!props.isAppMode && (
+              <div
+                className={`${isSidebarCollapsed ? "px-3" : "px-4"} pb-2 ${isSidebarCollapsed ? "space-y-2 flex flex-col items-center" : "space-y-1"} transition-all duration-300`}
+              >
+                {bottomSidebarItems.map((item) =>
+                  isSidebarCollapsed ? (
                     <button
                       key={item.id}
                       onClick={() => {
@@ -321,8 +494,41 @@ export function AppShell(props: AppShellProps) {
                         } else {
                           props.setRoute(item.id as Route);
                         }
+                        if (window.innerWidth < 1024) {
+                          const drawer = document.getElementById(
+                            "nsf-drawer",
+                          ) as HTMLInputElement;
+                          if (drawer) drawer.checked = false;
+                        }
                       }}
-                      className={`btn btn-ghost btn-block justify-start gap-3 rounded-xl transition-all duration-200 ${
+                      className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-block justify-start gap-3"} rounded-xl transition-all duration-200 ${
+                        props.route === item.id
+                          ? "bg-primary/10 text-primary font-bold shadow-sm"
+                          : "hover:bg-base-200 opacity-70 hover:opacity-100"
+                      }`}
+                      title={item.label}
+                    >
+                      <item.icon
+                        className={`h-4 w-4 ${props.route === item.id ? "text-primary" : ""}`}
+                      />
+                    </button>
+                  ) : (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        if (item.onClick) {
+                          item.onClick();
+                        } else {
+                          props.setRoute(item.id as Route);
+                        }
+                        if (window.innerWidth < 1024) {
+                          const drawer = document.getElementById(
+                            "nsf-drawer",
+                          ) as HTMLInputElement;
+                          if (drawer) drawer.checked = false;
+                        }
+                      }}
+                      className={`btn btn-ghost ${isSidebarCollapsed ? "btn-square justify-center" : "btn-block justify-start gap-3"} rounded-xl transition-all duration-200 ${
                         props.route === item.id
                           ? "bg-primary/10 text-primary font-bold shadow-sm"
                           : "hover:bg-base-200 opacity-70 hover:opacity-100"
@@ -333,48 +539,43 @@ export function AppShell(props: AppShellProps) {
                       />
                       <span>{item.label}</span>
                     </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Menu Section */}
-            {!props.isAppMode && (
-              <div className="px-4 pb-2 space-y-1">
-                {bottomSidebarItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.onClick) {
-                        item.onClick();
-                      } else {
-                        props.setRoute(item.id as Route);
-                      }
-                    }}
-                    className={`btn btn-ghost btn-block justify-start gap-3 rounded-xl transition-all duration-200 ${
-                      props.route === item.id
-                        ? "bg-primary/10 text-primary font-bold shadow-sm"
-                        : "hover:bg-base-200 opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    <item.icon
-                      className={`h-4 w-4 ${props.route === item.id ? "text-primary" : ""}`}
-                    />
-                    <span>{item.label}</span>
-                  </button>
-                ))}
+                  ),
+                )}
               </div>
             )}
 
             {/* Footer */}
-            <div className="p-4 border-t border-base-200 bg-base-50/30">
-              <div className="flex items-center justify-between px-2">
-                <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">
-                  v{appInfo.version}
-                </span>
-                <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">
-                  {appInfo.name}
-                </span>
+            <div
+              className={`${isSidebarCollapsed ? "p-3" : "p-4"} border-t border-base-200 bg-base-50/30`}
+            >
+              <div
+                className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "justify-between"} px-2`}
+              >
+                {/* Collapse/Expand Button - Only visible on large screens */}
+                <button
+                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                  className="btn btn-ghost btn-xs btn-circle hidden lg:flex"
+                  title={
+                    isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"
+                  }
+                >
+                  {isSidebarCollapsed ? (
+                    <FiChevronsRight className="h-3 w-3" />
+                  ) : (
+                    <FiChevronsLeft className="h-3 w-3" />
+                  )}
+                </button>
+                {!isSidebarCollapsed && (
+                  <>
+                    <div className="flex-1"></div>
+                    <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest">
+                      v{appInfo.version}
+                    </span>
+                    <span className="text-[10px] opacity-30 font-bold uppercase tracking-widest ml-2">
+                      {appInfo.name}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </aside>

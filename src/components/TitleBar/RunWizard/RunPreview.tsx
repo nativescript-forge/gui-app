@@ -1,6 +1,6 @@
 import { FiTerminal, FiCopy, FiCheck, FiPlay, FiZap } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
-import type { RunConfig } from "../../../app/types";
+import type { RunConfig } from "../../../shared/types";
 
 interface RunPreviewProps {
   runConfig: RunConfig;

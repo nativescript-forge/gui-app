@@ -6,7 +6,7 @@ import {
   FiShield,
   FiInfo,
 } from "react-icons/fi";
-import type { RunConfig } from "../../../app/types";
+import type { RunConfig } from "../../../shared/types";
 
 interface RunOptionsProps {
   runConfig: RunConfig;

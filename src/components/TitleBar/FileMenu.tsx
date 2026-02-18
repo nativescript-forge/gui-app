@@ -1,5 +1,5 @@
 import { FiPlus, FiFolder, FiSettings } from "react-icons/fi";
-import type { ProjectRow } from "../../app/types";
+import type { ProjectRow } from "../../shared/types";
 
 interface FileMenuProps {
   onCreateProject: () => void;

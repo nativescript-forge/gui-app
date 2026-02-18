@@ -1,6 +1,6 @@
 import { FiCopy, FiCheck, FiTerminal, FiSettings, FiBox, FiCpu, FiCloud } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
-import type { BuildConfig } from "../../../app/types";
+import type { BuildConfig } from "../../../shared/types";
 
 interface BuildWizardPreviewProps {
   buildConfig: BuildConfig;

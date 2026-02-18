@@ -1,7 +1,7 @@
-import type { ProjectAnalysis, ProjectRow } from "../app/types";
+import type { ProjectAnalysis, ProjectRow } from "../shared/types";
 import type Database from "@tauri-apps/plugin-sql";
 import { FiDownload, FiX, FiCpu, FiZap } from "react-icons/fi";
-import { shortenPath } from "../app/utils";
+import { shortenPath } from "../shared/utils";
 
 type DiscoverModalProps = {
   open: boolean;

@@ -1,5 +1,5 @@
 import { FiPlay, FiRefreshCw } from "react-icons/fi";
-import type { Route } from "../../app/types";
+import type { Route } from "../../shared/types";
 
 interface RunMenuProps {
   activeProject: any;

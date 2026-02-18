@@ -13,7 +13,7 @@ import { IntroPage } from "./intro/IntroPage";
 import { WindowsSetup } from "./environment/windows/WindowsSetup";
 import { LinuxSetup } from "./environment/linux/LinuxSetup";
 import { MacOSSetup } from "./environment/macOS/MacOSSetup";
-import { getBrandAssets } from "../../app/brand";
+import { getBrandAssets } from "../../shared/brand";
 
 interface SetupPageProps {
   onComplete: () => void;

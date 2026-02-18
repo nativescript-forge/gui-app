@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
-import type { ProjectRow } from "../../app/types";
-import { parsePlatforms } from "../../app/platforms";
+import type { ProjectRow } from "../../shared/types";
+import { parsePlatforms } from "../../shared/platforms";
 import { invoke } from "@tauri-apps/api/core";
 import { ProjectDetailsModal } from "../../components/ProjectDetailsModal";
 import {

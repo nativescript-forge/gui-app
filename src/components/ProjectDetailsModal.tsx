@@ -12,8 +12,8 @@ import {
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 import { invoke } from "@tauri-apps/api/core";
-import type { ProjectRow } from "../app/types";
-import { parsePlatforms } from "../app/platforms";
+import type { ProjectRow } from "../shared/types";
+import { parsePlatforms } from "../shared/platforms";
 
 type ProjectDetailsModalProps = {
   project: ProjectRow | null;

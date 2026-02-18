@@ -15,8 +15,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { join } from "@tauri-apps/api/path";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import type { CommandResult } from "../../app/types";
-import { readNsForgeData, saveNsForgeData } from "../../app/projectConfig";
+import type { CommandResult } from "../../shared/types";
+import { readNsForgeData, saveNsForgeData } from "../../shared/projectConfig";
 
 type FontInfo = {
   name: string;
@@ -41,6 +41,11 @@ export function FontConfigPage({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasFontsDir, setHasFontsDir] = useState<boolean>(false);
+  const [fontsDirPath, setFontsDirPath] = useState<string | null>(null);
+  const [frameworkFlavor, setFrameworkFlavor] = useState<
+    "angular" | "react" | "solid" | "svelte" | "vue" | "core" | "unknown"
+  >("unknown");
 
   const parseFontsOutput = (stdout: string): FontInfo[] => {
     // 1. Strip ANSI escape codes (those [39m, [31m, etc. artifacts)
@@ -106,26 +111,73 @@ export function FontConfigPage({
       setLoading(true);
       setError(null);
       try {
-        // Step 1: Scan physical files in app/fonts and src/fonts
-        const fontFiles = new Set<string>();
-        const pathsToScan = [
-          await join(projectPath, "app", "fonts"),
-          await join(projectPath, "src", "fonts"),
-        ];
-
-        for (const path of pathsToScan) {
-          const exists = await invoke<boolean>("path_exists", { path });
-          if (exists) {
-            const files = await invoke<string[]>("read_dir", { path });
-            files.forEach((f) => {
-              if (
-                f.toLowerCase().endsWith(".ttf") ||
-                f.toLowerCase().endsWith(".otf")
-              ) {
-                fontFiles.add(f);
-              }
-            });
+        // Step 0: Resolve framework and fonts directory by flavor rules
+        let flavor: typeof frameworkFlavor = "unknown";
+        try {
+          const pkgs = (await invoke("get_project_packages", {
+            projectPath,
+          })) as Record<string, string>;
+          const has = (k: string) =>
+            Object.prototype.hasOwnProperty.call(pkgs, k);
+          if (has("@nativescript/angular") || has("nativescript-angular")) {
+            flavor = "angular";
+          } else if (has("@nativescript/react")) {
+            flavor = "react";
+          } else if (has("@nativescript/solid")) {
+            flavor = "solid";
+          } else if (has("@nativescript/svelte")) {
+            flavor = "svelte";
+          } else if (has("@nativescript/vue") || has("nativescript-vue")) {
+            flavor = "vue";
+          } else if (has("@nativescript/core") || has("tns-core-modules")) {
+            flavor = "core";
+          } else {
+            flavor = "unknown";
           }
+        } catch {
+          flavor = "unknown";
+        }
+
+        setFrameworkFlavor(flavor);
+
+        let fontsDir = "";
+        if (flavor === "angular") {
+          fontsDir = await join(projectPath, "src", "app", "fonts");
+        } else if (flavor === "react" || flavor === "solid") {
+          fontsDir = await join(projectPath, "src", "fonts");
+        } else if (
+          flavor === "svelte" ||
+          flavor === "vue" ||
+          flavor === "core" ||
+          flavor === "unknown"
+        ) {
+          fontsDir = await join(projectPath, "app", "fonts");
+        }
+        setFontsDirPath(fontsDir);
+
+        // Ensure fonts directory exists according to flavor rules
+        const dirExists = await invoke<boolean>("path_exists", {
+          path: fontsDir,
+        });
+        if (!dirExists) {
+          await invoke("create_dir", { path: fontsDir });
+        }
+        setHasFontsDir(true);
+
+        // Step 1: Scan physical files in the resolved fonts directory
+        const fontFiles = new Set<string>();
+        try {
+          const files = await invoke<string[]>("read_dir", { path: fontsDir });
+          files.forEach((f) => {
+            if (
+              f.toLowerCase().endsWith(".ttf") ||
+              f.toLowerCase().endsWith(".otf")
+            ) {
+              fontFiles.add(f);
+            }
+          });
+        } catch {
+          // ignore
         }
 
         // Step 2: Try to load from module-specific config in .nsforge
@@ -137,7 +189,11 @@ export function FontConfigPage({
         let finalFonts: FontInfo[] = cachedFonts || [];
 
         // Step 3: If force refresh OR no cache, run "ns fonts"
-        if (forceRefresh || !cachedFonts || cachedFonts.length === 0) {
+        // Only run if there is at least one physical font file
+        if (
+          (forceRefresh || !cachedFonts || cachedFonts.length === 0) &&
+          fontFiles.size > 0
+        ) {
           let output = "";
           let success = false;
 
@@ -234,16 +290,22 @@ export function FontConfigPage({
 
       const filePaths = Array.isArray(selected) ? selected : [selected];
 
-      // Determine font destination (prefer src/fonts, fallback to app/fonts)
-      const srcFontsPath = await join(projectPath, "src", "fonts");
-      const appFontsPath = await join(projectPath, "app", "fonts");
-
-      let destDir = srcFontsPath;
-      const srcExists = await invoke<boolean>("path_exists", {
-        path: await join(projectPath, "src"),
-      });
-      if (!srcExists) {
-        destDir = appFontsPath;
+      // Determine font destination based on framework flavor rules
+      let destDir = fontsDirPath;
+      if (!destDir) {
+        // fallback compute quickly
+        const pkgs = (await invoke("get_project_packages", {
+          projectPath,
+        })) as Record<string, string>;
+        const has = (k: string) =>
+          Object.prototype.hasOwnProperty.call(pkgs, k);
+        if (has("@nativescript/angular") || has("nativescript-angular")) {
+          destDir = await join(projectPath, "src", "app", "fonts");
+        } else if (has("@nativescript/react") || has("@nativescript/solid")) {
+          destDir = await join(projectPath, "src", "fonts");
+        } else {
+          destDir = await join(projectPath, "app", "fonts");
+        }
       }
 
       // Ensure directory exists
@@ -307,9 +369,11 @@ export function FontConfigPage({
         <div className="flex gap-2">
           <button
             onClick={() => loadFonts(true)}
-            disabled={loading}
+            disabled={loading || !hasFontsDir}
             className={`btn btn-ghost border-base-300 rounded-2xl gap-2 ${loading ? "animate-pulse" : ""}`}
-            title="Sync with ns fonts"
+            title={
+              hasFontsDir ? "Sync with ns fonts" : "No fonts directory found"
+            }
           >
             <FiRefreshCw
               className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
@@ -482,7 +546,7 @@ export function FontConfigPage({
             correctly detected by NativeScript.
           </p>
           <div className="bg-base-200 p-3 rounded-xl font-mono text-xs break-all">
-            {projectPath}/src/fonts
+            {fontsDirPath || `${projectPath}/app/fonts`}
           </div>
         </div>
 

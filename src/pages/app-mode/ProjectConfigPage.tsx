@@ -15,7 +15,7 @@ import {
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import { invoke } from "@tauri-apps/api/core";
-import { NativeScriptConfig } from "../../app/types";
+import { NativeScriptConfig } from "../../shared/types";
 
 type ProjectConfigPageProps = {
   projectPath: string | null;
