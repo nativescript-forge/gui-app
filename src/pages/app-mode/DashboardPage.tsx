@@ -33,7 +33,11 @@ import {
 import { SiAndroid, SiApple } from "react-icons/si";
 import { LuRocket } from "react-icons/lu";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { detectPlatforms, PlatformStatus } from "../../shared/platformDetection";
+import {
+  detectPlatforms,
+  PlatformStatus,
+} from "../../shared/platformDetection";
+import { FlavorIcon } from "../../components/FlavorIcon";
 
 export type DashboardPageProps = {
   projects: ProjectRow[];
@@ -577,8 +581,13 @@ export function DashboardPage(props: DashboardPageProps) {
               <h1 className="text-3xl font-extrabold tracking-tight truncate">
                 {activeProject?.name}
               </h1>
-              <div className="badge badge-primary badge-sm font-black uppercase text-[9px] h-5 px-2 flex-shrink-0">
-                {activeProject?.framework || "NativeScript"}
+              <div className="flex-shrink-0">
+                <FlavorIcon
+                  framework={activeProject?.framework}
+                  showLabel={true}
+                  iconClassName="w-3.5 h-3.5"
+                  className="flex items-center gap-1.5 bg-primary/10 text-primary px-2 py-0.5 rounded-full text-[9px] font-black uppercase"
+                />
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs text-base-content/40 font-medium group/path">

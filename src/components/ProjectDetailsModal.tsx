@@ -11,9 +11,12 @@ import {
   FiSearch,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
+import { readFile } from "@tauri-apps/plugin-fs";
 import type { ProjectRow } from "../shared/types";
 import { parsePlatforms } from "../shared/platforms";
+import { FlavorIcon } from "./FlavorIcon";
 
 type ProjectDetailsModalProps = {
   project: ProjectRow | null;
@@ -33,14 +36,54 @@ export function ProjectDetailsModal({
   useEffect(() => {
     if (project && isOpen) {
       async function loadIcon() {
+        if (!project?.path) return;
+
         try {
           const iconData = await invoke<string>("get_project_icon", {
-            path: project!.path,
+            path: project.path,
           });
-          setIcon(iconData);
+          if (iconData) {
+            setIcon(iconData);
+            return;
+          }
         } catch (err) {
-          setIcon(null);
+          console.error("Failed to fetch icon from backend:", err);
         }
+
+        // Fallback manual check (same as other pages)
+        const iconPaths = [
+          "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+          "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+          "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
+          "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
+          "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+        ];
+
+        for (const relPath of iconPaths) {
+          try {
+            const fullPath = await join(project.path, relPath);
+            const exists = await invoke<boolean>("path_exists", {
+              path: fullPath,
+            }).catch(() => false);
+
+            if (exists) {
+              try {
+                const contents = await readFile(fullPath);
+                const blob = new Blob([contents], { type: "image/png" });
+                const assetUrl = URL.createObjectURL(blob);
+                setIcon(assetUrl);
+                return;
+              } catch (readErr) {
+                const assetUrl = convertFileSrc(fullPath);
+                setIcon(assetUrl);
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+        setIcon(null);
       }
       loadIcon();
     } else {
@@ -110,9 +153,12 @@ export function ProjectDetailsModal({
                 <div className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-1">
                   Flavor
                 </div>
-                <div className="font-bold text-sm flex items-center gap-2">
-                  <FiCpu className="h-3.5 w-3.5 opacity-50" />
-                  {project.framework ?? "Unknown"}
+                <div className="font-bold text-sm">
+                  <FlavorIcon
+                    framework={project.framework}
+                    showLabel={true}
+                    iconClassName="w-4 h-4"
+                  />
                 </div>
               </div>
             </div>

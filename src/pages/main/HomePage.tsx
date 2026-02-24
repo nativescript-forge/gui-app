@@ -2,7 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import Database from "@tauri-apps/plugin-sql";
 import type { ProjectRow } from "../../shared/types";
 import { parsePlatforms } from "../../shared/platforms";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
+import { readFile } from "@tauri-apps/plugin-fs";
 import {
   FiArrowRight,
   FiChevronDown,
@@ -77,14 +79,54 @@ function ProjectCard({
 
   useEffect(() => {
     async function loadIcon() {
+      if (!project.path) return;
+
       try {
         const iconData = await invoke<string>("get_project_icon", {
           path: project.path,
         });
-        setIcon(iconData);
+        if (iconData) {
+          setIcon(iconData);
+          return;
+        }
       } catch (err) {
-        // Fallback to default icon
+        console.error("Failed to fetch icon from backend:", err);
       }
+
+      // Fallback manual check (same as DashboardPage)
+      const iconPaths = [
+        "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
+        "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
+        "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+      ];
+
+      for (const relPath of iconPaths) {
+        try {
+          const fullPath = await join(project.path, relPath);
+          const exists = await invoke<boolean>("path_exists", {
+            path: fullPath,
+          }).catch(() => false);
+
+          if (exists) {
+            try {
+              const contents = await readFile(fullPath);
+              const blob = new Blob([contents], { type: "image/png" });
+              const assetUrl = URL.createObjectURL(blob);
+              setIcon(assetUrl);
+              return;
+            } catch (readErr) {
+              const assetUrl = convertFileSrc(fullPath);
+              setIcon(assetUrl);
+              return;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      setIcon(null);
     }
     loadIcon();
   }, [project.path]);

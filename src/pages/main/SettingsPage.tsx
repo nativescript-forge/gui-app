@@ -10,9 +10,14 @@ import {
   FiRefreshCw,
   FiLock,
   FiAlertTriangle,
+  FiFolder,
+  FiPlus,
+  FiSearch,
+  FiX,
 } from "react-icons/fi";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { IntroPage } from "../setup/intro/IntroPage";
 
 type SettingsPageProps = {
@@ -54,6 +59,34 @@ export function SettingsPage({
   const [updatingPM, setUpdatingPM] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [showLegalViewer, setShowLegalViewer] = useState(false);
+  const [defaultParentDir, setDefaultParentDir] = useState<string>(
+    localStorage.getItem("ns-forge-default-parent-dir") || "",
+  );
+
+  const handleBrowseDefaultDir = async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+        title: "Select Default Project Parent Directory",
+      });
+
+      if (selected && typeof selected === "string") {
+        setDefaultParentDir(selected);
+        localStorage.setItem("ns-forge-default-parent-dir", selected);
+        showToast("Default parent directory updated.", "success");
+      }
+    } catch (err) {
+      console.error("Failed to select directory:", err);
+      showToast("Failed to select directory.", "error");
+    }
+  };
+
+  const handleClearDefaultDir = () => {
+    setDefaultParentDir("");
+    localStorage.removeItem("ns-forge-default-parent-dir");
+    showToast("Default parent directory cleared.", "info");
+  };
 
   useEffect(() => {
     async function loadAvailablePMs() {
@@ -156,6 +189,63 @@ export function SettingsPage({
       </div>
 
       <div className="grid grid-cols-1 gap-6">
+        {/* Project Creation Section */}
+        <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
+          <div className="card-body p-0">
+            <div className="p-6 border-b border-base-200 bg-base-200/30">
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <FiPlus className="text-primary" />
+                Project Creation
+              </h2>
+              <p className="text-sm opacity-60 mt-1">
+                Customize default values for new project creation.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="flex flex-col gap-6">
+                <div>
+                  <h3 className="font-bold text-sm mb-1">
+                    Default Parent Directory
+                  </h3>
+                  <p className="text-xs opacity-50 leading-relaxed mb-4">
+                    The directory where new NativeScript projects will be
+                    created by default.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="flex-1 flex items-center gap-3 px-4 py-2 bg-base-200 rounded-xl border border-base-300 overflow-hidden group">
+                      <FiFolder className="text-primary shrink-0" />
+                      <span
+                        className={`text-sm truncate flex-1 ${!defaultParentDir ? "opacity-30 italic" : ""}`}
+                        title={defaultParentDir}
+                      >
+                        {defaultParentDir || "No default directory selected"}
+                      </span>
+                      {defaultParentDir && (
+                        <button
+                          onClick={handleClearDefaultDir}
+                          className="btn btn-ghost btn-xs btn-circle text-error opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Clear Default"
+                        >
+                          <FiX className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      onClick={handleBrowseDefaultDir}
+                      className="btn btn-primary btn-sm rounded-xl px-6 gap-2"
+                    >
+                      <FiSearch className="w-3.5 h-3.5" />
+                      Browse
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Legal & Privacy Section */}
         <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
           <div className="card-body p-0">

@@ -1,7 +1,9 @@
+import React from "react";
 import type { ProjectAnalysis, ProjectRow } from "../shared/types";
 import type Database from "@tauri-apps/plugin-sql";
 import { FiDownload, FiX, FiCpu, FiZap } from "react-icons/fi";
 import { shortenPath } from "../shared/utils";
+import { FlavorIcon } from "./FlavorIcon";
 
 type DiscoverModalProps = {
   open: boolean;
@@ -14,6 +16,25 @@ type DiscoverModalProps = {
 };
 
 export function DiscoverModal(props: DiscoverModalProps) {
+  const [importingIndices, setImportingIndices] = React.useState<Set<number>>(
+    new Set(),
+  );
+
+  const handleImport = async (p: ProjectAnalysis, idx: number) => {
+    if (importingIndices.has(idx)) return;
+
+    setImportingIndices((prev) => new Set(prev).add(idx));
+    try {
+      await props.onImport(p);
+    } finally {
+      setImportingIndices((prev) => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
+    }
+  };
+
   return (
     <dialog className="modal" open={props.open}>
       <div className="modal-box max-w-4xl p-0 overflow-hidden flex flex-col max-h-[90vh]">
@@ -65,12 +86,12 @@ export function DiscoverModal(props: DiscoverModalProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {props.results.map((p) => {
+                    {props.results.map((p, idx) => {
                       const alreadySaved = props.projects.some(
                         (x) => x.path === p.path,
                       );
                       return (
-                        <tr key={p.path}>
+                        <tr key={`${p.path}-${idx}`}>
                           <td>
                             <div className="flex flex-col min-w-0">
                               <div
@@ -87,9 +108,12 @@ export function DiscoverModal(props: DiscoverModalProps) {
                               </div>
                               {/* Mobile Info (Visible only on small screens) */}
                               <div className="flex md:hidden items-center gap-3 mt-1.5">
-                                <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider opacity-40">
-                                  <FiCpu className="w-2.5 h-2.5" />
-                                  {p.framework ?? "-"}
+                                <div className="flex items-center gap-1">
+                                  <FlavorIcon
+                                    framework={p.framework}
+                                    showLabel={true}
+                                    iconClassName="w-2.5 h-2.5"
+                                  />
                                 </div>
                                 <div className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider opacity-40">
                                   <FiZap className="w-2.5 h-2.5" />
@@ -99,7 +123,11 @@ export function DiscoverModal(props: DiscoverModalProps) {
                             </div>
                           </td>
                           <td className="hidden md:table-cell">
-                            {p.framework ?? "-"}
+                            <FlavorIcon
+                              framework={p.framework}
+                              showLabel={true}
+                              iconClassName="w-3.5 h-3.5"
+                            />
                           </td>
                           <td className="hidden md:table-cell">
                             {p.nativescriptVersion ?? "-"}
@@ -108,10 +136,19 @@ export function DiscoverModal(props: DiscoverModalProps) {
                             <button
                               type="button"
                               className="btn btn-primary btn-sm min-w-[80px]"
-                              disabled={alreadySaved || !props.db}
-                              onClick={() => props.onImport(p)}
+                              disabled={
+                                alreadySaved ||
+                                !props.db ||
+                                importingIndices.has(idx)
+                              }
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleImport(p, idx);
+                              }}
                             >
-                              {alreadySaved ? (
+                              {importingIndices.has(idx) ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                              ) : alreadySaved ? (
                                 "Saved"
                               ) : (
                                 <div className="flex items-center gap-1.5 whitespace-nowrap">

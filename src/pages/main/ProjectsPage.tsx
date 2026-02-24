@@ -1,8 +1,11 @@
 import { useRef, useState, useEffect } from "react";
 import type { ProjectRow } from "../../shared/types";
 import { parsePlatforms } from "../../shared/platforms";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { join } from "@tauri-apps/api/path";
+import { readFile } from "@tauri-apps/plugin-fs";
 import { ProjectDetailsModal } from "../../components/ProjectDetailsModal";
+import { FlavorIcon } from "../../components/FlavorIcon";
 import {
   FiExternalLink,
   FiFolderPlus,
@@ -37,6 +40,7 @@ function ProjectCard({
   onRemove,
   onOpenFolder,
   onShowProperties,
+  refreshKey,
 }: {
   project: ProjectRow;
   isActive: boolean;
@@ -46,6 +50,7 @@ function ProjectCard({
   onOpenFolder: (path: string) => void;
   onShowProperties: (project: ProjectRow) => void;
   renderPlatforms: (platforms: string | null) => React.ReactNode;
+  refreshKey: number;
 }) {
   const [icon, setIcon] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{
@@ -55,17 +60,57 @@ function ProjectCard({
 
   useEffect(() => {
     async function loadIcon() {
+      if (!project.path) return;
+
       try {
         const iconData = await invoke<string>("get_project_icon", {
           path: project.path,
         });
-        setIcon(iconData);
+        if (iconData) {
+          setIcon(iconData);
+          return;
+        }
       } catch (err) {
-        // Fallback to default
+        console.error("Failed to fetch icon from backend:", err);
       }
+
+      // Fallback manual check (same as HomePage and DashboardPage)
+      const iconPaths = [
+        "App_Resources/Android/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "App_Resources/Android/src/main/res/drawable-xxxhdpi/logo.png",
+        "App_Resources/Android/src/main/res/drawable-xxhdpi/logo.png",
+        "App_Resources/iOS/Assets.xcassets/AppIcon.appiconset/icon-1024.png",
+      ];
+
+      for (const relPath of iconPaths) {
+        try {
+          const fullPath = await join(project.path, relPath);
+          const exists = await invoke<boolean>("path_exists", {
+            path: fullPath,
+          }).catch(() => false);
+
+          if (exists) {
+            try {
+              const contents = await readFile(fullPath);
+              const blob = new Blob([contents], { type: "image/png" });
+              const assetUrl = URL.createObjectURL(blob);
+              setIcon(assetUrl);
+              return;
+            } catch (readErr) {
+              const assetUrl = convertFileSrc(fullPath);
+              setIcon(assetUrl);
+              return;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+      setIcon(null);
     }
     loadIcon();
-  }, [project.path]);
+  }, [project.path, refreshKey]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -124,12 +169,16 @@ function ProjectCard({
         )}
       </div>
 
-      <div className="w-full text-center">
+      <div className="w-full text-center flex flex-col items-center">
         <h3 className="font-bold text-sm truncate w-full" title={project.name}>
           {project.name}
         </h3>
-        <div className="text-[10px] opacity-50 mt-1 font-medium uppercase tracking-wider">
-          {project.framework || "NativeScript"}
+        <div className="mt-1">
+          <FlavorIcon
+            framework={project.framework}
+            iconClassName="w-3.5 h-3.5"
+            className="flex items-center gap-1.5 justify-center"
+          />
         </div>
       </div>
 
@@ -211,6 +260,12 @@ export function ProjectsPage(props: ProjectsPageProps) {
   const [propertyProject, setPropertyProject] = useState<ProjectRow | null>(
     null,
   );
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+    props.onRefresh();
+  };
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -269,7 +324,7 @@ export function ProjectsPage(props: ProjectsPageProps) {
             <button
               type="button"
               className="btn btn-outline btn-sm"
-              onClick={props.onRefresh}
+              onClick={handleRefresh}
               title="Refresh list and check existence"
             >
               <FiRefreshCw className="h-4 w-4" />
@@ -350,6 +405,7 @@ export function ProjectsPage(props: ProjectsPageProps) {
                       onOpenFolder={props.onOpenFolder}
                       onShowProperties={setPropertyProject}
                       renderPlatforms={renderPlatforms}
+                      refreshKey={refreshKey}
                     />
                   ))}
               </div>

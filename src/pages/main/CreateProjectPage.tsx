@@ -356,7 +356,9 @@ const TEMPLATES = [
 
 export function CreateProjectPage(props: CreateProjectPageProps) {
   const [name, setName] = useState("");
-  const [parentPath, setParentPath] = useState("");
+  const [parentPath, setParentPath] = useState(
+    localStorage.getItem("ns-forge-default-parent-dir") || "",
+  );
   const [flavor, setFlavor] = useState("js");
   const [template, setTemplate] = useState("@nativescript/template-blank");
   const [platform, setPlatform] = useState<"standard" | "vision">("standard");

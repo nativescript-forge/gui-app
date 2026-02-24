@@ -69,16 +69,49 @@ fn get_dep_version(pkg: &serde_json::Value, key: &str) -> Option<String> {
     None
 }
 
-fn detect_framework(pkg: &serde_json::Value) -> Option<String> {
+fn detect_framework(project_path: &str, pkg: &serde_json::Value) -> Option<String> {
     let has = |dep: &str| get_dep_version(pkg, dep).is_some();
 
-    if has("@nativescript/angular") || has("nativescript-angular") {
+    if has("@nativescript/angular") {
         return Some("Angular".to_string());
     }
-    if has("@nativescript/vue") || has("nativescript-vue") {
+    if has("react-nativescript") {
+        return Some("React".to_string());
+    }
+    if has("@nativescript-community/solid-js") {
+        return Some("Solid".to_string());
+    }
+    if has("@nativescript-community/svelte-native") {
+        return Some("Svelte".to_string());
+    }
+    if has("nativescript-vue") {
         return Some("Vue".to_string());
     }
-    if has("@nativescript/core") || has("tns-core-modules") {
+    if has("@nativescript/core")
+        && (!has("@nativescript/angular")
+            || !has("react-nativescript")
+            || !has("@nativescript-community/solid-js")
+            || !has("@nativescript-community/svelte-native")
+            || !has("nativescript-vue"))
+    {
+        // Check for .ts or .js files in the app folder
+        let app_path = Path::new(project_path).join("app");
+        if app_path.exists() && app_path.is_dir() {
+            if let Ok(entries) = fs::read_dir(app_path) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                            if ext == "ts" {
+                                return Some("Core (TS)".to_string());
+                            } else if ext == "js" {
+                                return Some("Core (JS)".to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
         return Some("Core".to_string());
     }
 
@@ -205,7 +238,9 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
         .map(|s| s.to_string())
         .unwrap_or_else(|| folder_name(project_path));
 
-    let framework = pkg.as_ref().and_then(detect_framework);
+    let framework = pkg
+        .as_ref()
+        .and_then(|p| detect_framework(project_path, p));
     let nativescript_version = pkg.as_ref().and_then(detect_ns_version);
     let platforms = detect_platforms(project_path);
 

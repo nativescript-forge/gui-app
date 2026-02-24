@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -324,79 +324,109 @@ function App() {
 
   const { logoSrc, iconSrc } = getBrandAssets(theme);
 
-  async function refreshProjects(
-    currentDb: Database,
-    autoSelect: boolean = false,
-  ) {
-    const rows = (await currentDb.select(
-      "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, created_at, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk, ks_path, ks_password, ks_alias, ks_alias_password FROM projects ORDER BY name ASC",
-    )) as ProjectRow[];
+  const refreshProjects = useCallback(
+    async (
+      currentDb: Database,
+      autoSelect: boolean = false,
+      reAnalyzeAll: boolean = false,
+    ) => {
+      const rows = (await currentDb.select(
+        "SELECT id, name, path, nativescript_version, framework, platforms, last_opened, created_at, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk, ks_path, ks_password, ks_alias, ks_alias_password FROM projects ORDER BY name ASC",
+      )) as ProjectRow[];
 
-    // Verify if folders still exist
-    const validProjects: ProjectRow[] = [];
-    const missingPaths: string[] = [];
+      // Verify if folders still exist
+      const validProjects: ProjectRow[] = [];
+      const missingPaths: string[] = [];
 
-    for (const project of rows) {
-      const exists = await invoke("path_exists", {
-        path: project.path,
-      });
-      if (exists) {
-        // If created_at is missing, re-analyze to populate it
-        if (!project.created_at) {
-          try {
-            const analysis = (await invoke("analyze_project", {
-              projectPath: project.path,
-            })) as ProjectAnalysis;
-            // Update the DB but don't call refreshProjects again to avoid loop
-            const platforms = JSON.stringify(analysis.platforms ?? []);
-            await currentDb.execute(
-              `UPDATE projects SET created_at = $1, nativescript_version = $2, framework = $3, platforms = $4, plugins_count = $5, permissions_count = $6, version_code = $7, version_name = $8, target_sdk = $9, min_sdk = $10 WHERE path = $11`,
-              [
-                analysis.createdAt,
-                analysis.nativescriptVersion ?? null,
-                analysis.framework ?? null,
-                platforms,
-                analysis.pluginsCount ?? 0,
-                analysis.permissionsCount ?? 0,
-                analysis.versionCode ?? null,
-                analysis.versionName ?? null,
-                analysis.targetSdk ?? null,
-                analysis.minSdk ?? null,
-                project.path,
-              ],
-            );
-            project.created_at = analysis.createdAt;
-          } catch (err) {
-            console.error("Failed to auto-repair project metadata:", err);
+      for (const project of rows) {
+        const exists = await invoke("path_exists", {
+          path: project.path,
+        });
+        if (exists) {
+          // If created_at is missing OR reAnalyzeAll is true, re-analyze to populate/update it
+          if (!project.created_at || reAnalyzeAll) {
+            try {
+              const analysis = (await invoke("analyze_project", {
+                projectPath: project.path,
+              })) as ProjectAnalysis;
+              // Update the DB but don't call refreshProjects again to avoid loop
+              const platforms = JSON.stringify(analysis.platforms ?? []);
+              await currentDb.execute(
+                `UPDATE projects SET 
+                name = $1,
+                created_at = $2, 
+                nativescript_version = $3, 
+                framework = $4, 
+                platforms = $5, 
+                plugins_count = $6, 
+                permissions_count = $7, 
+                version_code = $8, 
+                version_name = $9, 
+                target_sdk = $10, 
+                min_sdk = $11 
+              WHERE path = $12`,
+                [
+                  analysis.name,
+                  analysis.createdAt,
+                  analysis.nativescriptVersion ?? null,
+                  analysis.framework ?? null,
+                  platforms,
+                  analysis.pluginsCount ?? 0,
+                  analysis.permissionsCount ?? 0,
+                  analysis.versionCode ?? null,
+                  analysis.versionName ?? null,
+                  analysis.targetSdk ?? null,
+                  analysis.minSdk ?? null,
+                  project.path,
+                ],
+              );
+              project.name = analysis.name;
+              project.created_at = analysis.createdAt;
+              project.nativescript_version =
+                analysis.nativescriptVersion ?? null;
+              project.framework = analysis.framework ?? null;
+              project.platforms = platforms;
+              project.plugins_count = analysis.pluginsCount;
+              project.permissions_count = analysis.permissionsCount;
+              project.version_code = analysis.versionCode ?? null;
+              project.version_name = analysis.versionName ?? null;
+              project.target_sdk = analysis.targetSdk ?? null;
+              project.min_sdk = analysis.minSdk ?? null;
+            } catch (err) {
+              console.error("Failed to auto-repair project metadata:", err);
+            }
           }
+          validProjects.push(project);
+        } else {
+          missingPaths.push(project.path);
         }
-        validProjects.push(project);
-      } else {
-        missingPaths.push(project.path);
       }
-    }
 
-    // Cleanup missing projects from DB
-    if (missingPaths.length > 0) {
-      console.log("Cleaning up missing projects:", missingPaths);
-      for (const path of missingPaths) {
-        await currentDb.execute("DELETE FROM projects WHERE path = $1", [path]);
-        if (activeProjectPath === path) setActiveProjectPath(null);
-        if (actionsProjectPath === path) setActionsProjectPath(null);
+      // Cleanup missing projects from DB
+      if (missingPaths.length > 0) {
+        console.log("Cleaning up missing projects:", missingPaths);
+        for (const path of missingPaths) {
+          await currentDb.execute("DELETE FROM projects WHERE path = $1", [
+            path,
+          ]);
+          if (activeProjectPath === path) setActiveProjectPath(null);
+          if (actionsProjectPath === path) setActionsProjectPath(null);
+        }
       }
-    }
 
-    setProjects(validProjects);
+      setProjects(validProjects);
 
-    if (autoSelect && validProjects.length > 0) {
-      if (!activeProjectPath) {
-        setActiveProjectPath(validProjects[0].path);
+      if (autoSelect && validProjects.length > 0) {
+        if (!activeProjectPath) {
+          setActiveProjectPath(validProjects[0].path);
+        }
+        if (!actionsProjectPath) {
+          setActionsProjectPath(validProjects[0].path);
+        }
       }
-      if (!actionsProjectPath) {
-        setActionsProjectPath(validProjects[0].path);
-      }
-    }
-  }
+    },
+    [activeProjectPath, actionsProjectPath],
+  );
 
   async function removeProject(path: string) {
     if (!db) return;
@@ -486,8 +516,10 @@ function App() {
       console.log("[App] Loading database...");
       const currentDb = await Database.load("sqlite:nsforge.db");
       setDb(currentDb);
-      console.log("[App] Database loaded, refreshing projects...");
-      await refreshProjects(currentDb, false);
+      console.log(
+        "[App] Database loaded, refreshing projects (with re-analysis)...",
+      );
+      await refreshProjects(currentDb, false, true);
 
       // Load existing system report
       console.log("[App] Loading system report...");
@@ -703,22 +735,30 @@ function App() {
     }
   }
 
-  async function handleImportProject(analysis: ProjectAnalysis) {
-    if (!db) return;
-    try {
-      await upsertProject(db, analysis);
-      await refreshProjects(db);
-      showToast(`Project ${analysis.name} imported successfully!`, "success");
-      logActivity("project", `Imported project: ${analysis.name}`, "success", {
-        path: analysis.path,
-      });
-    } catch (err) {
-      console.error("Import failed:", err);
-      logActivity("project", `Failed to import project`, "error", {
-        error: String(err),
-      });
-    }
-  }
+  const handleImportProject = useCallback(
+    async (analysis: ProjectAnalysis) => {
+      if (!db) return;
+      try {
+        await upsertProject(db, analysis);
+        await refreshProjects(db);
+        showToast(`Project ${analysis.name} imported successfully!`, "success");
+        logActivity(
+          "project",
+          `Imported project: ${analysis.name}`,
+          "success",
+          {
+            path: analysis.path,
+          },
+        );
+      } catch (err) {
+        console.error("Import failed:", err);
+        logActivity("project", `Failed to import project`, "error", {
+          error: String(err),
+        });
+      }
+    },
+    [db, refreshProjects],
+  );
 
   async function reAnalyzeProject(path: string) {
     if (!db) return;
@@ -1237,7 +1277,7 @@ function App() {
               onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
               onOpenActions={handleOpenActions}
               onRemoveProject={removeProject}
-              onRefresh={() => db && refreshProjects(db)}
+              onRefresh={() => db && refreshProjects(db, false, true)}
             />
           )}
 

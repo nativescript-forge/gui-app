@@ -119,17 +119,17 @@ export function FontConfigPage({
           })) as Record<string, string>;
           const has = (k: string) =>
             Object.prototype.hasOwnProperty.call(pkgs, k);
-          if (has("@nativescript/angular") || has("nativescript-angular")) {
+          if (has("@nativescript/angular")) {
             flavor = "angular";
-          } else if (has("@nativescript/react")) {
+          } else if (has("react-nativescript")) {
             flavor = "react";
-          } else if (has("@nativescript/solid")) {
+          } else if (has("@nativescript-community/solid-js")) {
             flavor = "solid";
-          } else if (has("@nativescript/svelte")) {
+          } else if (has("@nativescript-community/svelte-native")) {
             flavor = "svelte";
-          } else if (has("@nativescript/vue") || has("nativescript-vue")) {
+          } else if (has("nativescript-vue")) {
             flavor = "vue";
-          } else if (has("@nativescript/core") || has("tns-core-modules")) {
+          } else if (has("@nativescript/core")) {
             flavor = "core";
           } else {
             flavor = "unknown";
