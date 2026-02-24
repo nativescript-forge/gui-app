@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NativeScript Forge - Visual Workflow Toolkit</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/images/icons/nsf-light-io.svg">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top glass-nav">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="assets/images/icons/nsf-light-io.svg" alt="NS Forge Logo" class="me-3" width="40" height="40">
+                <span class="fw-bold tracking-tight fs-4">NativeScript Forge</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center">
+                    <li class="nav-item"><a class="nav-link px-3" href="#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="#flavors">Flavors</a></li>
+                    <li class="nav-item"><a class="nav-link px-3" href="#download">Download</a></li>
+                    <li class="nav-item mx-lg-2">
+                        <button id="theme-toggle" class="btn btn-link nav-link px-2" title="Toggle Theme">
+                            <i class="fas fa-moon theme-icon-dark"></i>
+                            <i class="fas fa-sun theme-icon-light d-none"></i>
+                        </button>
+                    </li>
+                    <li class="nav-item ms-lg-2">
+                        <a class="btn btn-primary rounded-pill px-4" href="https://github.com/dyazincahya/NS-Forge"
+                            target="_blank">
+                            <i class="fab fa-github me-2"></i>GitHub
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section py-0">
+        <div class="hero-bg-glow"></div>
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-7 text-center text-lg-start">
+                    <h1 class="display-2 fw-extra-bold fade-in-up">
+                        Simplify, Visualize, and Control your <span class="text-primary-gradient">NativeScript
+                            Workflow</span>
+                    </h1>
+                    <p class="lead mb-5 fade-in-up delay-1">
+                        Visual toolkit for NativeScript developers. Manage projects, configure platforms, and accelerate
+                        your development cycle with a beautiful, unified interface.
+                    </p>
+                    <div
+                        class="d-flex flex-column flex-sm-row gap-3 justify-content-center justify-content-lg-start fade-in-up delay-2">
+                        <a href="#features" class="btn btn-primary">Explore Features</a>
+                        <span class="btn glass-btn opacity-75 cursor-not-allowed">Coming Soon</span>
+                    </div>
+                </div>
+                <div class="col-lg-5 d-none d-lg-block">
+                    <div class="hero-image-container fade-in-up delay-1">
+                        <div class="glass-card hero-logo-card">
+                            <img src="assets/images/icons/nsf-dark-io.svg" alt="NativeScript Forge Logo">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="bg-dark-deep">
+        <div class="container">
+            <div class="text-center mb-5 pb-5 fade-in-up">
+                <h6 class="text-primary text-uppercase tracking-widest fw-bold mb-3">Core Capabilities</h6>
+                <h2 class="display-4 fw-bold">Everything you need in one place</h2>
+            </div>
+
+            <div class="row g-4">
+                <!-- Setup & Environment -->
+                <div class="col-md-4 fade-in-up">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-microchip"></i></div>
+                        <h4>Setup & Environment</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Automatic OS Detection</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Integrated SDK Management</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>NativeScript Doctor Checks</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>AVD / Emulator Controls</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Project Management -->
+                <div class="col-md-4 fade-in-up delay-1">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-project-diagram"></i></div>
+                        <h4>Project Management</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Multi-flavor Project Creation</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Batch Project Discovery</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>VisionOS Platform Support</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Recent Projects with History</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- App Mode Dashboard -->
+                <div class="col-md-4 fade-in-up delay-2">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-rocket"></i></div>
+                        <h4>App Mode Dashboard</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Real-time Package Audits</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>One-click Run & Debug</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Production Build Pipeline</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Device Management & Selection</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Advanced Config -->
+                <div class="col-md-4 fade-in-up">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-sliders-h"></i></div>
+                        <h4>Visual Configuration</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Visual `nativescript.config.ts`</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Android Manifest Permissions</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>iOS Info.plist Permissions</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Platform Specific Configs</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Assets & Plugins -->
+                <div class="col-md-4 fade-in-up delay-1">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-puzzle-piece"></i></div>
+                        <h4>Assets & Plugins</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Icon & Splash Generation</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Plugin Marketplace Search</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>NPM Search & Bulk Updates</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Real-time Install Status</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Activity & Persistence -->
+                <div class="col-md-4 fade-in-up delay-2">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-database"></i></div>
+                        <h4>Persistence & Logs</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>SQLite Database Storage</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Categorized Global Logs</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Searchable Build History</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>System Report & Doctor</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Device & Windows -->
+                <div class="col-md-4 fade-in-up">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-mobile-alt"></i></div>
+                        <h4>Device & OS</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Multi-OS Support (Win/Mac/Linux)</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Emulator & Physical Devices</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Custom Titlebar Controls</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Context-aware UI Layout</li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Platform Specific -->
+                <div class="col-md-4 fade-in-up delay-1">
+                    <div class="feature-card glass-card p-5 h-100">
+                        <div class="icon-box"><i class="fas fa-code-branch"></i></div>
+                        <h4>Native Resources</h4>
+                        <ul class="list-unstyled small">
+                            <li><i class="fas fa-check text-primary me-3"></i>Android Gradle Editor</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>iOS xcconfig Management</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Manifest & Plist Visualizer</li>
+                            <li><i class="fas fa-check text-primary me-3"></i>Advanced Runtime Flags</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Flavors Section -->
+    <section id="flavors" class="bg-darker">
+        <div class="container">
+            <div class="glass-card p-5 p-lg-5 text-center fade-in-up">
+                <h2 class="display-5 fw-bold mb-5">Supported Flavors</h2>
+                <div class="flavors-grid">
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/angular.svg" alt="Angular">
+                        <span>Angular</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/reactjs.svg" alt="React">
+                        <span>React</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/vue.svg" alt="Vue">
+                        <span>Vue</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/svelte.svg" alt="Svelte">
+                        <span>Svelte</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/solid.svg" alt="Solid">
+                        <span>Solid</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/typescript.svg" alt="Core (TS)">
+                        <span>Core (TS)</span>
+                    </div>
+                    <div class="flavor-item">
+                        <img src="assets/images/flavors/javascript.svg" alt="Core (JS)">
+                        <span>Core (JS)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Activity & Workflow -->
+    <section id="activity" class="bg-dark-deep">
+        <div class="container">
+            <div class="row align-items-center g-5">
+                <div class="col-lg-6 fade-in-up">
+                    <h2 class="display-5 fw-bold mb-5">Total Control Over Your Workflow</h2>
+                    <div class="workflow-steps">
+                        <div class="workflow-step d-flex align-items-center gap-4">
+                            <div class="step-num">1</div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Smart Configuration</h5>
+                                <p class="mb-0 small">Manage `nativescript.config.ts`, Android Manifests, and iOS Plists
+                                    through intuitive visual editors.</p>
+                            </div>
+                        </div>
+                        <div class="workflow-step d-flex align-items-center gap-4">
+                            <div class="step-num">2</div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Asset Generation</h5>
+                                <p class="mb-0 small">Automatically generate icons and splash screens from a single
+                                    source
+                                    image for all platforms.</p>
+                            </div>
+                        </div>
+                        <div class="workflow-step d-flex align-items-center gap-4">
+                            <div class="step-num">3</div>
+                            <div>
+                                <h5 class="fw-bold mb-1">Plugin Management</h5>
+                                <p class="mb-0 small">Explore marketplace and npm plugins with one-click installation
+                                    and
+                                    real-time status tracking.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 fade-in-up delay-1">
+                    <div class="terminal-mockup">
+                        <div class="terminal-header">
+                            <div class="dot bg-danger" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <div class="dot bg-warning" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                            <div class="dot bg-success" style="width: 12px; height: 12px; border-radius: 50%;"></div>
+                        </div>
+                        <div class="terminal-body">
+                            <pre class="m-0"><span class="text-success">$</span> ns doctor
+✔ Getting NativeScript components versions information...
+✔ Your system is correctly configured.
+✔ Project dependencies are up to date.
+
+<span class="text-success">$</span> ns-forge start --visual-toolkit
+<span class="text-warning">✔</span> NS-Forge Engine Initialized
+<span class="text-warning">✔</span> Project Loaded: "MyAwesomeApp"
+<span class="text-warning">✔</span> Ready to forge your vision...</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Download Section -->
+    <section id="download" class="bg-darker">
+        <div class="container">
+            <div class="text-center mb-5 pb-5 fade-in-up">
+                <h6 class="text-primary text-uppercase tracking-widest fw-bold mb-3">Get Started</h6>
+                <h2 class="display-4 fw-bold">Download NativeScript Forge</h2>
+                <p class="lead">Available for all major desktop platforms</p>
+            </div>
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-4 fade-in-up">
+                    <div class="glass-card download-card">
+                        <i class="fab fa-windows"></i>
+                        <h5>Windows</h5>
+                        <p class="small text-muted mb-4">Installer for Windows 10/11 (x64)</p>
+                        <div class="coming-soon-badge">Coming Soon</div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in-up delay-1">
+                    <div class="glass-card download-card">
+                        <i class="fab fa-apple"></i>
+                        <h5>macOS</h5>
+                        <p class="small text-muted mb-4">Apple Silicon & Intel (DMG)</p>
+                        <div class="coming-soon-badge">Coming Soon</div>
+                    </div>
+                </div>
+                <div class="col-md-4 fade-in-up delay-2">
+                    <div class="glass-card download-card">
+                        <i class="fab fa-linux"></i>
+                        <h5>Linux</h5>
+                        <p class="small text-muted mb-4">AppImage & Deb for Linux distros</p>
+                        <div class="coming-soon-badge">Coming Soon</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-5 bg-darker">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6 text-center text-md-start mb-4 mb-md-0">
+                    <div class="d-flex align-items-center justify-content-center justify-content-md-start mb-3">
+                        <img src="assets/images/icons/nsf-light-io.svg" alt="Logo" width="30" class="me-3">
+                        <span class="fw-bold">NativeScript Forge</span>
+                    </div>
+                    <p class="small mb-0">© 2026 NativeScript Forge. Built for the community.</p>
+                </div>
+                <div class="col-md-6 text-center text-md-end">
+                    <div class="social-links">
+                        <a href="https://nativescript.org/discord" class="hover-white mx-3 transition-all"
+                            target="_blank"><i class="fa-brands fa-discord fa-lg"></i></a>
+                        <a href="https://github.com/dyazincahya/NS-Forge" class="hover-white mx-3 transition-all"
+                            target="_blank"><i class="fab fa-github fa-lg"></i></a>
+                        <a href="https://twitter.com/NativeScript" class="hover-white mx-3 transition-all"
+                            target="_blank"><i class="fa-brands fa-x-twitter fa-lg"></i></a>
+                        <a href="https://nativescript.org" class="hover-white mx-3 transition-all" target="_blank"><i
+                                class="fas fa-globe fa-lg"></i></a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="scripts.js"></script>
+</body>
+
+</html>
