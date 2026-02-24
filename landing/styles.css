@@ -34,8 +34,13 @@
   color: var(--text-main) !important;
 }
 
+[data-theme="light"] .navbar-toggler {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
 [data-theme="light"] .navbar-toggler-icon {
-  filter: invert(1);
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='black' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2.5' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+  filter: none !important;
 }
 
 [data-theme="light"] .hero-bg-glow {
@@ -75,19 +80,25 @@
 }
 
 /* Global Reset & Base */
+html,
+body {
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+}
+
 body {
   font-family: "Plus Jakarta Sans", sans-serif;
   background-color: var(--ns-bg);
   color: var(--text-main);
   line-height: 1.6;
-  overflow-x: hidden;
   transition:
     background-color 0.5s ease,
     color 0.5s ease;
 }
 
 section {
-  padding: 100px 0;
+  padding: 80px 0;
   position: relative;
 }
 
@@ -100,6 +111,14 @@ h6 {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--text-main);
+}
+
+.mb-5 {
+  margin-bottom: 2.5rem !important;
+}
+
+.pb-5 {
+  padding-bottom: 2rem !important;
 }
 
 p,
@@ -497,19 +516,171 @@ span {
 }
 
 /* Responsive Tweaks */
+@media (max-width: 1199px) {
+  .display-2 {
+    font-size: 3.5rem;
+  }
+  .hero-logo-card {
+    width: 320px;
+    height: 320px;
+  }
+}
+
 @media (max-width: 991px) {
+  section {
+    padding: 50px 0;
+  }
   .hero-section {
-    padding-top: 120px;
+    padding-top: 100px;
+    padding-bottom: 40px;
     text-align: center;
   }
   .display-2 {
-    font-size: 3rem;
+    font-size: 2.8rem;
   }
-  .py-10 {
-    padding: 6rem 0;
+  .display-4 {
+    font-size: 2.5rem;
   }
   .hero-logo-card {
-    width: 300px;
-    height: 300px;
+    width: 260px;
+    height: 260px;
+    margin-top: 2rem;
+  }
+  .vertical-tabs {
+    flex-direction: row !important;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+  .vertical-tabs .nav-link {
+    white-space: nowrap;
+    margin-bottom: 0 !important;
+    margin-right: 10px;
+    padding: 0.8rem 1.2rem;
+    flex: 0 0 auto;
+  }
+  .vertical-tabs .nav-link .step-num {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 0.9rem;
+  }
+  .vertical-tabs .nav-link h6 {
+    font-size: 0.9rem;
+  }
+  .vertical-tabs .nav-link small {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  section {
+    padding: 40px 0;
+  }
+  .display-2 {
+    font-size: 2.2rem;
+    letter-spacing: -0.03em;
+    margin-bottom: 1rem;
+  }
+  .display-4 {
+    font-size: 1.8rem;
+  }
+  .lead {
+    font-size: 1rem;
+    margin-bottom: 1.5rem !important;
+  }
+  .hero-section {
+    padding-top: 90px;
+    padding-bottom: 40px;
+  }
+  .hero-section .btn,
+  .hero-section .glass-btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  .glass-nav {
+    padding: 0.7rem 0;
+  }
+  .navbar-brand img {
+    width: 28px;
+    height: 28px;
+    margin-right: 8px !important;
+  }
+  .navbar-brand span {
+    font-size: 0.95rem !important;
+  }
+  .navbar-toggler {
+    padding: 5px;
+    font-size: 0.75rem;
+    border-color: var(--glass-border);
+    margin-right: -5px;
+  }
+  .navbar-toggler-icon {
+    width: 22px;
+    height: 22px;
+  }
+  .navbar-toggler:focus {
+    box-shadow: none;
+    outline: none;
+  }
+  .navbar-brand {
+    margin-right: 0;
+  }
+  .flavors-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .flavor-item {
+    padding: 0.8rem 0.4rem;
+    border-radius: 16px;
+  }
+  .flavor-item img {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 0.4rem;
+  }
+  .flavor-item span {
+    font-size: 0.7rem;
+  }
+  .feature-card {
+    padding: 1.25rem !important;
+    border-radius: 20px;
+  }
+  .feature-card h4 {
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+  }
+  .feature-card ul li {
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+  .icon-box {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    border-radius: 10px;
+  }
+  .coming-soon-badge {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.7rem;
+    border-radius: 8px;
+  }
+  .download-card {
+    padding: 1.5rem 1rem;
+    border-radius: 20px;
+  }
+  .download-card i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  .download-card h5 {
+    font-size: 1rem;
+  }
+  .download-card p {
+    font-size: 0.75rem;
+    margin-bottom: 1rem !important;
   }
 }
