@@ -82,17 +82,9 @@ NativeScript Forge aims to address these problems by providing a unified graphic
    bun tauri build
    ```
 
-## 🗺️ Roadmap
+## 🗺️ Feature Checklist
 
-We are committed to evolving NativeScript Forge alongside the community. Here is a high-level look at our journey:
-
-- **✅ Phase 0: Foundation** - Branding, repository structure, and core principles.
-- **🚧 Phase 1: MVP (Current)** - Project discovery, environment health checks (Doctor), and basic CLI actions.
-- **🧪 Phase 2: Productivity** - Plugin management, visual configuration editor, and platform cleanup tools.
-- **🧪 Phase 3: Advanced Tooling** - Migration assistants, signing management, and device inspection.
-- **🧪 Phase 4: Ecosystem** - CI/CD presets, environment variables, and community knowledge base.
-
-For a detailed breakdown of our plans, check out the full [ROADMAPS.md](./ROADMAPS.md).
+For a detailed breakdown of our plans, check out the full [FEATURE-CHECKLIST.md](./FEATURE-CHECKLIST.md).
 
 ---
 
