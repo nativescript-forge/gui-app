@@ -366,6 +366,96 @@ span {
   cursor: not-allowed !important;
 }
 
+/* Vertical Tabs & Screenshot Section */
+.vertical-tabs .nav-link {
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 1.2rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-muted);
+}
+
+.vertical-tabs .nav-link.active {
+  background: rgba(var(--ns-primary-rgb), 0.1);
+  border-color: var(--ns-primary);
+  color: var(--text-main);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.vertical-tabs .nav-link:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateX(5px);
+}
+
+.swiper-slide {
+  position: relative;
+  overflow: hidden;
+  background: #000; /* Menambah background hitam agar jika rasio gambar beda tidak terlihat bolong */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swiper-slide img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.swiper-slide:hover img {
+  transform: scale(1.01);
+}
+
+.swiper-setup,
+.swiper-welcome,
+.swiper-app {
+  border-radius: 12px; /* Border radius tipis pada container utama saja */
+  border: 1px solid var(--glass-border);
+}
+
+.slide-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: #fff;
+  padding: 2rem 1.5rem 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.swiper-slide:hover .slide-caption {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.swiper-button-next,
+.swiper-button-prev {
+  color: var(--ns-primary);
+  background: var(--nav-bg);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+}
+
+.swiper-button-next:after,
+.swiper-button-prev:after {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.swiper-pagination-bullet-active {
+  background: var(--ns-primary);
+}
+
 /* Terminal Mockup */
 .terminal-mockup {
   border-radius: 24px;

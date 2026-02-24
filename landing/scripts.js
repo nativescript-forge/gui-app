@@ -75,4 +75,43 @@ $(document).ready(function () {
   $(".fade-in-up").each(function () {
     revealObserver.observe(this);
   });
+
+  // SwiperJS Initialization
+  const swiperOptions = {
+    loop: true,
+    pagination: {
+      el: ".swiper-pagination",
+      clickable: true,
+    },
+    navigation: {
+      nextEl: ".swiper-button-next",
+      prevEl: ".swiper-button-prev",
+    },
+    autoplay: {
+      delay: 5000,
+      disableOnInteraction: false,
+    },
+    grabCursor: true,
+    effect: "creative",
+    creativeEffect: {
+      prev: {
+        shadow: true,
+        translate: [0, 0, -400],
+      },
+      next: {
+        translate: ["100%", 0, 0],
+      },
+    },
+  };
+
+  const swiperSetup = new Swiper(".swiper-setup", swiperOptions);
+  const swiperWelcome = new Swiper(".swiper-welcome", swiperOptions);
+  const swiperApp = new Swiper(".swiper-app", swiperOptions);
+
+  // Fix Swiper update on tab change
+  $('button[data-bs-toggle="pill"]').on("shown.bs.tab", function (e) {
+    swiperSetup.update();
+    swiperWelcome.update();
+    swiperApp.update();
+  });
 });
