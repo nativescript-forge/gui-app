@@ -46,6 +46,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/11.0.5/swiper-bundle.min.css" />
     <!-- Lightbox2 CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.5/css/lightbox.min.css" />
+    <!-- AlpineJS -->
+    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.x.x/dist/alpine.min.js" defer></script>
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="assets/images/icons/nsf-light-io.svg">
     <link rel="stylesheet" href="styles.css">
@@ -124,111 +126,26 @@
                 <h2 class="display-4 fw-bold">Everything you need in one place</h2>
             </div>
 
-            <div class="row g-4">
-                <!-- Setup & Environment -->
-                <div class="col-md-4 fade-in-up">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-microchip"></i></div>
-                        <h4>Setup & Environment</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Automatic OS Detection</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Integrated SDK Management</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>NativeScript Doctor Checks</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>AVD / Emulator Controls</li>
-                        </ul>
+            <div class="row g-4" x-data="featureData()">
+                <template x-for="feature in features" :key="feature.id">
+                    <div class="col-md-4 fade-in-up" :class="feature.delay">
+                        <div class="feature-card glass-card p-5 h-100 position-relative">
+                            <template x-if="feature.isComingSoon">
+                                <div class="position-absolute top-0 end-0 m-3">
+                                    <span class="badge rounded-pill bg-primary text-dark small px-3 py-2">Coming
+                                        Soon</span>
+                                </div>
+                            </template>
+                            <div class="icon-box"><i :class="feature.icon"></i></div>
+                            <h4 x-text="feature.title"></h4>
+                            <ul class="list-unstyled small">
+                                <template x-for="item in feature.items">
+                                    <li><i class="fas fa-check text-primary me-3"></i><span x-text="item"></span></li>
+                                </template>
+                            </ul>
+                        </div>
                     </div>
-                </div>
-                <!-- Project Management -->
-                <div class="col-md-4 fade-in-up delay-1">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-project-diagram"></i></div>
-                        <h4>Project Management</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Multi-flavor Project Creation</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Batch Project Discovery</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>VisionOS Platform Support</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Recent Projects with History</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- App Mode Dashboard -->
-                <div class="col-md-4 fade-in-up delay-2">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-rocket"></i></div>
-                        <h4>App Mode Dashboard</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Real-time Package Audits</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>One-click Run & Debug</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Production Build Pipeline</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Device Management & Selection</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- Advanced Config -->
-                <div class="col-md-4 fade-in-up">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-sliders-h"></i></div>
-                        <h4>Visual Configuration</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Visual `nativescript.config.ts`</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Android Manifest Permissions</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>iOS Info.plist Permissions</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Platform Specific Configs</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- Assets & Plugins -->
-                <div class="col-md-4 fade-in-up delay-1">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-puzzle-piece"></i></div>
-                        <h4>Assets & Plugins</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Icon & Splash Generation</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Plugin Marketplace Search</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>NPM Search & Bulk Updates</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Real-time Install Status</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- Activity & Persistence -->
-                <div class="col-md-4 fade-in-up delay-2">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-database"></i></div>
-                        <h4>Persistence & Logs</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>SQLite Database Storage</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Categorized Global Logs</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Searchable Build History</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>System Report & Doctor</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- Device & Windows -->
-                <div class="col-md-4 fade-in-up">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-mobile-alt"></i></div>
-                        <h4>Device & OS</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Multi-OS Support (Win/Mac/Linux)</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Emulator & Physical Devices</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Custom Titlebar Controls</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Context-aware UI Layout</li>
-                        </ul>
-                    </div>
-                </div>
-                <!-- Platform Specific -->
-                <div class="col-md-4 fade-in-up delay-1">
-                    <div class="feature-card glass-card p-5 h-100">
-                        <div class="icon-box"><i class="fas fa-code-branch"></i></div>
-                        <h4>Native Resources</h4>
-                        <ul class="list-unstyled small">
-                            <li><i class="fas fa-check text-primary me-3"></i>Android Gradle Editor</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>iOS xcconfig Management</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Manifest & Plist Visualizer</li>
-                            <li><i class="fas fa-check text-primary me-3"></i>Advanced Runtime Flags</li>
-                        </ul>
-                    </div>
-                </div>
+                </template>
             </div>
         </div>
     </section>
@@ -236,37 +153,15 @@
     <!-- Flavors Section -->
     <section id="flavors" class="bg-darker">
         <div class="container">
-            <div class="glass-card p-5 p-lg-5 text-center fade-in-up">
+            <div class="glass-card p-5 p-lg-5 text-center fade-in-up" x-data="flavorData()">
                 <h2 class="display-5 fw-bold mb-5">Supported Flavors</h2>
                 <div class="flavors-grid">
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/angular.svg" alt="Angular">
-                        <span>Angular</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/reactjs.svg" alt="React">
-                        <span>React</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/vue.svg" alt="Vue">
-                        <span>Vue</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/svelte.svg" alt="Svelte">
-                        <span>Svelte</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/solid.svg" alt="Solid">
-                        <span>Solid</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/typescript.svg" alt="Core (TS)">
-                        <span>Core (TS)</span>
-                    </div>
-                    <div class="flavor-item">
-                        <img src="assets/images/flavors/javascript.svg" alt="Core (JS)">
-                        <span>Core (JS)</span>
-                    </div>
+                    <template x-for="flavor in flavors" :key="flavor.name">
+                        <div class="flavor-item">
+                            <img :src="flavor.icon" :alt="flavor.name">
+                            <span x-text="flavor.name"></span>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
@@ -280,256 +175,49 @@
                 <h2 class="display-4 fw-bold">Visual Experience</h2>
                 <p class="lead">Explore the intuitive interface and powerful features</p>
             </div>
-            <div class="row g-4">
+            <div class="row g-4" x-data="showcaseData()">
                 <div class="col-lg-4 fade-in-up">
                     <div class="glass-card p-3 h-100">
                         <div class="nav flex-column nav-pills vertical-tabs" id="v-pills-tab" role="tablist">
-                            <button class="nav-link active mb-3 text-start d-flex align-items-center gap-3"
-                                id="v-pills-setup-tab" data-bs-toggle="pill" data-bs-target="#v-pills-setup"
-                                type="button" role="tab">
-                                <div class="step-num">1</div>
-                                <div>
-                                    <h6 class="mb-0 fw-bold">Setup & Prep</h6>
-                                    <small class="text-muted">Environment Configuration</small>
-                                </div>
-                            </button>
-                            <button class="nav-link mb-3 text-start d-flex align-items-center gap-3"
-                                id="v-pills-welcome-tab" data-bs-toggle="pill" data-bs-target="#v-pills-welcome"
-                                type="button" role="tab">
-                                <div class="step-num">2</div>
-                                <div>
-                                    <h6 class="mb-0 fw-bold">Welcome Home</h6>
-                                    <small class="text-muted">Dashboard & Project Library</small>
-                                </div>
-                            </button>
-                            <button class="nav-link mb-3 text-start d-flex align-items-center gap-3"
-                                id="v-pills-app-tab" data-bs-toggle="pill" data-bs-target="#v-pills-app" type="button"
-                                role="tab">
-                                <div class="step-num">3</div>
-                                <div>
-                                    <h6 class="mb-0 fw-bold">App Management</h6>
-                                    <small class="text-muted">Build, Run & Configure</small>
-                                </div>
-                            </button>
+                            <template x-for="tab in tabs" :key="tab.id">
+                                <button class="nav-link mb-3 text-start d-flex align-items-center gap-3"
+                                    :class="{ 'active': tab.active }" :id="'v-pills-' + tab.id + '-tab'"
+                                    data-bs-toggle="pill" :data-bs-target="'#v-pills-' + tab.id" type="button"
+                                    role="tab">
+                                    <div class="step-num" x-text="tab.num"></div>
+                                    <div>
+                                        <h6 class="mb-0 fw-bold" x-text="tab.title"></h6>
+                                        <small class="text-muted" x-text="tab.subtitle"></small>
+                                    </div>
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-8 fade-in-up delay-1">
                     <div class="tab-content" id="v-pills-tabContent">
-                        <!-- Tab 1: Setup -->
-                        <div class="tab-pane fade show active" id="v-pills-setup" role="tabpanel">
-                            <div class="swiper swiper-setup glass-card overflow-hidden">
-                                <div class="swiper-wrapper">
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/1-preparation.png" data-lightbox="setup"
-                                            data-title="Preparation">
-                                            <img src="assets/images/screen/1-setup/1-preparation.png" class="img-fluid"
-                                                alt="Preparation">
-                                        </a>
-                                        <div class="slide-caption">Preparation</div>
+                        <template x-for="tab in tabs" :key="tab.id">
+                            <div class="tab-pane fade" :class="{ 'show active': tab.active }" :id="'v-pills-' + tab.id"
+                                role="tabpanel">
+                                <div class="swiper glass-card overflow-hidden" :class="'swiper-' + tab.id">
+                                    <div class="swiper-wrapper">
+                                        <template x-for="img in tab.images" :key="img.file">
+                                            <div class="swiper-slide">
+                                                <a :href="'assets/images/screen/' + tab.folder + '/' + img.file"
+                                                    :data-lightbox="tab.id" :data-title="img.title">
+                                                    <img :src="'assets/images/screen/' + tab.folder + '/' + img.file"
+                                                        class="img-fluid" :alt="img.title">
+                                                </a>
+                                                <div class="slide-caption" x-text="img.title"></div>
+                                            </div>
+                                        </template>
                                     </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/2-setup.png" data-lightbox="setup"
-                                            data-title="Setup">
-                                            <img src="assets/images/screen/1-setup/2-setup.png" class="img-fluid"
-                                                alt="Setup">
-                                        </a>
-                                        <div class="slide-caption">Setup</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/3-setup-nodejs.png" data-lightbox="setup"
-                                            data-title="Setup Node.js">
-                                            <img src="assets/images/screen/1-setup/3-setup-nodejs.png" class="img-fluid"
-                                                alt="Setup Node.js">
-                                        </a>
-                                        <div class="slide-caption">Setup Node.js</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/4-setup-jdk.png" data-lightbox="setup"
-                                            data-title="Setup JDK">
-                                            <img src="assets/images/screen/1-setup/4-setup-jdk.png" class="img-fluid"
-                                                alt="Setup JDK">
-                                        </a>
-                                        <div class="slide-caption">Setup JDK</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/5-setup-android-sdk.png"
-                                            data-lightbox="setup" data-title="Setup Android SDK">
-                                            <img src="assets/images/screen/1-setup/5-setup-android-sdk.png"
-                                                class="img-fluid" alt="Setup Android SDK">
-                                        </a>
-                                        <div class="slide-caption">Setup Android SDK</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/6-setup-env.png" data-lightbox="setup"
-                                            data-title="Setup Environment">
-                                            <img src="assets/images/screen/1-setup/6-setup-env.png" class="img-fluid"
-                                                alt="Setup Environment">
-                                        </a>
-                                        <div class="slide-caption">Setup Environment</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/1-setup/7-setup-done.png" data-lightbox="setup"
-                                            data-title="Setup Done">
-                                            <img src="assets/images/screen/1-setup/7-setup-done.png" class="img-fluid"
-                                                alt="Setup Done">
-                                        </a>
-                                        <div class="slide-caption">Setup Done</div>
-                                    </div>
+                                    <div class="swiper-pagination"></div>
+                                    <div class="swiper-button-next"></div>
+                                    <div class="swiper-button-prev"></div>
                                 </div>
-                                <div class="swiper-pagination"></div>
-                                <div class="swiper-button-next"></div>
-                                <div class="swiper-button-prev"></div>
                             </div>
-                        </div>
-                        <!-- Tab 2: Welcome -->
-                        <div class="tab-pane fade" id="v-pills-welcome" role="tabpanel">
-                            <div class="swiper swiper-welcome glass-card overflow-hidden">
-                                <div class="swiper-wrapper">
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/2-welcome/1-home.png" data-lightbox="welcome"
-                                            data-title="Home">
-                                            <img src="assets/images/screen/2-welcome/1-home.png" class="img-fluid"
-                                                alt="Home">
-                                        </a>
-                                        <div class="slide-caption">Home</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/2-welcome/2-create-app.png"
-                                            data-lightbox="welcome" data-title="Create App">
-                                            <img src="assets/images/screen/2-welcome/2-create-app.png" class="img-fluid"
-                                                alt="Create App">
-                                        </a>
-                                        <div class="slide-caption">Create App</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/2-welcome/3-project-library.png"
-                                            data-lightbox="welcome" data-title="Project Library">
-                                            <img src="assets/images/screen/2-welcome/3-project-library.png"
-                                                class="img-fluid" alt="Project Library">
-                                        </a>
-                                        <div class="slide-caption">Project Library</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/2-welcome/4-activity-log.png"
-                                            data-lightbox="welcome" data-title="Activity Log">
-                                            <img src="assets/images/screen/2-welcome/4-activity-log.png"
-                                                class="img-fluid" alt="Activity Log">
-                                        </a>
-                                        <div class="slide-caption">Activity Log</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/2-welcome/5-settings.png" data-lightbox="welcome"
-                                            data-title="Settings">
-                                            <img src="assets/images/screen/2-welcome/5-settings.png" class="img-fluid"
-                                                alt="Settings">
-                                        </a>
-                                        <div class="slide-caption">Settings</div>
-                                    </div>
-                                </div>
-                                <div class="swiper-pagination"></div>
-                                <div class="swiper-button-next"></div>
-                                <div class="swiper-button-prev"></div>
-                            </div>
-                        </div>
-                        <!-- Tab 3: App -->
-                        <div class="tab-pane fade" id="v-pills-app" role="tabpanel">
-                            <div class="swiper swiper-app glass-card overflow-hidden">
-                                <div class="swiper-wrapper">
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/1-app-properties.png" data-lightbox="app"
-                                            data-title="App Properties">
-                                            <img src="assets/images/screen/3-app/1-app-properties.png" class="img-fluid"
-                                                alt="App Properties">
-                                        </a>
-                                        <div class="slide-caption">App Properties</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/2-app-dashboard.png" data-lightbox="app"
-                                            data-title="App Dashboard">
-                                            <img src="assets/images/screen/3-app/2-app-dashboard.png" class="img-fluid"
-                                                alt="App Dashboard">
-                                        </a>
-                                        <div class="slide-caption">App Dashboard</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/3-app-env-checker.png" data-lightbox="app"
-                                            data-title="App Env Checker">
-                                            <img src="assets/images/screen/3-app/3-app-env-checker.png"
-                                                class="img-fluid" alt="App Env Checker">
-                                        </a>
-                                        <div class="slide-caption">App Env Checker</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/4-app-run-app-wizard.png"
-                                            data-lightbox="app" data-title="App Run App Wizard">
-                                            <img src="assets/images/screen/3-app/4-app-run-app-wizard.png"
-                                                class="img-fluid" alt="App Run App Wizard">
-                                        </a>
-                                        <div class="slide-caption">App Run App Wizard</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/5-app-build-app-wizard.png"
-                                            data-lightbox="app" data-title="App Build App Wizard">
-                                            <img src="assets/images/screen/3-app/5-app-build-app-wizard.png"
-                                                class="img-fluid" alt="App Build App Wizard">
-                                        </a>
-                                        <div class="slide-caption">App Build App Wizard</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/6-app-resource-config.png"
-                                            data-lightbox="app" data-title="App Resource Config">
-                                            <img src="assets/images/screen/3-app/6-app-resource-config.png"
-                                                class="img-fluid" alt="App Resource Config">
-                                        </a>
-                                        <div class="slide-caption">App Resource Config</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/7-app-font-config.png" data-lightbox="app"
-                                            data-title="App Font Config">
-                                            <img src="assets/images/screen/3-app/7-app-font-config.png"
-                                                class="img-fluid" alt="App Font Config">
-                                        </a>
-                                        <div class="slide-caption">App Font Config</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/8-app-project-config.png"
-                                            data-lightbox="app" data-title="App Project Config">
-                                            <img src="assets/images/screen/3-app/8-app-project-config.png"
-                                                class="img-fluid" alt="App Project Config">
-                                        </a>
-                                        <div class="slide-caption">App Project Config</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/9-app-platform-config.png"
-                                            data-lightbox="app" data-title="App Platform Config">
-                                            <img src="assets/images/screen/3-app/9-app-platform-config.png"
-                                                class="img-fluid" alt="App Platform Config">
-                                        </a>
-                                        <div class="slide-caption">App Platform Config</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/10-app-install-plugin.png"
-                                            data-lightbox="app" data-title="App Install Plugin">
-                                            <img src="assets/images/screen/3-app/10-app-install-plugin.png"
-                                                class="img-fluid" alt="App Install Plugin">
-                                        </a>
-                                        <div class="slide-caption">App Install Plugin</div>
-                                    </div>
-                                    <div class="swiper-slide">
-                                        <a href="assets/images/screen/3-app/11-app-manage-permission.png"
-                                            data-lightbox="app" data-title="App Manage Permission">
-                                            <img src="assets/images/screen/3-app/11-app-manage-permission.png"
-                                                class="img-fluid" alt="App Manage Permission">
-                                        </a>
-                                        <div class="slide-caption">App Manage Permission</div>
-                                    </div>
-                                </div>
-                                <div class="swiper-pagination"></div>
-                                <div class="swiper-button-next"></div>
-                                <div class="swiper-button-prev"></div>
-                            </div>
-                        </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -544,31 +232,17 @@
                 <h2 class="display-4 fw-bold">Download NativeScript Forge</h2>
                 <p class="lead">Available for all major desktop platforms</p>
             </div>
-            <div class="row g-4 justify-content-center">
-                <div class="col-md-4 fade-in-up">
-                    <div class="glass-card download-card">
-                        <i class="fab fa-windows"></i>
-                        <h5>Windows</h5>
-                        <p class="small text-muted mb-4">Installer for Windows 10/11 (x64)</p>
-                        <div class="coming-soon-badge">Coming Soon</div>
+            <div class="row g-4 justify-content-center" x-data="downloadData()">
+                <template x-for="platform in platforms" :key="platform.id">
+                    <div class="col-md-4 fade-in-up" :class="platform.delay">
+                        <div class="glass-card download-card">
+                            <i :class="platform.icon"></i>
+                            <h5 x-text="platform.name"></h5>
+                            <p class="small text-muted mb-4" x-text="platform.desc"></p>
+                            <div class="coming-soon-badge">Coming Soon</div>
+                        </div>
                     </div>
-                </div>
-                <div class="col-md-4 fade-in-up delay-1">
-                    <div class="glass-card download-card">
-                        <i class="fab fa-apple"></i>
-                        <h5>macOS</h5>
-                        <p class="small text-muted mb-4">Apple Silicon & Intel (DMG)</p>
-                        <div class="coming-soon-badge">Coming Soon</div>
-                    </div>
-                </div>
-                <div class="col-md-4 fade-in-up delay-2">
-                    <div class="glass-card download-card">
-                        <i class="fab fa-linux"></i>
-                        <h5>Linux</h5>
-                        <p class="small text-muted mb-4">AppImage & Deb for Linux distros</p>
-                        <div class="coming-soon-badge">Coming Soon</div>
-                    </div>
-                </div>
+                </template>
             </div>
         </div>
     </section>

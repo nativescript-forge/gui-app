@@ -367,6 +367,10 @@ span {
   margin-bottom: 1rem;
 }
 
+.download-card p.text-muted {
+  color: var(--text-muted) !important;
+}
+
 .coming-soon-badge {
   background: rgba(var(--ns-primary-rgb), 0.1);
   color: var(--ns-primary);
@@ -400,6 +404,19 @@ span {
   border-color: var(--ns-primary);
   color: var(--text-main);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.vertical-tabs .nav-link small {
+  color: var(--text-muted) !important;
+  transition: color 0.3s ease;
+}
+
+.vertical-tabs .nav-link.active small {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+[data-theme="light"] .vertical-tabs .nav-link.active small {
+  color: rgba(0, 0, 0, 0.5) !important;
 }
 
 .vertical-tabs .nav-link:hover:not(.active) {
