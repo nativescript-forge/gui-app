@@ -19,14 +19,6 @@
 
 ![NativeScript Forge Screenshot](./public/assets/screenshot/ns-forge-v1.png)
 
-## 🧐 The Problem
-
-NativeScript development is powerful but can be complex. Managing different versions of Node, Java, Android SDKs, and CocoaPods across multiple projects often leads to "it works on my machine" issues. New developers face a steep learning curve, and even experienced ones can lose time troubleshooting environment misconfigurations or complex CLI flags.
-
-## 💡 The Solution
-
-NativeScript Forge aims to address these problems by providing a unified graphical interface—a single control panel—that visualizes and orchestrates the NativeScript development workflow. Instead of replacing the NativeScript CLI, NativeScript Forge makes it more transparent, safer, and easier to manage, allowing developers to focus on building features rather than fighting tooling complexity.
-
 ## ✨ Key Features
 
 - **🗂 Project Library**: Centralized management for all your NativeScript projects.
