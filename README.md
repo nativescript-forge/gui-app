@@ -51,8 +51,8 @@
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/ns-forge.git
-   cd ns-forge
+   git clone https://github.com/nativescript-forge/gui-app.git
+   cd gui-app
    ```
 
 2. Install dependencies:
