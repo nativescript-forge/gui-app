@@ -10,9 +10,12 @@ import {
   FiLayout,
   FiCpu,
   FiGlobe,
+  FiPlus,
+  FiX,
 } from "react-icons/fi";
-import { readTextFile } from "@tauri-apps/plugin-fs";
+import { readTextFile, exists } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
+import { invoke } from "@tauri-apps/api/core";
 import { AwesomePluginsList } from "./plugins/AwesomePluginsList";
 import { MarketPluginsList } from "./plugins/MarketPluginsList";
 import { NpmPluginsList } from "./plugins/NpmPluginsList";
@@ -35,6 +38,13 @@ interface AwesomePlugin {
 interface Plugin extends AwesomePlugin {
   packageName: string;
   category: string;
+}
+
+interface InstalledPlugin {
+  name: string;
+  version: string;
+  type: "plugin" | "common module";
+  source: "Dependencies" | "Dev Dependencies";
 }
 
 const DATA_URL =
@@ -112,6 +122,12 @@ export function PluginsPage({
   const [allMarketPlugins, setAllMarketPlugins] = useState<Plugin[]>([]);
   const [npmPlugins, setNpmPlugins] = useState<Plugin[]>([]);
   const [isSearchingNpm, setIsSearchingNpm] = useState(false);
+  const [showManualInstall, setShowManualInstall] = useState(false);
+  const [manualPackageName, setManualPackageName] = useState("");
+  const [showUninstallConfirm, setShowUninstallConfirm] = useState(false);
+  const [pluginToUninstall, setPluginToUninstall] = useState<string | null>(
+    null,
+  );
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -119,38 +135,12 @@ export function PluginsPage({
 
   // Track which plugin is being processed
   const [processingPlugin, setProcessingPlugin] = useState<string | null>(null);
+  const [installedPlugins, setInstalledPlugins] = useState<InstalledPlugin[]>(
+    [],
+  );
   const [installedPackages, setInstalledPackages] = useState<
     Record<string, string>
   >({});
-
-  const marketplacePackageNames = useMemo(() => {
-    return new Set(plugins.map((p) => p.packageName.toLowerCase()));
-  }, [plugins]);
-
-  /**
-   * Check if a package name looks like a NativeScript plugin
-   */
-  const isNsPlugin = (name: string): boolean => {
-    const n = name.toLowerCase();
-    // 1. Check if it's in our marketplace list
-    if (marketplacePackageNames.has(n)) return true;
-
-    // 2. Check naming conventions
-    return (
-      n.startsWith("nativescript-") ||
-      n.startsWith("@nativescript/") ||
-      n.startsWith("@nativescript-") ||
-      n.startsWith("@nativescript-community/") ||
-      n.startsWith("@nstudio/") ||
-      n.startsWith("@triniwiz/") ||
-      n.startsWith("@valor/") ||
-      n.includes("-nativescript") ||
-      n.includes("nativescript-") ||
-      // Common UI plugins and legacy names
-      n.startsWith("tns-core-modules") ||
-      n.startsWith("tns-")
-    );
-  };
 
   const fetchPlugins = async () => {
     setLoading(true);
@@ -274,19 +264,59 @@ export function PluginsPage({
     }
   }, [searchQuery, pluginSource, allMarketPlugins]);
 
-  const loadInstalledPlugins = async () => {
+  const scanPlugins = async () => {
     if (!projectPath) return;
+    setLoading(true);
     try {
-      const pkgPath = await join(projectPath, "package.json");
-      const content = await readTextFile(pkgPath);
-      const pkg = JSON.parse(content);
-      const allDeps = {
-        ...(pkg.dependencies || {}),
-        ...(pkg.devDependencies || {}),
-      };
+      const scannedPlugins = await invoke<InstalledPlugin[]>(
+        "scan_ns_plugins",
+        {
+          projectPath,
+        },
+      );
+
+      setInstalledPlugins(scannedPlugins);
+
+      // Update legacy installedPackages for compatibility
+      const allDeps: Record<string, string> = {};
+      scannedPlugins.forEach((p) => {
+        allDeps[p.name] = p.version;
+      });
       setInstalledPackages(allDeps);
     } catch (err) {
-      console.error("Failed to read package.json:", err);
+      console.error("Failed to scan plugins:", err);
+      setError("Failed to scan plugins: " + err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadInstalledPlugins = async (forceScan = false) => {
+    if (!projectPath) return;
+    try {
+      const configDir = await join(projectPath, ".nsforge", "configs");
+      const pluginsJsonPath = await join(configDir, "plugins.json");
+
+      if (!forceScan && (await exists(pluginsJsonPath))) {
+        const content = await readTextFile(pluginsJsonPath);
+        const data = JSON.parse(content);
+        setInstalledPlugins(data);
+
+        // Also update legacy installedPackages for compatibility
+        const pkgPath = await join(projectPath, "package.json");
+        const pkgContent = await readTextFile(pkgPath);
+        const pkg = JSON.parse(pkgContent);
+        const allDeps = {
+          ...(pkg.dependencies || {}),
+          ...(pkg.devDependencies || {}),
+        };
+        setInstalledPackages(allDeps);
+      } else {
+        await scanPlugins();
+      }
+    } catch (err) {
+      console.error("Failed to load installed plugins:", err);
+      await scanPlugins();
     }
   };
 
@@ -301,7 +331,8 @@ export function PluginsPage({
   useEffect(() => {
     // Add a small delay after command finishes to allow filesystem to sync
     const timer = setTimeout(() => {
-      loadInstalledPlugins();
+      // If a command just finished, force a re-scan to get latest data
+      loadInstalledPlugins(!isRunning);
     }, 500);
     return () => clearTimeout(timer);
   }, [projectPath, isRunning, activeTab]);
@@ -315,11 +346,8 @@ export function PluginsPage({
 
   useEffect(() => {
     setCurrentPage(1);
-    // Only reset search if we are moving to installed tab
-    if (activeTab === "installed") {
-      setSearchQuery("");
-    }
-  }, [selectedCategory, pluginSource, activeTab, searchQuery]);
+    // Remove automatic search reset when switching tabs to allow searching in 'installed'
+  }, [selectedCategory, pluginSource, activeTab]);
 
   const categories = useMemo(() => {
     return [
@@ -371,20 +399,30 @@ export function PluginsPage({
   const totalPages = Math.ceil(filteredMarketplace.length / itemsPerPage);
 
   const installedPluginsList = useMemo(() => {
-    return Object.entries(installedPackages)
-      .filter(([name]) => isNsPlugin(name))
-      .map(([name, version]) => ({ name, version }))
-      .filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  }, [installedPackages, searchQuery]);
+    if (!searchQuery) return installedPlugins;
+    const q = searchQuery.toLowerCase();
+    return installedPlugins.filter((p) => p.name.toLowerCase().includes(q));
+  }, [installedPlugins, searchQuery]);
 
   const handleInstall = (name: string) => {
     setProcessingPlugin(name);
     onInstall(name);
+    setShowManualInstall(false);
+    setManualPackageName("");
   };
 
   const handleUninstall = (name: string) => {
-    setProcessingPlugin(name);
-    onUninstall(name);
+    setPluginToUninstall(name);
+    setShowUninstallConfirm(true);
+  };
+
+  const confirmUninstall = () => {
+    if (pluginToUninstall) {
+      setProcessingPlugin(pluginToUninstall);
+      onUninstall(pluginToUninstall);
+      setShowUninstallConfirm(false);
+      setPluginToUninstall(null);
+    }
   };
 
   const getCategoryIcon = (category: string) => {
@@ -408,39 +446,47 @@ export function PluginsPage({
           </p>
         </div>
 
-        <div className="tabs tabs-boxed bg-base-200/50 p-1 w-fit">
+        <div className="flex items-center gap-4">
           <button
-            className={`tab tab-sm md:tab-md px-6 rounded-lg transition-all mr-1 ${
-              activeTab === "marketplace"
-                ? "tab-active !bg-primary !text-white"
-                : ""
-            }`}
-            onClick={() => setActiveTab("marketplace")}
+            onClick={() => setShowManualInstall(true)}
+            className="btn btn-primary btn-outline btn-sm rounded-xl px-4 flex items-center gap-2"
           >
-            Discover
+            <FiPlus className="w-4 h-4" />
+            Manual Install
           </button>
-          <button
-            className={`tab tab-sm md:tab-md px-6 rounded-lg transition-all ${
-              activeTab === "installed"
-                ? "tab-active !bg-primary !text-white"
-                : ""
-            }`}
-            onClick={() => setActiveTab("installed")}
-          >
-            Installed (
-            {Object.keys(installedPackages).filter(isNsPlugin).length})
-          </button>
+          <div className="tabs tabs-boxed bg-base-200/50 p-1 w-fit">
+            <button
+              className={`tab tab-sm md:tab-md px-6 rounded-lg transition-all mr-1 ${
+                activeTab === "marketplace"
+                  ? "tab-active !bg-primary !text-white"
+                  : ""
+              }`}
+              onClick={() => setActiveTab("marketplace")}
+            >
+              Discover
+            </button>
+            <button
+              className={`tab tab-sm md:tab-md px-6 rounded-lg transition-all ${
+                activeTab === "installed"
+                  ? "tab-active !bg-primary !text-white"
+                  : ""
+              }`}
+              onClick={() => setActiveTab("installed")}
+            >
+              Installed ({installedPlugins.length})
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="bg-base-200/20 p-4 rounded-2xl border border-base-content/5 mb-8">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="w-full md:w-auto">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
+          <div className="flex-shrink-0">
             {activeTab === "marketplace" && (
-              <div className="flex bg-base-200 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
+              <div className="flex bg-base-200 p-1 rounded-xl w-full xl:w-auto overflow-x-auto">
                 <button
                   onClick={() => setPluginSource("awesome")}
-                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  className={`flex-1 xl:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                     pluginSource === "awesome"
                       ? "bg-base-100 shadow-sm text-primary"
                       : "opacity-50 hover:opacity-100"
@@ -450,7 +496,7 @@ export function PluginsPage({
                 </button>
                 <button
                   onClick={() => setPluginSource("market")}
-                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  className={`flex-1 xl:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                     pluginSource === "market"
                       ? "bg-base-100 shadow-sm text-primary"
                       : "opacity-50 hover:opacity-100"
@@ -460,7 +506,7 @@ export function PluginsPage({
                 </button>
                 <button
                   onClick={() => setPluginSource("npm")}
-                  className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  className={`flex-1 xl:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
                     pluginSource === "npm"
                       ? "bg-base-100 shadow-sm text-primary"
                       : "opacity-50 hover:opacity-100"
@@ -472,10 +518,10 @@ export function PluginsPage({
             )}
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 w-full xl:w-auto">
             {activeTab === "marketplace" && pluginSource === "awesome" && (
               <select
-                className="select select-bordered select-sm rounded-xl bg-base-100 focus:border-primary/50 transition-all font-bold min-w-[150px]"
+                className="select select-bordered select-sm rounded-xl bg-base-100 focus:border-primary/50 transition-all font-bold min-w-[130px] flex-shrink"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
@@ -488,9 +534,13 @@ export function PluginsPage({
             )}
 
             <button
-              onClick={fetchAll}
+              onClick={() =>
+                activeTab === "installed"
+                  ? loadInstalledPlugins(true)
+                  : fetchAll()
+              }
               disabled={loading}
-              className="btn btn-ghost btn-sm btn-square rounded-xl bg-base-100"
+              className="btn btn-ghost btn-sm btn-square rounded-xl bg-base-100 flex-shrink-0"
               title="Refresh all data"
             >
               <FiRefreshCw
@@ -498,7 +548,7 @@ export function PluginsPage({
               />
             </button>
 
-            <div className="relative flex-1 md:w-72">
+            <div className="relative flex-1 xl:w-72 min-w-0">
               {loading || isSearchingNpm ? (
                 <span className="loading loading-spinner loading-xs absolute left-3 top-1/2 -translate-y-1/2 opacity-30"></span>
               ) : (
@@ -617,6 +667,7 @@ export function PluginsPage({
                       processingPlugin={processingPlugin}
                       isRunning={isRunning}
                       onInstall={handleInstall}
+                      onUninstall={handleUninstall}
                       getCategoryIcon={getCategoryIcon}
                     />
                   )}
@@ -627,6 +678,7 @@ export function PluginsPage({
                       processingPlugin={processingPlugin}
                       isRunning={isRunning}
                       onInstall={handleInstall}
+                      onUninstall={handleUninstall}
                     />
                   )}
                   {pluginSource === "npm" && (
@@ -636,6 +688,7 @@ export function PluginsPage({
                       processingPlugin={processingPlugin}
                       isRunning={isRunning}
                       onInstall={handleInstall}
+                      onUninstall={handleUninstall}
                     />
                   )}
                 </>
@@ -710,6 +763,15 @@ export function PluginsPage({
             </div>
           )}
         </>
+      ) : loading ? (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="h-24 bg-base-100/50 animate-pulse rounded-2xl border border-base-200"
+            ></div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-4">
           {installedPluginsList.length > 0 ? (
@@ -722,17 +784,30 @@ export function PluginsPage({
                     className="flex items-center justify-between p-4 bg-base-100 border border-base-200 rounded-2xl hover:border-primary/20 transition-all shadow-sm"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-primary/5 rounded-xl text-primary">
+                      <div
+                        className={`p-3 rounded-xl ${pkg.type === "plugin" ? "bg-primary/5 text-primary" : "bg-base-300 text-base-content/50"}`}
+                      >
                         <FiPackage className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="font-bold">{pkg.name}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold">{pkg.name}</h4>
+                          <span
+                            className={`badge badge-xs font-bold uppercase ${pkg.source === "Dependencies" ? "badge-primary" : "badge-ghost opacity-50"}`}
+                          >
+                            {pkg.source === "Dependencies" ? "Dep" : "Dev"}
+                          </span>
+                        </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="badge badge-sm badge-ghost opacity-60 font-mono">
                             {pkg.version}
                           </span>
-                          <span className="text-[10px] uppercase font-black opacity-20 tracking-widest">
-                            NativeScript Plugin
+                          <span
+                            className={`text-[10px] uppercase font-black tracking-widest ${pkg.type === "plugin" ? "text-primary opacity-80" : "opacity-20"}`}
+                          >
+                            {pkg.type === "plugin"
+                              ? "NativeScript Plugin"
+                              : "Common Module"}
                           </span>
                         </div>
                       </div>
@@ -779,6 +854,144 @@ export function PluginsPage({
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Uninstall Confirmation Modal */}
+      {showUninstallConfirm && (
+        <div className="modal modal-open">
+          <div className="modal-box rounded-3xl border border-base-content/10 shadow-2xl p-0 overflow-hidden max-w-md">
+            <div className="bg-error/10 p-6 flex items-center justify-between border-b border-error/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-error/20 rounded-xl text-error">
+                  <FiTrash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">Uninstall Plugin</h3>
+                  <p className="text-xs opacity-50 uppercase tracking-widest font-bold">
+                    Confirm removal
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUninstallConfirm(false)}
+                className="btn btn-ghost btn-sm btn-square rounded-xl"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-8">
+              <p className="text-sm leading-relaxed opacity-70">
+                Are you sure you want to uninstall{" "}
+                <span className="font-bold text-base-content italic">
+                  "{pluginToUninstall}"
+                </span>
+                ? This will permanently remove the package from your{" "}
+                <code className="bg-base-300 px-1 rounded text-xs">
+                  node_modules
+                </code>{" "}
+                and update your configuration.
+              </p>
+
+              <div className="mt-8 flex gap-3">
+                <button
+                  onClick={() => setShowUninstallConfirm(false)}
+                  className="btn btn-ghost flex-1 rounded-2xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmUninstall}
+                  className="btn btn-error flex-[2] rounded-2xl font-bold text-white shadow-lg shadow-error/20"
+                >
+                  Uninstall Now
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-base-content/20 backdrop-blur-sm"
+            onClick={() => setShowUninstallConfirm(false)}
+          ></div>
+        </div>
+      )}
+
+      {/* Manual Install Modal */}
+      {showManualInstall && (
+        <div className="modal modal-open">
+          <div className="modal-box rounded-3xl border border-base-content/10 shadow-2xl p-0 overflow-hidden">
+            <div className="bg-primary/10 p-6 flex items-center justify-between border-b border-primary/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/20 rounded-xl text-primary">
+                  <FiPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black">Manual Install</h3>
+                  <p className="text-xs opacity-50 uppercase tracking-widest font-bold">
+                    Install any package from NPM
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManualInstall(false)}
+                className="btn btn-ghost btn-sm btn-square rounded-xl"
+              >
+                <FiX className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-8">
+              <div className="form-control w-full">
+                <label className="label">
+                  <span className="label-text font-bold opacity-50">
+                    Package Name
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. lodash or @nativescript/core"
+                  className="input input-bordered w-full rounded-2xl bg-base-200/50 focus:border-primary transition-all font-mono"
+                  value={manualPackageName}
+                  onChange={(e) => setManualPackageName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && manualPackageName.trim()) {
+                      handleInstall(manualPackageName.trim());
+                    }
+                  }}
+                  autoFocus
+                />
+                <label className="label mt-2">
+                  <span className="label-text-alt opacity-50 flex items-center gap-1">
+                    <FiInfo className="w-3 h-3" />
+                    Enter the exact package name as it appears on NPM.
+                  </span>
+                </label>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button
+                  onClick={() => setShowManualInstall(false)}
+                  className="btn btn-ghost flex-1 rounded-2xl font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleInstall(manualPackageName.trim())}
+                  disabled={!manualPackageName.trim() || isRunning}
+                  className="btn btn-primary flex-[2] rounded-2xl font-bold shadow-lg shadow-primary/20"
+                >
+                  {isRunning ? (
+                    <span className="loading loading-spinner loading-xs"></span>
+                  ) : (
+                    "Install Package"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-base-content/20 backdrop-blur-sm"
+            onClick={() => setShowManualInstall(false)}
+          ></div>
         </div>
       )}
     </div>

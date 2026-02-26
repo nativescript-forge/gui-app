@@ -31,3 +31,21 @@ export function stripAnsi(str: string): string {
   const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
   return str.replace(ansiRegex, "");
 }
+
+/**
+ * Strips HTML tags and Markdown-like artifacts from a string.
+ */
+export function cleanDescription(text: string): string {
+  if (!text) return "";
+  
+  return text
+    // Remove HTML tags
+    .replace(/<[^>]*>/g, "")
+    // Remove Markdown image links: ![alt](url)
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    // Remove Markdown links: [text](url) -> text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    // Remove multiple spaces and newlines
+    .replace(/\s+/g, " ")
+    .trim();
+}

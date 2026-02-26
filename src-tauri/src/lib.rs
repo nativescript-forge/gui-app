@@ -104,6 +104,7 @@ pub fn run() {
             commands::ns::set_ns_package_manager,
             commands::ns::run_ns,
             commands::ns::run_npm,
+            commands::ns::scan_ns_plugins,
             commands::ns::create_ns_project,
             commands::ns::get_adb_devices,
             commands::ns::stop_ns_command,

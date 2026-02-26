@@ -4,7 +4,9 @@ import {
   FiCheckCircle,
   FiExternalLink,
   FiAlertCircle,
+  FiTrash2,
 } from "react-icons/fi";
+import { cleanDescription } from "../../../shared/utils";
 
 interface Plugin {
   name: string;
@@ -19,6 +21,7 @@ interface NpmPluginsListProps {
   processingPlugin: string | null;
   isRunning: boolean;
   onInstall: (name: string) => void;
+  onUninstall: (name: string) => void;
 }
 
 export function NpmPluginsList({
@@ -27,6 +30,7 @@ export function NpmPluginsList({
   processingPlugin,
   isRunning,
   onInstall,
+  onUninstall,
 }: NpmPluginsListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -34,10 +38,14 @@ export function NpmPluginsList({
         const isInstalled = Object.keys(installedPackages).some((name) => {
           const installed = name.toLowerCase();
           const pkgName = plugin.packageName.toLowerCase();
+
           return (
             installed === pkgName ||
             installed === pkgName.replace("nativescript-", "@nativescript/") ||
-            pkgName === installed.replace("nativescript-", "@nativescript/")
+            pkgName === installed.replace("nativescript-", "@nativescript/") ||
+            // Handle scoped packages
+            installed.endsWith(`/${pkgName}`) ||
+            pkgName.endsWith(`/${installed}`)
           );
         });
         const isCurrentProcessing = processingPlugin === plugin.packageName;
@@ -64,7 +72,7 @@ export function NpmPluginsList({
                     )}
                   </div>
                   <p className="text-sm opacity-60 line-clamp-2 min-h-[2.5rem]">
-                    {plugin.description}
+                    {cleanDescription(plugin.description)}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -99,11 +107,15 @@ export function NpmPluginsList({
                     <FiExternalLink className="w-4 h-4" />
                   </a>
                   <button
-                    onClick={() => onInstall(plugin.packageName)}
-                    disabled={isRunning || isInstalled}
+                    onClick={() =>
+                      isInstalled
+                        ? onUninstall(plugin.packageName)
+                        : onInstall(plugin.packageName)
+                    }
+                    disabled={isRunning}
                     className={`btn btn-sm px-4 rounded-lg transition-all ${
                       isInstalled
-                        ? "btn-success btn-outline opacity-60 cursor-default"
+                        ? "btn-ghost text-error hover:bg-error/10"
                         : "btn-primary group-hover:shadow-lg group-hover:shadow-primary/20"
                     }`}
                   >
@@ -111,7 +123,7 @@ export function NpmPluginsList({
                       <span className="loading loading-spinner loading-xs"></span>
                     ) : isInstalled ? (
                       <>
-                        <FiCheckCircle className="w-3 h-3 mr-1" /> Installed
+                        <FiTrash2 className="w-3 h-3 mr-1" /> Uninstall
                       </>
                     ) : (
                       <>

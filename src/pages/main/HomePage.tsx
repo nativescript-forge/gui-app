@@ -29,6 +29,7 @@ import {
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 import { ProjectDetailsModal } from "../../components/ProjectDetailsModal";
+import { FlavorIcon } from "../../components/FlavorIcon";
 
 type HomePageProps = {
   logoSrc: string;
@@ -190,12 +191,16 @@ function ProjectCard({
       </div>
 
       {/* Info Section */}
-      <div className="w-full text-center">
+      <div className="w-full text-center flex flex-col items-center">
         <h3 className="font-bold text-sm truncate w-full" title={project.name}>
           {project.name}
         </h3>
-        <div className="text-[10px] opacity-50 mt-1 font-medium uppercase tracking-wider">
-          {project.framework || "NativeScript"}
+        <div className="mt-1">
+          <FlavorIcon
+            framework={project.framework}
+            iconClassName="w-3.5 h-3.5"
+            className="flex items-center gap-1.5 justify-center"
+          />
         </div>
       </div>
 

@@ -239,6 +239,121 @@ pub struct ResolvedCli {
     pub display: String,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledPlugin {
+    pub name: String,
+    pub version: String,
+    pub r#type: String, // "plugin" or "common module"
+    pub source: String, // "Dependencies" or "Dev Dependencies"
+}
+
+#[tauri::command]
+pub async fn scan_ns_plugins(project_path: String) -> Result<Vec<InstalledPlugin>, String> {
+    let pkg_path = PathBuf::from(&project_path).join("package.json");
+    if !pkg_path.exists() {
+        return Err("Project package.json not found".to_string());
+    }
+
+    let pkg_content = fs::read_to_string(&pkg_path).map_err(|e| e.to_string())?;
+    let pkg: serde_json::Value = serde_json::from_str(&pkg_content).map_err(|e| e.to_string())?;
+
+    let mut all_packages = Vec::new();
+
+    if let Some(deps) = pkg.get("dependencies").and_then(|d| d.as_object()) {
+        for (name, version) in deps {
+            all_packages.push((
+                name.clone(),
+                version.as_str().unwrap_or("").to_string(),
+                "Dependencies".to_string(),
+            ));
+        }
+    }
+
+    if let Some(dev_deps) = pkg.get("devDependencies").and_then(|d| d.as_object()) {
+        for (name, version) in dev_deps {
+            all_packages.push((
+                name.clone(),
+                version.as_str().unwrap_or("").to_string(),
+                "Dev Dependencies".to_string(),
+            ));
+        }
+    }
+
+    let mut scanned_plugins = Vec::new();
+
+    for (name, version, source) in all_packages {
+        let pkg_dir = PathBuf::from(&project_path).join("node_modules").join(&name);
+        let pkg_json_path = pkg_dir.join("package.json");
+
+        let mut is_plugin = false;
+
+        if pkg_json_path.exists() {
+            if let Ok(content) = fs::read_to_string(&pkg_json_path) {
+                if let Ok(inner_pkg) = serde_json::from_str::<serde_json::Value>(&content) {
+                    // Check for various suffixes in the package directory
+                    let mut has_android = false;
+                    let mut has_ios = false;
+
+                    if let Ok(entries) = fs::read_dir(&pkg_dir) {
+                        for entry in entries.flatten() {
+                            if let Some(file_name) = entry.file_name().to_str() {
+                                if file_name.ends_with(".android.d.ts")
+                                    || file_name.ends_with(".android.d.js")
+                                    || file_name.ends_with(".android.ts")
+                                    || file_name.ends_with(".android.js")
+                                {
+                                    has_android = true;
+                                }
+                                if file_name.ends_with(".ios.d.ts")
+                                    || file_name.ends_with(".ios.d.js")
+                                    || file_name.ends_with(".ios.ts")
+                                    || file_name.ends_with(".ios.js")
+                                {
+                                    has_ios = true;
+                                }
+                            }
+                        }
+                    }
+
+                    // Check for both ios and android platforms in package.json
+                    let platforms = inner_pkg.get("nativescript").and_then(|ns| ns.get("platforms"));
+                    let has_platforms = platforms.and_then(|p| p.get("ios")).is_some()
+                        && platforms.and_then(|p| p.get("android")).is_some();
+
+                    if (has_android || has_ios) && has_platforms {
+                        is_plugin = true;
+                    }
+                }
+            }
+        }
+
+        scanned_plugins.push(InstalledPlugin {
+            name,
+            version,
+            r#type: if is_plugin {
+                "plugin".to_string()
+            } else {
+                "common module".to_string()
+            },
+            source,
+        });
+    }
+
+    // Save to .nsforge/configs/plugins.json
+    let config_dir = PathBuf::from(&project_path).join(".nsforge").join("configs");
+    if !config_dir.exists() {
+        let _ = fs::create_dir_all(&config_dir);
+    }
+
+    let plugins_json_path = config_dir.join("plugins.json");
+    if let Ok(json_str) = serde_json::to_string_pretty(&scanned_plugins) {
+        let _ = fs::write(plugins_json_path, json_str);
+    }
+
+    Ok(scanned_plugins)
+}
+
 pub fn run_command(
     program: &str,
     args: &[&str],
