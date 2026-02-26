@@ -38,9 +38,13 @@
 
 ### Prerequisites
 
-- **Node.js** (v18 or later)
-- **Rust** (for Tauri development)
+- **Node.js** (v18 or later) 
+  - https://nodejs.org/en/download
+- **Tauri** (v2 or later)
+  - https://v2.tauri.app/start/prerequisites  
 - **Android Studio / Xcode** (for NativeScript development)
+  - https://developer.android.com/studio
+  - https://developer.apple.com/xcode
 
 ### Installation
 
