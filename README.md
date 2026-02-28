@@ -38,17 +38,21 @@
 
 ### Prerequisites
 
-- **Node.js** (v18 or later)
-- **Rust** (for Tauri development)
+- **Node.js** (v18 or later) 
+  - https://nodejs.org/en/download
+- **Tauri** (v2 or later)
+  - https://v2.tauri.app/start/prerequisites  
 - **Android Studio / Xcode** (for NativeScript development)
+  - https://developer.android.com/studio
+  - https://developer.apple.com/xcode
 
 ### Installation
 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/ns-forge.git
-   cd ns-forge
+   git clone https://github.com/nativescript-forge/gui-app.git
+   cd gui-app
    ```
 
 2. Install dependencies:
