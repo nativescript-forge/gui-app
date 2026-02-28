@@ -1,154 +1,138 @@
 # NS-Forge Feature Checklist
 
-Detailed list of features and functions available in NS-Forge.
+Detailed list of features and functions available in NS-Forge, grouped by application routing and menus.
 
-## 🛠️ Setup & Environment
+## 🌟 Main View
 
-- [ ] **Automatic OS Detection** (Release Mode)
-- [ ] **Manual OS Selection** (Dev Mode)
-- [ ] **Window Management**
-  - [ ] Maximize/Minimize controls
-  - [ ] Custom Titlebar with drag support (Context-aware)
+### 🏠 Home
 
-### 🪟 Windows Setup
+- [x] **Global System Report**
+  - [x] System environment status overview
+  - [x] Package Manager status (npm, yarn, pnpm)
+- [x] **Project Import & Discovery**
+  - [x] Single project folder import
+  - [x] Batch folder scanning for existing NativeScript projects
 
-- [ ] **Node.js** (LTS version)
-- [ ] **Java Development Kit** (JDK 17)
-- [ ] **Android SDK**
-- [ ] **Android Virtual Device** (AVD/Emulator)
-- [ ] **NativeScript CLI** (Global install)
+### 📁 Projects
 
-### 🐧 Linux Setup
+- [x] **Project Library / Overview**
+  - [x] List of saved projects with framework badges
+  - [x] Quick access to project paths (Reveal in Explorer / Finder)
+  - [x] Remove project from library with database history cleanup
 
-- [ ] **Node.js** (LTS version)
-- [ ] **Java OpenJDK 17**
-- [ ] **Android SDK**
-- [ ] **Environment Variables** (JAVA_HOME, ANDROID_HOME)
-- [ ] **NativeScript CLI** (Global install)
+### ➕ Create Project
 
-### 🍎 macOS Setup
+- [x] **Project Creation**
+  - [x] Support for multiple flavors (Vanilla, Angular, React, Vue, Svelte, Solid, TypeScript)
+  - [x] Template selection (Blank, Drawer, Tabs, etc.)
+  - [x] Real-time creation logs output
 
-- [ ] **Homebrew** (Package Manager)
-- [ ] **Node.js & JDK 17**
-- [ ] **iOS Environment** (Xcode, Command Line Tools)
-- [ ] **CocoaPods** (Dependency Manager for iOS)
-- [ ] **Android SDK**
-- [ ] **NativeScript CLI** (Global install)
+### 📊 Activity
 
-## 🏠 Home & Project Management
+- [x] **Global Activity Logs**
+  - [x] Categorized logs (System, Build, Error, Information)
+  - [x] Historical persistence leveraging SQLite database
+  - [x] Search, filter, and sort capabilities for activities
 
-- [ ] **Project Overview**
-  - [ ] Recent projects list with icons
-  - [ ] Quick access to project folders
-  - [ ] Remove project from library (with history cleanup)
-- [ ] **Project Creation**
-  - [ ] Support for multiple flavors:
-    - [ ] JavaScript
-    - [ ] TypeScript
-    - [ ] Angular
-    - [ ] React
-    - [ ] Solid
-    - [ ] Svelte
-    - [ ] Vue
-  - [ ] Template selection (Blank, Drawer, Tabs, etc.)
-  - [ ] Standard vs VisionOS platform selection
-  - [ ] Real-time creation logs
-- [ ] **Project Import**
-  - [ ] Single project import
-  - [ ] Batch scan folder for NativeScript projects
-- [ ] **Global System Report**
-  - [ ] System Information (OS, CPU, Memory)
-  - [ ] NativeScript Doctor integration
-  - [ ] Package Manager status (npm, yarn, pnpm)
-  - [ ] Global CLI update functionality
+### ⚙️ Settings
 
-## 📊 Activity & History
+- [ ] **Application Preferences**
+  - [ ] Default Theme customization (Light/Dark mode)
+  - [ ] Select default preferred package manager (npm, pnpm, yarn)
+- [ ] **Data Management**
+  - [ ] Clearing global activity logs or system reports cache
+  - [ ] Database SQLite migration & integrity management
 
-- [ ] **Global Activity Logs**
-  - [ ] Categorized logs (System, Build, Run, Project, etc.)
-  - [ ] Status tracking (Success, Error, Info)
-  - [ ] Search and filter by activity type
-- [ ] **Database Persistence** (SQLite)
-  - [ ] Project metadata storage
-  - [ ] Activity history storage
+---
 
-## 🚀 App Mode (Project Dashboard)
+## 🚀 App Mode
 
-- [ ] **Project Status**
-  - [ ] Dependency health check (node_modules detection)
-  - [ ] Automated npm install for missing dependencies
-- [ ] **Package Management**
-  - [ ] Real-time outdated package detection
-  - [ ] Single package update
-  - [ ] Bulk package update
-- [ ] **Build & Run Actions**
-  - [ ] **Run Application**
-    - [ ] Android (Emulator/Device)
-    - [ ] iOS (Simulator/Device)
-  - [ ] **Debug Application**
-    - [ ] Android Debug mode
-    - [ ] iOS Debug mode
-  - [ ] **Build Production**
-    - [ ] Android App Bundle (AAB) / APK
-    - [ ] iOS IPA (via Xcode)
-  - [ ] **Project Utilities**
-    - [ ] Clean project (ns clean)
-    - [ ] Install dependencies
-    - [ ] Platform Management (Add Android/iOS)
-- [ ] **Device Management**
-  - [ ] Auto-detection of connected devices/emulators
-  - [ ] Device selection for Run/Debug actions
+### 🎛️ Dashboard
 
-## ⚙️ Project Configuration
+- [x] **Project Status Overview**
+  - [x] Dependency health checking (`node_modules` detection)
+  - [x] Automated missing dependency installation fallback
+- [x] **Build & Run Workflows**
+  - [x] Real-time ADB connected devices & emulator detection
+  - [x] **Run Application** on Android (Emulator/Device) or iOS (Simulator/Device)
+  - [x] **Debug Application** capabilities
+  - [x] **Build Production** packages (Android APK/AAB, iOS IPA)
+  - [ ] **Cloud Build** Norrix.net (TBD)
+- [x] **Execution Utilities**
+  - [x] Stop active terminal processes gracefully
+  - [x] Live log streaming output directly to the UI
+  - [x] Clean project cache / hooks (`ns clean`)
+  - [x] Add/Remove targeted platforms (Android/iOS)
 
-- [ ] **NativeScript Config (nativescript.config.ts)**
-  - [ ] Bundle ID management (App ID)
-  - [ ] Project Name configuration
-  - [ ] Performance profiling toggles
-  - [ ] Development vs Production presets
-  - [ ] Advanced Android/iOS runtime flags
-- [ ] **Platform Specific Configs**
-  - [ ] **Android**
-    - [ ] `app.gradle` editor
-    - [ ] `before-plugins.gradle` editor
-  - [ ] **iOS**
-    - [ ] `build.xcconfig` editor
-    - [ ] `Info.plist` key-value management
-- [ ] **Permission Management**
-  - [ ] **Android Manifest Permissions**
-    - [ ] Master permission list for easy adding
-    - [ ] Search and filter permissions
-    - [ ] Direct Manifest synchronization
-  - [ ] **iOS Plist Permissions**
-    - [ ] Usage description management
-    - [ ] Searchable iOS permission keys
+### 🎨 Resource Config
 
-## 🎨 Assets & Resources
+- [x] **Resources Dashboard**
+  - [x] Visual overview of current App Icon & Splash screen
+- [x] **Asset Generation Engine**
+  - [x] Automatic Icon generation from a source image
+  - [x] Automatic Splash screen creation with background color picking
 
-- [ ] **Asset Management**
-  - [ ] Current Icon & Splash screen preview
-- [ ] **Asset Generation**
-  - [ ] Automatic Icon generation from source image
-  - [ ] Automatic Splash screen generation
-  - [ ] Custom background color support for splashes
-  - [ ] Cross-platform asset synchronization
+### 🔤 Font Config
 
-## 🔌 Plugin Management
+- [x] **Font Management**
+  - [x] Scan and list imported localized font files
+  - [x] Add new custom `.ttf` or `.otf` fonts to the project workspace
 
-- [ ] **Plugin Exploration**
-  - [ ] **Marketplace Plugins**: Integrated search from NativeScript Market
-  - [ ] **Awesome Plugins**: Curated list from Awesome NativeScript
-  - [ ] **NPM Search**: Direct search on NPM for NativeScript plugins
-- [ ] **Plugin Operations**
-  - [ ] One-click Install/Uninstall
-  - [ ] Smart package name extraction from URLs
-  - [ ] Real-time installation status tracking
+### ⚙️ Project Config
 
-## 🛠️ Global Settings
+- [x] **NativeScript Config (`nativescript.config.ts`)**
+  - [x] **General:** App Bundle ID, Project Name, Paths (`appPath`, `appResourcesPath`), Entry file, CSS Parser, Profiling
+  - [x] **Android:** V8 Runtime flags, Code Cache configuration, Garbage Collection tuning (`gcThrottleTime`, `markingMode`), Memory check intervals
+  - [x] **iOS:** Specific Bundle ID overrides, JS Exception discarding policies
+  - [x] **CLI:** Configure project-level Package Manager
+  - [x] **Bundler:** Switch between Webpack and Vite seamlessly, manage bundler configuration backups and restores
+    - [x] Backup and Restore Webpack and Vite config files
+  - [x] **Security:** Network & Script loading permissions (`allowRemoteModules`)
+  - [x] **Presets:** One-click application of Development and Production optimized presets
 
-- [ ] **Theme Support** (Light/Dark mode)
-- [ ] **Reset Options**
-  - [ ] Reset setup wizard
-  - [ ] Clear global activity logs
-- [ ] **System Report Refresh**
-  - [ ] On-demand system environment re-scan
+### 📱 Platform Config
+
+- [x] **Android Configuration**
+  - [x] Manage `app.gradle` editor content
+  - [x] Manage `before-plugins.gradle` editor content
+- [x] **iOS Configuration**
+  - [x] Manage `build.xcconfig` editor content
+  - [x] Manage `Info.plist` raw values
+
+### 🔌 Install Plugin
+
+- [x] **Dependency Auditing**
+  - [x] Read local `package.json` for installed frameworks & packages
+  - [x] Real-time outdated package detection
+- [x] **Plugin Discovery**
+  - [x] Integrated Marketplace Exploration
+  - [x] Awesome NativeScript Curated list viewing
+  - [x] Identify installed vs. not installed plugin status
+- [x] **Plugin Installation Operations**
+  - [x] One-click Install, Uninstall, and updates
+  - [x] Smart package wrapper (npm/yarn/pnpm invocations)
+
+### 🔑 Manage Permission
+
+- [x] **Android Manifest Permissions**
+  - [x] Advanced visual editor for adding/removing Android Manifest Permissions
+- [x] **iOS Plist Permissions**
+  - [x] Easy iOS Plist Permissions management (Usage Descriptions)
+  - [x] Add/Remove specific OS permission requirements
+
+---
+
+## 🛠️ Setup & Environment (Initial Setup Wizard)
+
+- [x] **System OS Support**
+  - [x] Windows Detection & Requirements Verification
+  - [x] macOS Environment Detection (Xcode, iOS Simulator, CocoaPods)
+  - [x] Linux Distribution Support
+- [x] **Dependencies Checking**
+  - [x] Node.js & Package Managers detection (npm, yarn, pnpm)
+  - [x] Java Development Kit (JDK 17) detection
+  - [x] Android SDK & ADB tool verification
+  - [x] NativeScript CLI globally installed verification
+- [x] **Doctor Checks & System Info**
+  - [x] Generate detailed system report (`ns doctor`)
+  - [x] Quick links to troubleshoot environments
