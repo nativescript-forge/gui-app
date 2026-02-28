@@ -36,12 +36,12 @@ Detailed list of features and functions available in NS-Forge, grouped by applic
 
 ### ⚙️ Settings
 
-- [ ] **Application Preferences**
-  - [ ] Default Theme customization (Light/Dark mode)
-  - [ ] Select default preferred package manager (npm, pnpm, yarn)
-- [ ] **Data Management**
-  - [ ] Clearing global activity logs or system reports cache
-  - [ ] Database SQLite migration & integrity management
+- [x] **Application Preferences**
+  - [x] Default Theme customization (Light/Dark mode)
+  - [x] Select default preferred package manager (npm, pnpm, yarn)
+- [x] **Data Management**
+  - [x] Clearing global activity logs or system reports cache
+  - [x] Database SQLite migration & integrity management
 
 ---
 
