@@ -331,24 +331,26 @@ export function HomePage(props: HomePageProps) {
     const combined = info + " " + doctor;
 
     // Default extraction
+    const semverRegex = /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/;
+    const nsVersionRegex =
+      /(?:nativescript|cli)\s+(?:has\s+)?(?:version\s+)?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/i;
+
     let current =
-      info.match(
-        /(?:nativescript|cli)\s+(?:has\s+)?(?:version\s+)?([\d.]+)/i,
-      )?.[1] ||
-      info.match(/([\d.]+)/)?.[1] ||
-      null;
+      info.match(nsVersionRegex)?.[1] || info.match(semverRegex)?.[1] || null;
 
     // Additional check for common patterns in 'ns info' or 'ns --version'
     if (!current && combined) {
       // Look for standalone version numbers like "8.8.6"
       const versionMatch = combined.match(
-        /(?:\s|^)([\d]{1,2}\.[\d]{1,2}\.[\d]{1,3})(?:\s|$)/,
+        /(?:\s|^)(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)(?:\s|$)/,
       );
       if (versionMatch) current = versionMatch[1];
     }
 
     // Try to find "X.X.X -> Y.Y.Y"
-    const updateMatch = combined.match(/([\d.]+)\s*->\s*([\d.]+)/);
+    const updateMatch = combined.match(
+      /(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)\s*->\s*(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/,
+    );
     let latest = latestNpmVersion || (updateMatch ? updateMatch[2] : null);
 
     if (updateMatch && !current) {
@@ -357,7 +359,7 @@ export function HomePage(props: HomePageProps) {
 
     // Try to find "Update available X.X.X... latest is Y.Y.Y"
     const altMatch = combined.match(
-      /update available.*?([\d.]+).*?latest.*?([\d.]+)/i,
+      /update available.*?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?).*?latest.*?(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.-]+)?)/i,
     );
     if (altMatch) {
       if (!current) current = altMatch[1];
