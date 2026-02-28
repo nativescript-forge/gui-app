@@ -16,8 +16,8 @@ import {
   FiTrash2,
   FiFileText,
 } from "react-icons/fi";
-import { SiAndroid, SiApple } from "react-icons/si";
-import { FaAndroid, FaApple, FaCode } from "react-icons/fa";
+import { SiWebpack, SiVite, SiAndroid, SiApple } from "react-icons/si";
+import { FaAndroid, FaApple, FaCode, FaCubes } from "react-icons/fa";
 import { invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { NativeScriptConfig, BundlerType } from "../../shared/types";
@@ -137,6 +137,14 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
   // Backup Delete & Preview State
   const [deleteBackupConfirm, setDeleteBackupConfirm] = useState<{
     item: { path: string; timestamp: string; type: "webpack" | "vite" } | "all";
+    files: string[];
+    fullPath: string;
+    selectedFile?: string;
+    selectedFileContent?: string;
+  } | null>(null);
+
+  const [restoreBackupConfirm, setRestoreBackupConfirm] = useState<{
+    item: { path: string; timestamp: string; type: "webpack" | "vite" };
     files: string[];
     fullPath: string;
     selectedFile?: string;
@@ -506,21 +514,55 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
     }
   };
 
-  const restoreBackup = async (backupItem: {
+  const prepareRestoreBackup = async (item: {
     path: string;
     timestamp: string;
     type: "webpack" | "vite";
   }) => {
     if (!projectPath) return;
+    try {
+      const path = await join(
+        projectPath,
+        ".nsforge",
+        "backups",
+        "bundler",
+        item.type,
+        item.timestamp,
+      );
+      const files = await invoke<string[]>("read_dir", { path });
+
+      let firstFileContent = "";
+      if (files.length > 0) {
+        const filePath = await join(path, files[0]);
+        firstFileContent = await invoke<string>("read_text_file", {
+          path: filePath,
+        });
+      }
+
+      setRestoreBackupConfirm({
+        item,
+        files,
+        fullPath: path,
+        selectedFile: files[0],
+        selectedFileContent: firstFileContent,
+      });
+    } catch (e) {
+      setError(`Failed to prepare restore: ${e}`);
+    }
+  };
+
+  const confirmRestoreBackup = async () => {
+    if (!projectPath || !restoreBackupConfirm) return;
     setLoadingBundler(true);
+    const item = restoreBackupConfirm.item;
     try {
       const foundPath = await join(
         projectPath,
         ".nsforge",
         "backups",
         "bundler",
-        backupItem.type,
-        backupItem.timestamp,
+        item.type,
+        item.timestamp,
       );
 
       if (!foundPath) throw new Error("Backup files not found");
@@ -537,6 +579,7 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
         });
       }
 
+      setRestoreBackupConfirm(null);
       await loadConfig();
       await detectBundlerStatus();
       setSuccess("Restored from backup. Running npm install to sync packages.");
@@ -546,6 +589,27 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
       setError(`Restore failed: ${e}`);
     } finally {
       setLoadingBundler(false);
+    }
+  };
+
+  const restoreFilePreview = async (fileName: string) => {
+    if (!projectPath || !restoreBackupConfirm) return;
+    try {
+      const filePath = await join(restoreBackupConfirm.fullPath, fileName);
+      const content = await invoke<string>("read_text_file", {
+        path: filePath,
+      });
+      setRestoreBackupConfirm((prev) =>
+        prev
+          ? {
+              ...prev,
+              selectedFile: fileName,
+              selectedFileContent: content,
+            }
+          : null,
+      );
+    } catch (e) {
+      setError(`Failed to load file preview: ${e}`);
     }
   };
 
@@ -906,7 +970,7 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
               className={`btn btn-sm justify-start gap-3 ${activeTab === "bundler" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("bundler")}
             >
-              <FaCode className="w-4 h-4" /> Bundler
+              <FaCubes className="w-4 h-4" /> Bundler
             </button>
             <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "security" ? "btn-primary" : "btn-ghost"}`}
@@ -1088,7 +1152,7 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-xl font-bold flex items-center gap-2">
-                        <FaCode className="text-primary" /> Bundler
+                        <FaCubes className="text-primary" /> Bundler
                         Configuration
                       </h3>
                       <p className="text-sm opacity-60 mt-1">
@@ -1117,7 +1181,7 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
                             <div
                               className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${effectiveBundler === "webpack" ? "bg-primary shadow-primary/20" : "bg-base-300"}`}
                             >
-                              <FaCode className="w-7 h-7" />
+                              <SiWebpack className="w-7 h-7" />
                             </div>
                             <div>
                               <h4 className="text-xl font-black">Webpack</h4>
@@ -1221,7 +1285,7 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
                             <div
                               className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${effectiveBundler === "vite" ? "bg-secondary shadow-secondary/20" : "bg-base-300"}`}
                             >
-                              <FiZap className="w-7 h-7" />
+                              <SiVite className="w-7 h-7" />
                             </div>
                             <div>
                               <h4 className="text-xl font-black">Vite</h4>
@@ -1419,11 +1483,11 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
                                 <td className="text-right flex items-center justify-end gap-1">
                                   <button
                                     className="btn btn-ghost btn-xs gap-2 hover:bg-warning/10 hover:text-warning"
-                                    onClick={() => restoreBackup(b)}
+                                    onClick={() => prepareRestoreBackup(b)}
                                     disabled={loadingBundler}
                                     title="Restore this backup"
                                   >
-                                    <FiRotateCcw className="w-3 h-3" />
+                                    <FiRefreshCw className="w-3 h-3" />
                                     Restore
                                   </button>
                                   <button
@@ -1597,6 +1661,153 @@ export function ProjectConfigPage(props: ProjectConfigPageProps) {
           <div
             className="modal-backdrop bg-black/60 backdrop-blur-sm"
             onClick={() => setPreviewPreset(null)}
+          ></div>
+        </div>
+      )}
+
+      {/* Restore Backup & Preview Modal */}
+      {restoreBackupConfirm && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-6xl bg-base-100 border border-base-200 p-0 overflow-hidden shadow-2xl flex flex-col h-[700px]">
+            {/* Modal Header */}
+            <div className="bg-base-200/80 p-6 flex items-center justify-between border-b border-base-300">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-warning/10 text-warning rounded-xl scale-110 shadow-sm border border-warning/10">
+                  <FiRotateCcw className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">
+                    Confirm Restoration
+                  </h3>
+                  <div className="flex items-center gap-2 opacity-50 font-mono text-[9px] mt-1 bg-base-300/50 px-2 py-1 rounded border border-base-300">
+                    <FiTerminal className="w-3 h-3" />
+                    <span className="truncate max-w-md">
+                      {restoreBackupConfirm.fullPath}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="btn btn-ghost btn-circle btn-sm hover:rotate-90 transition-transform"
+                onClick={() => setRestoreBackupConfirm(null)}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {/* Split View Body */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Column: Vertical Tabs (File List) */}
+              <div className="w-80 border-r border-base-300 bg-base-200/40 flex flex-col">
+                <div className="px-5 py-4 border-b border-base-300 bg-base-200/20 flex items-center justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+                    File List
+                  </div>
+                  <div className="badge badge-warning badge-xs font-black px-1.5 py-2">
+                    {restoreBackupConfirm.files.length}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-auto p-3 space-y-1.5 custom-scrollbar">
+                  {restoreBackupConfirm.files.map((file, idx) => (
+                    <button
+                      key={idx}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all relative overflow-hidden group ${
+                        restoreBackupConfirm.selectedFile === file
+                          ? "bg-warning text-white shadow-lg shadow-warning/30"
+                          : "hover:bg-base-300 opacity-60 hover:opacity-100"
+                      }`}
+                      onClick={() => restoreFilePreview(file)}
+                    >
+                      <div className="relative z-10 flex items-center gap-3 w-full">
+                        <FiFileText
+                          className={`w-4 h-4 shrink-0 ${restoreBackupConfirm.selectedFile === file ? "text-white" : "text-warning"}`}
+                        />
+                        <span className="text-xs font-bold truncate flex-1">
+                          {file}
+                        </span>
+                        {restoreBackupConfirm.selectedFile === file && (
+                          <FiEye className="w-3 h-3 animate-pulse" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Column: Content Preview */}
+              <div className="flex-1 bg-[#121212] overflow-hidden flex flex-col">
+                <div className="px-6 py-3 bg-black/40 border-b border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-success"></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                      Preview Area
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono text-white/20">
+                    UTF-8
+                  </span>
+                </div>
+
+                {restoreBackupConfirm.selectedFileContent ? (
+                  <div className="flex-1 overflow-auto p-6 font-mono text-xs leading-relaxed custom-scrollbar bg-black/20">
+                    <pre className="text-warning/80">
+                      {restoreBackupConfirm.selectedFileContent}
+                    </pre>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center opacity-20 text-white">
+                    <FiFileText className="w-16 h-16 mb-4" />
+                    <p className="text-xs font-black uppercase tracking-[0.3em]">
+                      Select a file to preview
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer (Always Sticky) */}
+            <div className="p-8 bg-base-200/60 border-t border-base-300 flex items-center justify-between backdrop-blur-md">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-warning/10 flex items-center justify-center text-warning">
+                  <FiAlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-warning mb-0.5">
+                    Restore Action
+                  </p>
+                  <p className="text-[10px] opacity-60 font-medium">
+                    This will overwrite your current Project Configuration
+                    files.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  className="btn btn-ghost px-10 hover:bg-base-300"
+                  onClick={() => setRestoreBackupConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-warning text-white px-10 gap-3 shadow-xl shadow-warning/30 hover:shadow-warning/50 transition-all font-black"
+                  onClick={confirmRestoreBackup}
+                  disabled={loadingBundler}
+                >
+                  {loadingBundler ? (
+                    <FiRefreshCw className="animate-spin w-4 h-4" />
+                  ) : (
+                    <FiRotateCcw className="w-4 h-4" />
+                  )}
+                  RESTORE FILES
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-black/70 backdrop-blur-sm transition-all"
+            onClick={() => setRestoreBackupConfirm(null)}
           ></div>
         </div>
       )}
