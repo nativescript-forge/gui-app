@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   FiSettings,
   FiSave,
@@ -12,13 +12,25 @@ import {
   FiZap,
   FiEye,
   FiX,
+  FiRotateCcw,
+  FiTrash2,
+  FiFileText,
 } from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
+import { FaAndroid, FaApple, FaCode } from "react-icons/fa";
 import { invoke } from "@tauri-apps/api/core";
-import { NativeScriptConfig } from "../../shared/types";
+import { join } from "@tauri-apps/api/path";
+import { NativeScriptConfig, BundlerType } from "../../shared/types";
+import {
+  getWebpackTemplate,
+  getViteTemplate,
+  ProjectFlavor,
+} from "../../shared/bundler-templates";
 
 type ProjectConfigPageProps = {
   projectPath: string | null;
+  onRunNpm: (args: string[], cwd?: string) => Promise<void>;
+  onRunNpx: (args: string[], cwd?: string) => Promise<void>;
 };
 
 const CONFIG_DESCRIPTIONS: Record<string, string> = {
@@ -92,15 +104,29 @@ const PRODUCTION_PRESET: NativeScriptConfig = {
   },
 };
 
-export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
+export function ProjectConfigPage(props: ProjectConfigPageProps) {
+  const { projectPath } = props;
   const [config, setConfig] = useState<NativeScriptConfig>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "general" | "android" | "ios" | "cli" | "security" | "presets"
+    "general" | "android" | "ios" | "cli" | "security" | "presets" | "bundler"
   >("general");
+
+  const [bundlerStatus, setBundlerStatus] = useState<{
+    current: BundlerType | "none";
+    webpackConfigName: string | null;
+    viteConfigName: string | null;
+    webpackPkg: boolean;
+    vitePkg: boolean;
+  } | null>(null);
+
+  const [backups, setBackups] = useState<
+    { path: string; timestamp: string; type: "webpack" | "vite" }[]
+  >([]);
+  const [loadingBundler, setLoadingBundler] = useState(false);
 
   // Preset Preview State
   const [previewPreset, setPreviewPreset] = useState<{
@@ -108,11 +134,530 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
     data: NativeScriptConfig;
   } | null>(null);
 
+  // Backup Delete & Preview State
+  const [deleteBackupConfirm, setDeleteBackupConfirm] = useState<{
+    item: { path: string; timestamp: string; type: "webpack" | "vite" } | "all";
+    files: string[];
+    fullPath: string;
+    selectedFile?: string;
+    selectedFileContent?: string;
+  } | null>(null);
+
+  const effectiveBundler = useMemo(() => {
+    if (!bundlerStatus) return null;
+    if (bundlerStatus.current !== "none") return bundlerStatus.current;
+
+    // Heuristics
+    if (bundlerStatus.vitePkg && bundlerStatus.viteConfigName) return "vite";
+    if (bundlerStatus.webpackPkg && bundlerStatus.webpackConfigName)
+      return "webpack";
+
+    return "webpack"; // NativeScript default
+  }, [bundlerStatus]);
+
   useEffect(() => {
     if (projectPath) {
       loadConfig();
+      detectBundlerStatus();
+      loadBackups();
     }
   }, [projectPath]);
+
+  const loadBackups = async () => {
+    if (!projectPath) return;
+    try {
+      const backupDir = await join(
+        projectPath,
+        ".nsforge",
+        "backups",
+        "bundler",
+      );
+      const exists = await invoke<boolean>("path_exists", { path: backupDir });
+      if (!exists) {
+        setBackups([]);
+        return;
+      }
+
+      const types = ["webpack", "vite"];
+      let allBackups: {
+        path: string;
+        timestamp: string;
+        type: "webpack" | "vite";
+      }[] = [];
+
+      for (const type of types) {
+        const typeDir = await join(backupDir, type);
+        if (await invoke<boolean>("path_exists", { path: typeDir })) {
+          const folders = await invoke<string[]>("read_dir", { path: typeDir });
+          folders.forEach((f) => {
+            allBackups.push({
+              path: f,
+              timestamp: f,
+              type: type as "webpack" | "vite",
+            });
+          });
+        }
+      }
+      setBackups(
+        allBackups.sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+      );
+    } catch (e) {
+      console.error("Failed to load backups:", e);
+    }
+  };
+
+  const detectBundlerStatus = async () => {
+    if (!projectPath) return;
+    try {
+      const configContent = await invoke<string>("read_ns_config", {
+        projectPath,
+      });
+      const parsed = parseConfig(configContent);
+      const pkgContent = await invoke<string>("read_text_file", {
+        path: await join(projectPath, "package.json"),
+      });
+      const pkg = JSON.parse(pkgContent);
+
+      const rootFiles = await invoke<string[]>("read_dir", {
+        path: projectPath,
+      });
+
+      let webpackConfigName =
+        rootFiles.find((f) =>
+          f.toLowerCase().trim().includes("webpack.config"),
+        ) || null;
+      let viteConfigName =
+        rootFiles.find((f) => f.toLowerCase().trim().includes("vite.config")) ||
+        null;
+
+      // Fallback manual check if read_dir missed it
+      if (!webpackConfigName) {
+        if (
+          await invoke<boolean>("path_exists", {
+            path: await join(projectPath, "webpack.config.js"),
+          })
+        ) {
+          webpackConfigName = "webpack.config.js";
+        } else if (
+          await invoke<boolean>("path_exists", {
+            path: await join(projectPath, "webpack.config.ts"),
+          })
+        ) {
+          webpackConfigName = "webpack.config.ts";
+        }
+      }
+
+      if (!viteConfigName) {
+        if (
+          await invoke<boolean>("path_exists", {
+            path: await join(projectPath, "vite.config.js"),
+          })
+        ) {
+          viteConfigName = "vite.config.js";
+        } else if (
+          await invoke<boolean>("path_exists", {
+            path: await join(projectPath, "vite.config.ts"),
+          })
+        ) {
+          viteConfigName = "vite.config.ts";
+        }
+      }
+      setBundlerStatus({
+        current: parsed.bundler || "none",
+        webpackConfigName,
+        viteConfigName,
+        webpackPkg: !!(
+          pkg.dependencies?.["@nativescript/webpack"] ||
+          pkg.devDependencies?.["@nativescript/webpack"]
+        ),
+        vitePkg: !!(
+          pkg.dependencies?.["@nativescript/vite"] ||
+          pkg.devDependencies?.["@nativescript/vite"]
+        ),
+      });
+    } catch (e) {
+      console.error("Failed to detect bundler status:", e);
+    }
+  };
+
+  const performBackup = async (type: "webpack" | "vite") => {
+    if (!projectPath) return;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const backupBase = await join(
+      projectPath,
+      ".nsforge",
+      "backups",
+      "bundler",
+      type,
+      timestamp,
+    );
+
+    await invoke("create_dir", { path: backupBase });
+
+    const allFiles = await invoke<string[]>("read_dir", { path: projectPath });
+    const configFiles = allFiles.filter(
+      (f) => f.startsWith("webpack.config.") || f.startsWith("vite.config."),
+    );
+
+    const filesToBackup = [
+      "package.json",
+      "nativescript.config.ts",
+      ...configFiles,
+    ];
+
+    for (const file of filesToBackup) {
+      const src = await join(projectPath, file);
+      if (await invoke<boolean>("path_exists", { path: src })) {
+        await invoke("copy_file", { src, dest: await join(backupBase, file) });
+      }
+    }
+    loadBackups();
+  };
+
+  const switchBundler = async (target: BundlerType) => {
+    if (!projectPath || !bundlerStatus) return;
+    setLoadingBundler(true);
+    setError(null);
+    try {
+      // 1. Backup Current State
+      const currentBundler =
+        bundlerStatus.current === "none"
+          ? "webpack"
+          : (bundlerStatus.current as any);
+      await performBackup(currentBundler);
+
+      if (target === "vite") {
+        // --- VITE FLOW (Official init helper) ---
+
+        // 2. Cleanup Webpack artifacts to avoid conflicts
+        setSuccess(`Cleaning up Webpack artifacts...`);
+        // Uninstall Webpack support
+        await props.onRunNpm(
+          ["uninstall", "@nativescript/webpack"],
+          projectPath,
+        );
+
+        // Remove old Webpack config files (we already have a backup from performBackup)
+        const webpackConfigJs = await join(projectPath, "webpack.config.js");
+        const webpackConfigTs = await join(projectPath, "webpack.config.ts");
+        await invoke("remove_file", { path: webpackConfigJs });
+        await invoke("remove_file", { path: webpackConfigTs });
+
+        // 3. Update nativescript.config.ts
+        const newConfig: NativeScriptConfig = {
+          ...config,
+          bundler: "vite",
+          bundlerConfigPath: "vite.config.ts",
+        };
+        const configStr = stringifyConfig(newConfig);
+        await invoke("write_ns_config", { projectPath, content: configStr });
+        setConfig(newConfig);
+
+        setSuccess(`Switching to Vite... Installing @nativescript/vite.`);
+        // 4. Install @nativescript/vite
+        await props.onRunNpm(
+          ["install", "@nativescript/vite", "--save-dev"],
+          projectPath,
+        );
+
+        setSuccess(`Initializing Vite configuration...`);
+        // 5. Run npx nativescript-vite init
+        await props.onRunNpx(["nativescript-vite", "init"], projectPath);
+
+        // 6. Post-init fixes (Windows & Angular)
+        setSuccess(`Applying post-init fixes...`);
+        const analysis = await invoke<{ framework: string | null }>(
+          "analyze_project",
+          { projectPath },
+        );
+        const pkg = JSON.parse(
+          await invoke<string>("read_text_file", {
+            path: await join(projectPath, "package.json"),
+          }),
+        );
+        const rawFramework = analysis.framework?.toLowerCase() || "core";
+        let flavor: ProjectFlavor = "core";
+        if (rawFramework.includes("angular")) flavor = "angular";
+        else if (rawFramework.includes("vue")) {
+          const v = (pkg.dependencies?.["nativescript-vue"] ||
+            pkg.devDependencies?.["nativescript-vue"] ||
+            "") as string;
+          flavor =
+            v.includes("3") || v.includes("next") || v.includes("beta")
+              ? "vue"
+              : "vue2";
+        } else if (rawFramework.includes("react")) flavor = "react";
+        else if (rawFramework.includes("svelte")) flavor = "svelte";
+        else if (rawFramework.includes("solid")) flavor = "solid";
+
+        // Fix Angular missing tsconfig.app.json
+        if (flavor === "angular") {
+          const tsAppPath = await join(projectPath, "tsconfig.app.json");
+          const hasTsApp = await invoke<boolean>("path_exists", {
+            path: tsAppPath,
+          });
+          if (!hasTsApp) {
+            const tsAppContent = {
+              extends: "./tsconfig.json",
+              compilerOptions: {
+                outDir: "./dist/out-tsc",
+                types: ["node"],
+              },
+              files: ["src/main.ts", "src/polyfills.ts"],
+              include: ["src/**/*.d.ts"],
+            };
+            await invoke("write_text_file", {
+              path: tsAppPath,
+              content: JSON.stringify(tsAppContent, null, 2),
+            });
+          }
+        }
+
+        // Overwrite vite.config.ts with a more robust version (Windows fixes)
+        const viteConfigPath = await join(projectPath, "vite.config.ts");
+        await invoke("write_text_file", {
+          path: viteConfigPath,
+          content: getViteTemplate(flavor),
+        });
+      } else {
+        // --- WEBPACK FLOW (Manual setup) ---
+
+        // 2. Read and Update package.json
+        const pkgPath = await join(projectPath, "package.json");
+        const pkgContent = await invoke<string>("read_text_file", {
+          path: pkgPath,
+        });
+        const pkg = JSON.parse(pkgContent);
+
+        if (!pkg.devDependencies) pkg.devDependencies = {};
+        delete pkg.devDependencies["@nativescript/vite"];
+        delete pkg.dependencies?.["@nativescript/vite"];
+        pkg.devDependencies["@nativescript/webpack"] = "latest";
+
+        await invoke("write_text_file", {
+          path: pkgPath,
+          content: JSON.stringify(pkg, null, 2),
+        });
+
+        // Remove Vite artifacts
+        const viteConfigTs = await join(projectPath, "vite.config.ts");
+        const viteConfigJs = await join(projectPath, "vite.config.js");
+        await invoke("remove_file", { path: viteConfigTs });
+        await invoke("remove_file", { path: viteConfigJs });
+
+        // 3. Update nativescript.config.ts
+        const newConfig: NativeScriptConfig = {
+          ...config,
+          bundler: "webpack",
+          bundlerConfigPath: undefined,
+        };
+        const configStr = stringifyConfig(newConfig);
+        await invoke("write_ns_config", { projectPath, content: configStr });
+        setConfig(newConfig);
+
+        // 4. Detect Flavor for template
+        const analysis = await invoke<{ framework: string | null }>(
+          "analyze_project",
+          { projectPath },
+        );
+        const rawFramework = analysis.framework?.toLowerCase() || "core";
+        let flavor: ProjectFlavor = "core";
+        if (rawFramework.includes("angular")) flavor = "angular";
+        else if (rawFramework.includes("vue")) {
+          const v = (pkg.dependencies?.["nativescript-vue"] ||
+            pkg.devDependencies?.["nativescript-vue"] ||
+            "") as string;
+          flavor =
+            v.includes("3") || v.includes("next") || v.includes("beta")
+              ? "vue"
+              : "vue2";
+        } else if (rawFramework.includes("react")) flavor = "react";
+        else if (rawFramework.includes("svelte")) flavor = "svelte";
+        else if (rawFramework.includes("solid")) flavor = "solid";
+
+        // 5. Ensure Webpack Config exists
+        const allFiles = await invoke<string[]>("read_dir", {
+          path: projectPath,
+        });
+        const hasWebpack = allFiles.some((f) =>
+          f.toLowerCase().startsWith("webpack.config"),
+        );
+        if (!hasWebpack) {
+          const webpackConfigPath = await join(
+            projectPath,
+            "webpack.config.js",
+          );
+          await invoke("write_text_file", {
+            path: webpackConfigPath,
+            content: getWebpackTemplate(flavor),
+          });
+        }
+
+        setSuccess(`Switching to Webpack... Running npm install.`);
+        await props.onRunNpm(["install"], projectPath);
+      }
+
+      await detectBundlerStatus();
+      setSuccess(`Successfully switched to ${target}!`);
+    } catch (e) {
+      setError(`Failed to switch bundler: ${e}`);
+    } finally {
+      setLoadingBundler(false);
+    }
+  };
+
+  const restoreBackup = async (backupItem: {
+    path: string;
+    timestamp: string;
+    type: "webpack" | "vite";
+  }) => {
+    if (!projectPath) return;
+    setLoadingBundler(true);
+    try {
+      const foundPath = await join(
+        projectPath,
+        ".nsforge",
+        "backups",
+        "bundler",
+        backupItem.type,
+        backupItem.timestamp,
+      );
+
+      if (!foundPath) throw new Error("Backup files not found");
+
+      const backupFiles = await invoke<string[]>("read_dir", {
+        path: foundPath,
+      });
+
+      for (const file of backupFiles) {
+        const src = await join(foundPath, file);
+        await invoke("copy_file", {
+          src,
+          dest: await join(projectPath, file),
+        });
+      }
+
+      await loadConfig();
+      await detectBundlerStatus();
+      setSuccess("Restored from backup. Running npm install to sync packages.");
+      await props.onRunNpm(["install"], projectPath);
+      setSuccess("Restore complete!");
+    } catch (e) {
+      setError(`Restore failed: ${e}`);
+    } finally {
+      setLoadingBundler(false);
+    }
+  };
+
+  const prepareDeleteBackup = async (
+    item: { path: string; timestamp: string; type: "webpack" | "vite" } | "all",
+  ) => {
+    if (!projectPath) return;
+    try {
+      if (item === "all") {
+        const fullPath = await join(
+          projectPath,
+          ".nsforge",
+          "backups",
+          "bundler",
+        );
+        setDeleteBackupConfirm({
+          item: "all",
+          files: ["ALL BACKUP HISTORY"],
+          fullPath,
+        });
+      } else {
+        const path = await join(
+          projectPath,
+          ".nsforge",
+          "backups",
+          "bundler",
+          item.type,
+          item.timestamp,
+        );
+        const files = await invoke<string[]>("read_dir", { path });
+
+        let firstFileContent = "";
+        if (files.length > 0) {
+          const filePath = await join(path, files[0]);
+          firstFileContent = await invoke<string>("read_text_file", {
+            path: filePath,
+          });
+        }
+
+        setDeleteBackupConfirm({
+          item,
+          files,
+          fullPath: path,
+          selectedFile: files[0],
+          selectedFileContent: firstFileContent,
+        });
+      }
+    } catch (e) {
+      setError(`Failed to prepare deletion: ${e}`);
+    }
+  };
+
+  const confirmDeleteBackup = async () => {
+    if (!projectPath || !deleteBackupConfirm) return;
+    setLoadingBundler(true);
+    try {
+      if (deleteBackupConfirm.item === "all") {
+        const path = await join(projectPath, ".nsforge", "backups", "bundler");
+        await invoke("remove_dir", { path });
+      } else {
+        const path = await join(
+          projectPath,
+          ".nsforge",
+          "backups",
+          "bundler",
+          deleteBackupConfirm.item.type,
+          deleteBackupConfirm.item.timestamp,
+        );
+        await invoke("remove_dir", { path });
+      }
+      setDeleteBackupConfirm(null);
+      if (deleteBackupConfirm.item === "all") {
+        setBackups([]);
+      } else {
+        loadBackups();
+      }
+      setSuccess("Backup deleted successfully!");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (e) {
+      setError(`Delete failed: ${e}`);
+    } finally {
+      setLoadingBundler(false);
+    }
+  };
+
+  const previewFile = async (fileName: string) => {
+    if (
+      !projectPath ||
+      !deleteBackupConfirm ||
+      deleteBackupConfirm.item === "all"
+    )
+      return;
+    try {
+      const path = await join(
+        projectPath,
+        ".nsforge",
+        "backups",
+        "bundler",
+        deleteBackupConfirm.item.type,
+        deleteBackupConfirm.item.timestamp,
+        fileName,
+      );
+      const content = await invoke<string>("read_text_file", { path });
+      setDeleteBackupConfirm({
+        ...deleteBackupConfirm,
+        selectedFile: fileName,
+        selectedFileContent: content,
+      });
+    } catch (e) {
+      setError(`Failed to read file: ${e}`);
+    }
+  };
 
   const parseConfig = (content: string): NativeScriptConfig => {
     try {
@@ -199,8 +744,9 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
 
     merge(newConfig, presetData);
     setConfig(newConfig);
+    const presetName = previewPreset.name;
     setPreviewPreset(null);
-    setSuccess(`Preset '${previewPreset.name}' applied! Don't forget to save.`);
+    setSuccess(`Preset '${presetName}' applied! Don't forget to save.`);
     setTimeout(() => setSuccess(null), 3000);
   };
 
@@ -357,6 +903,12 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
               <FiTerminal className="w-4 h-4" /> CLI
             </button>
             <button
+              className={`btn btn-sm justify-start gap-3 ${activeTab === "bundler" ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => setActiveTab("bundler")}
+            >
+              <FaCode className="w-4 h-4" /> Bundler
+            </button>
+            <button
               className={`btn btn-sm justify-start gap-3 ${activeTab === "security" ? "btn-primary" : "btn-ghost"}`}
               onClick={() => setActiveTab("security")}
             >
@@ -391,10 +943,6 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
                       "text",
                     )}
                     {renderInput("Main Entry File", "main", "text")}
-                    {renderInput("Bundler", "bundler", "select", [
-                      "webpack",
-                      "vite",
-                    ])}
                     {renderInput("CSS Parser", "cssParser", "select", [
                       "css-tree",
                       "rework",
@@ -531,6 +1079,368 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
                       "security.allowRemoteModules",
                       "boolean",
                     )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "bundler" && (
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <FaCode className="text-primary" /> Bundler
+                        Configuration
+                      </h3>
+                      <p className="text-sm opacity-60 mt-1">
+                        Choose between Webpack (classic) and Vite (modern,
+                        fast).
+                      </p>
+                    </div>
+                    {loadingBundler && (
+                      <span className="loading loading-spinner text-primary"></span>
+                    )}
+                  </div>
+
+                  {bundlerStatus ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Webpack Card */}
+                      <div
+                        className={`card relative overflow-hidden border-2 transition-all duration-300 ${effectiveBundler === "webpack" ? "border-primary bg-primary/5 shadow-md" : "border-base-200 bg-base-100 opacity-80"}`}
+                      >
+                        {effectiveBundler === "webpack" && (
+                          <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-black px-4 py-1 uppercase tracking-widest rounded-bl-xl shadow-sm z-10">
+                            Currently Active
+                          </div>
+                        )}
+                        <div className="card-body p-6">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${effectiveBundler === "webpack" ? "bg-primary shadow-primary/20" : "bg-base-300"}`}
+                            >
+                              <FaCode className="w-7 h-7" />
+                            </div>
+                            <div>
+                              <h4 className="text-xl font-black">Webpack</h4>
+                              <p className="text-[10px] opacity-50 uppercase font-bold tracking-tighter">
+                                Classic & Powerful
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 mb-8">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">
+                                Package (@nativescript/webpack)
+                              </span>
+                              <span
+                                className={
+                                  bundlerStatus.webpackPkg
+                                    ? "text-success font-black flex items-center gap-1"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.webpackPkg ? (
+                                  <>
+                                    <FiCheckCircle /> INSTALLED
+                                  </>
+                                ) : (
+                                  "MISSING"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">Config File</span>
+                              <span
+                                className={
+                                  bundlerStatus.webpackConfigName
+                                    ? "text-success font-black flex items-center gap-1"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.webpackConfigName ? (
+                                  <>
+                                    <FiCheckCircle />{" "}
+                                    {bundlerStatus.webpackConfigName}
+                                  </>
+                                ) : (
+                                  "MISSING"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">
+                                NativeScript Setting
+                              </span>
+                              <span
+                                className={
+                                  bundlerStatus.current === "webpack"
+                                    ? "text-success font-black"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.current === "webpack"
+                                  ? "EXPLICITLY SET"
+                                  : bundlerStatus.current === "none" &&
+                                      effectiveBundler === "webpack"
+                                    ? "DEFAULT"
+                                    : "NOT SET"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="card-actions">
+                            {effectiveBundler === "webpack" ? (
+                              <div className="bg-success/10 text-success text-[10px] font-black w-full py-2 rounded-lg flex items-center justify-center gap-2 border border-success/20">
+                                <FiCheckCircle /> YOU ARE USING WEBPACK
+                              </div>
+                            ) : (
+                              <button
+                                className="btn btn-primary btn-sm btn-block gap-2 shadow-lg shadow-primary/20"
+                                onClick={() => switchBundler("webpack")}
+                                disabled={loadingBundler}
+                              >
+                                <FiRotateCcw className="w-4 h-4" /> Switch to
+                                Webpack
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vite Card */}
+                      <div
+                        className={`card relative overflow-hidden border-2 transition-all duration-300 ${effectiveBundler === "vite" ? "border-secondary bg-secondary/5 shadow-md" : "border-base-200 bg-base-100 opacity-80"}`}
+                      >
+                        {effectiveBundler === "vite" && (
+                          <div className="absolute top-0 right-0 bg-secondary text-white text-[10px] font-black px-4 py-1 uppercase tracking-widest rounded-bl-xl shadow-sm z-10">
+                            Currently Active
+                          </div>
+                        )}
+                        <div className="card-body p-6">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div
+                              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${effectiveBundler === "vite" ? "bg-secondary shadow-secondary/20" : "bg-base-300"}`}
+                            >
+                              <FiZap className="w-7 h-7" />
+                            </div>
+                            <div>
+                              <h4 className="text-xl font-black">Vite</h4>
+                              <p className="text-[10px] opacity-50 uppercase font-bold tracking-tighter">
+                                Modern & Ultra-Fast
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 mb-8">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">
+                                Package (@nativescript/vite)
+                              </span>
+                              <span
+                                className={
+                                  bundlerStatus.vitePkg
+                                    ? "text-success font-black flex items-center gap-1"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.vitePkg ? (
+                                  <>
+                                    <FiCheckCircle /> INSTALLED
+                                  </>
+                                ) : (
+                                  "MISSING"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">Config File</span>
+                              <span
+                                className={
+                                  bundlerStatus.viteConfigName
+                                    ? "text-success font-black flex items-center gap-1"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.viteConfigName ? (
+                                  <>
+                                    <FiCheckCircle />{" "}
+                                    {bundlerStatus.viteConfigName}
+                                  </>
+                                ) : (
+                                  "MISSING"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="opacity-60">
+                                NativeScript Setting
+                              </span>
+                              <span
+                                className={
+                                  bundlerStatus.current === "vite"
+                                    ? "text-success font-black"
+                                    : "opacity-30 font-bold"
+                                }
+                              >
+                                {bundlerStatus.current === "vite"
+                                  ? "EXPLICITLY SET"
+                                  : "NOT SET"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="card-actions">
+                            {effectiveBundler === "vite" ? (
+                              <div className="bg-success/10 text-success text-[10px] font-black w-full py-2 rounded-lg flex items-center justify-center gap-2 border border-success/20">
+                                <FiCheckCircle /> YOU ARE USING VITE
+                              </div>
+                            ) : (
+                              <button
+                                className="btn btn-secondary btn-sm btn-block text-white gap-2 shadow-lg shadow-secondary/20"
+                                onClick={() => switchBundler("vite")}
+                                disabled={loadingBundler}
+                              >
+                                <FiZap className="w-4 h-4" /> Switch to Vite
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center py-20 opacity-30">
+                      <FiRefreshCw className="w-12 h-12 animate-spin mb-4 text-primary" />
+                      <p className="font-bold tracking-widest text-xs">
+                        DETECTING PROJECT BUNDLER...
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-10 mb-4 px-2">
+                    <div className="flex items-center gap-2">
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">
+                        Backup History
+                      </div>
+                      {backups.length > 0 && (
+                        <div className="badge badge-xs badge-ghost opacity-40 font-black">
+                          {backups.length}
+                        </div>
+                      )}
+                    </div>
+                    {backups.length > 0 && (
+                      <button
+                        className="btn btn-ghost btn-xs text-error hover:bg-error/10 gap-2 font-black"
+                        onClick={() => prepareDeleteBackup("all")}
+                      >
+                        <FiTrash2 className="w-3 h-3" /> DELETE ALL
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="card bg-base-100 border border-base-200 shadow-sm overflow-hidden">
+                    <table className="table table-md">
+                      <thead className="bg-base-200/50">
+                        <tr>
+                          <th className="text-[10px] font-black uppercase">
+                            Timestamp
+                          </th>
+                          <th className="text-[10px] font-black uppercase">
+                            Type
+                          </th>
+                          <th className="text-[10px] font-black uppercase text-right">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {backups.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={3}
+                              className="text-center py-8 opacity-30 text-xs italic"
+                            >
+                              No backups found. They are created automatically
+                              when you switch bundlers.
+                            </td>
+                          </tr>
+                        ) : (
+                          backups.map((b, i) => {
+                            const isWebpack = b.type === "webpack";
+                            // Format: 28 Feb 2026, 4:40:58 AM
+                            const formatTimestamp = (ts: string) => {
+                              try {
+                                const parts = ts.split("T");
+                                if (parts.length === 2) {
+                                  const datePart = parts[0];
+                                  const timePart = parts[1].replace("Z", "");
+                                  const t = timePart.split("-");
+                                  if (t.length >= 3) {
+                                    const iso = `${datePart}T${t[0]}:${t[1]}:${t[2]}${t[3] ? "." + t[3] : ""}Z`;
+                                    const d = new Date(iso);
+                                    if (d.toString() !== "Invalid Date") {
+                                      const day = d.getDate();
+                                      const month = d.toLocaleString("en-GB", {
+                                        month: "short",
+                                      });
+                                      const year = d.getFullYear();
+                                      const time = d
+                                        .toLocaleString("en-GB", {
+                                          hour: "numeric",
+                                          minute: "2-digit",
+                                          second: "2-digit",
+                                          hour12: true,
+                                        })
+                                        .toUpperCase();
+                                      return `${day} ${month} ${year}, ${time}`;
+                                    }
+                                  }
+                                }
+                                return ts;
+                              } catch (e) {
+                                return ts;
+                              }
+                            };
+
+                            return (
+                              <tr
+                                key={i}
+                                className="hover:bg-base-200/30 transition-colors group"
+                              >
+                                <td className="font-mono text-xs opacity-60">
+                                  {formatTimestamp(b.timestamp)}
+                                </td>
+                                <td>
+                                  <span
+                                    className={`badge badge-xs text-[8px] font-black ${isWebpack ? "badge-info" : "badge-secondary"}`}
+                                  >
+                                    {isWebpack ? "WEBPACK" : "VITE"}
+                                  </span>
+                                </td>
+                                <td className="text-right flex items-center justify-end gap-1">
+                                  <button
+                                    className="btn btn-ghost btn-xs gap-2 hover:bg-warning/10 hover:text-warning"
+                                    onClick={() => restoreBackup(b)}
+                                    disabled={loadingBundler}
+                                    title="Restore this backup"
+                                  >
+                                    <FiRotateCcw className="w-3 h-3" />
+                                    Restore
+                                  </button>
+                                  <button
+                                    className="btn btn-ghost btn-xs text-error hover:bg-error/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => prepareDeleteBackup(b)}
+                                    disabled={loadingBundler}
+                                    title="Delete this backup"
+                                  >
+                                    <FiTrash2 className="w-3 h-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -688,6 +1598,207 @@ export function ProjectConfigPage({ projectPath }: ProjectConfigPageProps) {
             className="modal-backdrop bg-black/60 backdrop-blur-sm"
             onClick={() => setPreviewPreset(null)}
           ></div>
+        </div>
+      )}
+
+      {/* Delete Backup & Preview Modal (Vertical Tab Layout) */}
+      {deleteBackupConfirm && (
+        <div className="modal modal-open">
+          <div className="modal-box max-w-6xl bg-base-100 border border-base-200 p-0 overflow-hidden shadow-2xl flex flex-col h-[700px]">
+            {/* Modal Header */}
+            <div className="bg-base-200/80 p-6 flex items-center justify-between border-b border-base-300">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-error/10 text-error rounded-xl scale-110 shadow-sm border border-error/10">
+                  <FiTrash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black tracking-tight">
+                    Confirm Deletion
+                  </h3>
+                  <div className="flex items-center gap-2 opacity-50 font-mono text-[9px] mt-1 bg-base-300/50 px-2 py-1 rounded border border-base-300">
+                    <FiTerminal className="w-3 h-3" />
+                    <span className="truncate max-w-md">
+                      {deleteBackupConfirm.fullPath}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="btn btn-ghost btn-circle btn-sm hover:rotate-90 transition-transform"
+                onClick={() => setDeleteBackupConfirm(null)}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            {/* Split View Body */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Column: Vertical Tabs (File List) */}
+              <div className="w-80 border-r border-base-300 bg-base-200/40 flex flex-col">
+                <div className="px-5 py-4 border-b border-base-300 bg-base-200/20 flex items-center justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40">
+                    File List
+                  </div>
+                  <div className="badge badge-primary badge-xs font-black px-1.5 py-2">
+                    {deleteBackupConfirm.files.length}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-auto p-3 space-y-1.5 custom-scrollbar">
+                  {deleteBackupConfirm.files.map((file, idx) => (
+                    <button
+                      key={idx}
+                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all relative overflow-hidden group ${
+                        deleteBackupConfirm.selectedFile === file
+                          ? "bg-primary text-white shadow-lg shadow-primary/30"
+                          : "hover:bg-base-300 opacity-60 hover:opacity-100"
+                      }`}
+                      onClick={() => previewFile(file)}
+                      disabled={deleteBackupConfirm.item === "all"}
+                    >
+                      <div className="relative z-10 flex items-center gap-3 w-full">
+                        <FiFileText
+                          className={`w-4 h-4 shrink-0 ${deleteBackupConfirm.selectedFile === file ? "text-white" : "text-primary"}`}
+                        />
+                        <span className="text-xs font-bold truncate flex-1">
+                          {file}
+                        </span>
+                        {deleteBackupConfirm.selectedFile === file && (
+                          <FiEye className="w-3 h-3 animate-pulse" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+
+                  {deleteBackupConfirm.item === "all" && (
+                    <div className="p-8 text-center space-y-4 mt-12 bg-base-100/50 rounded-2xl border border-dashed border-base-300 mx-2">
+                      <div className="w-12 h-12 bg-warning/10 text-warning rounded-full flex items-center justify-center mx-auto">
+                        <FiAlertCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black uppercase tracking-widest mb-1">
+                          Preview Disabled
+                        </p>
+                        <p className="text-[10px] opacity-40 font-medium leading-relaxed">
+                          Individual file preview is not available for bulk
+                          deletion actions.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Content Preview Pane */}
+              <div className="flex-1 flex flex-col bg-base-100 relative group">
+                <div className="px-6 py-4 border-b border-base-300 flex items-center justify-between bg-base-200/10 backdrop-blur-md sticky top-0 z-10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <span className="text-xs font-mono font-bold tracking-tight opacity-70">
+                      {deleteBackupConfirm.selectedFile ||
+                        "Select a file to preview"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="badge badge-outline badge-xs font-black border-base-300 opacity-40 px-2 py-2 tracking-widest">
+                      READ ONLY
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-auto bg-[#0d0d0d] p-8 custom-scrollbar">
+                  {deleteBackupConfirm.selectedFileContent ? (
+                    <div className="relative">
+                      {/* Code Background Glow Effects */}
+                      <div className="absolute -top-20 -left-20 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
+                      <div className="absolute -bottom-20 -right-20 w-64 h-64 bg-secondary/5 rounded-full blur-[80px] pointer-events-none" />
+
+                      <pre className="text-xs font-mono leading-relaxed text-[#e0e0e0] select-all relative z-10 whitespace-pre-wrap">
+                        {deleteBackupConfirm.selectedFileContent}
+                      </pre>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center space-y-6">
+                      <div className="relative">
+                        <FaCode className="w-24 h-24 text-base-300 opacity-20" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <FiInfo className="w-8 h-8 text-primary/20 animate-bounce" />
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-black tracking-[0.2em] opacity-20 mb-2 uppercase">
+                          No Content Loaded
+                        </p>
+                        <p className="text-xs opacity-20 font-medium">
+                          Select a file from the list to view its source code
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer (Always Sticky) */}
+            <div className="p-8 bg-base-200/60 border-t border-base-300 flex items-center justify-between backdrop-blur-md">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center text-error">
+                  <FiAlertCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-error mb-0.5">
+                    Destructive Action
+                  </p>
+                  <p className="text-[10px] opacity-60 font-medium">
+                    Are you sure? This backup data will be permanently purged.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  className="btn btn-ghost px-10 hover:bg-base-300"
+                  onClick={() => setDeleteBackupConfirm(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-error text-white px-10 gap-3 shadow-xl shadow-error/30 hover:shadow-error/50 transition-all font-black"
+                  onClick={confirmDeleteBackup}
+                  disabled={loadingBundler}
+                >
+                  {loadingBundler ? (
+                    <FiRefreshCw className="animate-spin w-4 h-4" />
+                  ) : (
+                    <FiTrash2 className="w-4 h-4" />
+                  )}
+                  {deleteBackupConfirm.item === "all"
+                    ? "WIPE ALL HISTORY"
+                    : "PURGE BACKUP"}
+                </button>
+              </div>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-black/70 backdrop-blur-sm transition-all"
+            onClick={() => setDeleteBackupConfirm(null)}
+          ></div>
+
+          <style>{`
+            .custom-scrollbar::-webkit-scrollbar {
+              width: 5px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb {
+              background: rgba(128, 128, 128, 0.2);
+              border-radius: 10px;
+            }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+              background: rgba(128, 128, 128, 0.4);
+            }
+          `}</style>
         </div>
       )}
     </div>

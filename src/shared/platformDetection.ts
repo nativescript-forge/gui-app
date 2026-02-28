@@ -39,7 +39,7 @@ export async function detectPlatforms(
 
   // Android Check
   if (!hasAndroidPkg) {
-    androidReason = "Package @nativescript/android not found in package.json";
+    androidReason = "Platform Android needs to be added to the project.";
   } else {
     // Standard: Windows, Linux, macOS are all supported for Android
     const androidModulePath = `${projectPath}/node_modules/@nativescript/android`;
@@ -48,7 +48,7 @@ export async function detectPlatforms(
     });
     if (!exists) {
       androidReason =
-        "Folder @nativescript/android not found in node_modules. Please run npm install.";
+        "Android runtime not installed. It will be added automatically on run.";
     } else {
       androidAvailable = true;
     }
@@ -58,7 +58,7 @@ export async function detectPlatforms(
   if (!isMac) {
     iosReason = "iOS development requires macOS";
   } else if (!hasIosPkg) {
-    iosReason = "Package @nativescript/ios not found in package.json";
+    iosReason = "Platform iOS needs to be added to the project.";
   } else {
     const iosModulePath = `${projectPath}/node_modules/@nativescript/ios`;
     const exists = await invoke<boolean>("path_exists", {
@@ -66,7 +66,7 @@ export async function detectPlatforms(
     });
     if (!exists) {
       iosReason =
-        "Folder @nativescript/ios not found in node_modules. Please run npm install.";
+        "iOS runtime not installed. It will be added automatically on run.";
     } else {
       iosAvailable = true;
     }

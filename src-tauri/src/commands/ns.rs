@@ -932,6 +932,41 @@ pub async fn run_npm(
 }
 
 #[tauri::command]
+pub async fn run_npx(
+    window: tauri::Window,
+    args: Vec<String>,
+    cwd: Option<String>,
+) -> Result<CommandResult, String> {
+    let program = if cfg!(target_os = "windows") {
+        "npx.cmd"
+    } else {
+        "npx"
+    };
+
+    let cli = ResolvedCli {
+        launcher: program.to_string(),
+        base_args: Vec::new(),
+        display: program.to_string(),
+    };
+
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let state = window.state::<ProcessState>();
+        let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+        run_resolved_streaming(&window, state, &cli, &args_refs, cwd.as_deref(), "npx".to_string(), None, None)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    Ok(CommandResult {
+        status_code: result.status_code,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        command: result.command,
+        resolved_path: result.resolved_path,
+    })
+}
+
+#[tauri::command]
 pub async fn run_ns(
     window: tauri::Window,
     project_path: String,
@@ -948,10 +983,6 @@ pub async fn run_ns(
             let mut r_args = vec![cmd.to_string(), platform.to_string()];
             
             if let Some(config) = &build_config {
-                if config.mode == "release" {
-                    r_args.push("--release".to_string());
-                }
-
                 // Add optimization and additional flags
                 if config.uglify.unwrap_or(false) {
                     r_args.push("--env.uglify".to_string());

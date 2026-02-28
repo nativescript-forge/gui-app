@@ -66,7 +66,8 @@ export function RunPreview({
             )}
           </button>
         </div>
-        <div className="p-4 font-mono text-[10px] leading-relaxed break-all whitespace-pre-wrap bg-black/30 text-primary-content/90 min-h-[70px] border-t border-white/5 selection:bg-primary selection:text-white">
+        <div className="p-4 font-mono text-[10px] leading-relaxed break-all whitespace-pre-wrap bg-[#0f1115] text-white min-h-[70px] border-t border-white/5 selection:bg-primary selection:text-white">
+          <span className="opacity-50 mr-2">$</span>
           {command}
         </div>
       </div>

@@ -1,4 +1,12 @@
-import { FiCopy, FiCheck, FiTerminal, FiSettings, FiBox, FiCpu, FiCloud } from "react-icons/fi";
+import {
+  FiCopy,
+  FiCheck,
+  FiTerminal,
+  FiSettings,
+  FiBox,
+  FiCpu,
+  FiCloud,
+} from "react-icons/fi";
 import { SiAndroid, SiApple } from "react-icons/si";
 import type { BuildConfig } from "../../../shared/types";
 
@@ -18,9 +26,7 @@ export function BuildWizardPreview({
   return (
     <div className="space-y-4 py-1">
       <div className="text-center mb-1">
-        <h3 className="text-base font-bold text-base-content">
-          Build Summary
-        </h3>
+        <h3 className="text-base font-bold text-base-content">Build Summary</h3>
         <p className="text-xs text-base-content/60">
           Review your configuration before building
         </p>
@@ -135,8 +141,9 @@ export function BuildWizardPreview({
         </div>
         <div className="relative group">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur opacity-50 group-hover:opacity-100 transition duration-500"></div>
-          <div className="relative bg-base-300/50 p-4 rounded-2xl border border-base-300 font-mono text-[11px] break-all leading-relaxed shadow-inner min-h-[60px] flex items-center">
-            <span className="text-base-content/80">
+          <div className="relative bg-[#0f1115] p-4 rounded-2xl border border-white/5 font-mono text-[11px] break-all leading-relaxed shadow-2xl min-h-[60px] flex items-center">
+            <span className="text-white">
+              <span className="opacity-50 mr-2 select-none">$</span>
               {generateCommandPreview()}
             </span>
           </div>

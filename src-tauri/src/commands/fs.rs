@@ -34,6 +34,24 @@ pub fn copy_file(src: String, dest: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn remove_file(path: String) -> Result<(), String> {
+    println!("Removing file: {}", path);
+    if Path::new(&path).exists() {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn remove_dir(path: String) -> Result<(), String> {
+    println!("Removing directory: {}", path);
+    if Path::new(&path).exists() {
+        fs::remove_dir_all(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn read_dir(path: String) -> Result<Vec<String>, String> {
     let entries = fs::read_dir(path).map_err(|e| e.to_string())?;
     let mut files = Vec::new();

@@ -32,8 +32,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         </button>
       </div>
       <pre
-        className={`bg-neutral text-neutral-content ${compact ? "p-3 text-xs" : "p-6 text-sm"} rounded-xl overflow-x-auto font-mono leading-relaxed border border-white/5 shadow-inner`}
+        className={`bg-[#0f1115] text-white ${compact ? "p-3 text-xs" : "p-6 text-sm"} rounded-xl overflow-x-auto font-mono leading-relaxed border border-white/5 shadow-2xl`}
       >
+        <span className="opacity-40 mr-2 select-none">$</span>
         <code>{code}</code>
       </pre>
     </div>

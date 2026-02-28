@@ -37,17 +37,17 @@ export function RunModal({
   const [scanning, setScanning] = useState(false);
   const [runConfig, setRunConfig] = useState<RunConfig>({
     platform:
-      initialPlatform || (platformStatus.android.available ? "android" : "ios"),
+      initialPlatform && (isMac || initialPlatform === "android")
+        ? initialPlatform
+        : "android",
     action: initialAction,
-    mode: initialAction === "debug" ? "debug" : "release",
+    mode: "debug",
     format:
-      initialPlatform === "android"
+      initialPlatform === "android" || !isMac
         ? "apk"
         : initialPlatform === "ios"
           ? "ipa"
-          : platformStatus.android.available
-            ? "apk"
-            : "ipa",
+          : "apk",
     buildType: "local",
     deviceId: initialDeviceId || undefined,
     clean: false,
@@ -62,18 +62,17 @@ export function RunModal({
       setRunConfig((prev) => ({
         ...prev,
         platform:
-          initialPlatform ||
-          (platformStatus.android.available ? "android" : "ios"),
+          initialPlatform && (isMac || initialPlatform === "android")
+            ? initialPlatform
+            : "android",
         action: initialAction,
-        mode: initialAction === "debug" ? "debug" : "release",
+        mode: "debug",
         format:
-          initialPlatform === "android"
+          initialPlatform === "android" || !isMac
             ? "apk"
             : initialPlatform === "ios"
               ? "ipa"
-              : platformStatus.android.available
-                ? "apk"
-                : "ipa",
+              : "apk",
         buildType: "local",
         deviceId: initialDeviceId || undefined,
       }));
@@ -164,8 +163,7 @@ export function RunModal({
     // mode, format, buildType di Rust BuildConfig bersifat mandatory (String)
     const finalConfig = {
       ...runConfig,
-      mode:
-        runConfig.mode || (runConfig.action === "debug" ? "debug" : "release"),
+      mode: runConfig.mode || "debug",
       format:
         runConfig.format || (runConfig.platform === "android" ? "apk" : "ipa"),
       buildType: runConfig.buildType || "local",

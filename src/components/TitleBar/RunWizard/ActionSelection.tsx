@@ -27,27 +27,39 @@ export function ActionSelection({
           <button
             className={`btn h-auto py-4 flex flex-col items-center gap-2.5 rounded-2xl border transition-all group ${
               runConfig.platform === "android"
-                ? "btn-primary border-primary shadow-lg ring-2 ring-primary/10"
-                : "btn-ghost bg-base-200/50 border-transparent hover:border-base-300 opacity-70 hover:opacity-100"
-            } ${!platformStatus.android.available ? "opacity-30 grayscale cursor-not-allowed border-dashed" : ""}`}
+                ? "bg-[#3DDC84] text-black border-[#3DDC84] shadow-lg shadow-[#3DDC84]/20 ring-2 ring-[#3DDC84]/10 hover:bg-[#3DDC84]/90"
+                : `btn-ghost bg-base-200/50 border-transparent hover:border-base-300 opacity-70 hover:opacity-100 ${
+                    !platformStatus.android.available
+                      ? "opacity-50 grayscale border-dashed"
+                      : ""
+                  }`
+            }`}
             onClick={() =>
-              platformStatus.android.available &&
               setRunConfig((prev) => ({
                 ...prev,
                 platform: "android",
                 format: "apk",
               }))
             }
-            disabled={!platformStatus.android.available}
           >
             <SiAndroid
-              className={`w-6 h-6 transition-transform group-hover:scale-110 ${runConfig.platform === "android" ? "text-white" : "text-success"}`}
+              className={`w-6 h-6 transition-transform group-hover:scale-110 ${
+                runConfig.platform === "android"
+                  ? "text-black"
+                  : "text-[#3DDC84]"
+              }`}
             />
             <div className="flex flex-col items-center text-center">
               <span className="text-sm font-black tracking-tight">Android</span>
-              <span className="text-[10px] font-bold opacity-50 mt-1 leading-relaxed max-w-[120px]">
+              <span
+                className={`text-[10px] font-bold mt-1 leading-relaxed max-w-[120px] ${
+                  runConfig.platform === "android"
+                    ? "text-black/60"
+                    : "opacity-50"
+                }`}
+              >
                 {!platformStatus.android.available
-                  ? platformStatus.android.reason || "Not Available"
+                  ? "Requires platform setup"
                   : "Device or Emulator"}
               </span>
             </div>
@@ -57,28 +69,42 @@ export function ActionSelection({
           <button
             className={`btn h-auto py-4 flex flex-col items-center gap-2.5 rounded-2xl border transition-all group ${
               runConfig.platform === "ios"
-                ? "btn-primary border-primary shadow-lg ring-2 ring-primary/10"
-                : "btn-ghost bg-base-200/50 border-transparent hover:border-base-300 opacity-70 hover:opacity-100"
-            } ${!platformStatus.ios.available ? "opacity-30 grayscale cursor-not-allowed border-dashed" : ""}`}
+                ? "bg-slate-950 text-white border-slate-950 shadow-lg shadow-black/20 ring-2 ring-white/10 hover:bg-slate-900"
+                : `btn-ghost bg-base-200/50 border-transparent hover:border-base-300 opacity-70 hover:opacity-100 ${
+                    !isMac || !platformStatus.ios.available
+                      ? "opacity-50 grayscale border-dashed"
+                      : ""
+                  }`
+            } ${!isMac ? "cursor-not-allowed" : ""}`}
             onClick={() =>
-              platformStatus.ios.available &&
+              isMac &&
               setRunConfig((prev) => ({
                 ...prev,
                 platform: "ios",
                 format: "ipa",
               }))
             }
-            disabled={!platformStatus.ios.available}
+            disabled={!isMac}
           >
             <SiApple
-              className={`w-6 h-6 transition-transform group-hover:scale-110 ${runConfig.platform === "ios" ? "text-white" : "text-base-content"}`}
+              className={`w-6 h-6 transition-transform group-hover:scale-110 ${
+                runConfig.platform === "ios"
+                  ? "text-white"
+                  : "text-base-content"
+              }`}
             />
             <div className="flex flex-col items-center text-center">
               <span className="text-sm font-black tracking-tight">iOS</span>
-              <span className="text-[10px] font-bold opacity-50 mt-1 leading-relaxed max-w-[120px]">
-                {!platformStatus.ios.available
-                  ? platformStatus.ios.reason || "Not Available"
-                  : "Device or Simulator"}
+              <span
+                className={`text-[10px] font-bold mt-1 leading-relaxed max-w-[120px] ${
+                  runConfig.platform === "ios" ? "text-white/60" : "opacity-50"
+                }`}
+              >
+                {!isMac
+                  ? "iOS development requires macOS"
+                  : !platformStatus.ios.available
+                    ? "Requires platform setup"
+                    : "Device or Simulator"}
               </span>
             </div>
           </button>
@@ -128,7 +154,7 @@ export function ActionSelection({
               setRunConfig((prev) => ({
                 ...prev,
                 action: "run",
-                mode: "release",
+                mode: "debug",
                 format: prev.platform === "android" ? "apk" : "ipa",
                 buildType: "local",
               }))

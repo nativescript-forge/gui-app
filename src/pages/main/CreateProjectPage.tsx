@@ -974,12 +974,13 @@ export function CreateProjectPage(props: CreateProjectPageProps) {
                     )}
                   </button>
                 </div>
-                <div className="bg-base-200 rounded-xl p-4 border border-base-300 group relative">
-                  <code className="text-[10px] font-mono block break-all text-base-content/80 leading-relaxed">
+                <div className="bg-[#0f1115] rounded-xl p-4 border border-white/5 group relative shadow-2xl overflow-hidden">
+                  <code className="text-[10px] font-mono block break-all text-white leading-relaxed">
+                    <span className="opacity-50 mr-2 select-none">$</span>
                     {getPreviewCommand()}
                   </code>
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <FiCode className="text-base-content/20 w-3 h-3" />
+                    <FiCode className="text-white/20 w-3 h-3" />
                   </div>
                 </div>
                 <p className="text-[9px] opacity-40 mt-3 leading-tight">

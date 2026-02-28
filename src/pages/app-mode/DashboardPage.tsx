@@ -5,6 +5,7 @@ import type {
   RunConfig,
   Route,
 } from "../../shared/types";
+import { parsePlatforms } from "../../shared/platforms";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -371,31 +372,8 @@ export function DashboardPage(props: DashboardPageProps) {
   };
 
   const projectPlatforms = useMemo(() => {
-    const platforms = new Set<string>();
-    const isWindows = navigator.userAgent.toLowerCase().includes("win");
-
-    // Primary check: from package.json packages (most accurate for "installed" status)
-    if (projectPackages["@nativescript/android"]) {
-      platforms.add("android");
-    }
-    if (projectPackages["@nativescript/ios"] && !isWindows) {
-      platforms.add("ios");
-    }
-
-    // Secondary check: if no packages found (maybe node_modules not installed), check database
-    // We only use this if NO packages were detected at all to avoid double icons
-    if (platforms.size === 0 && activeProject?.platforms) {
-      activeProject.platforms.split(",").forEach((p) => {
-        const platform = p.trim().toLowerCase();
-        if (platform) {
-          if (platform === "ios" && isWindows) return;
-          platforms.add(platform);
-        }
-      });
-    }
-
-    return Array.from(platforms);
-  }, [activeProject, projectPackages]);
+    return parsePlatforms(activeProject?.platforms || null);
+  }, [activeProject]);
 
   const [migrating, setMigrating] = useState(false);
 
@@ -640,25 +618,24 @@ export function DashboardPage(props: DashboardPageProps) {
                   <span className="text-sm font-bold opacity-30">None</span>
                 ) : (
                   projectPlatforms.map((p) => {
-                    const status =
-                      p === "android"
-                        ? platformStatus.android
-                        : platformStatus.ios;
+                    const status = p.toLowerCase().includes("android")
+                      ? platformStatus.android
+                      : platformStatus.ios;
                     return (
                       <div
                         key={p}
                         className="dropdown dropdown-hover dropdown-bottom dropdown-end"
                       >
                         <label tabIndex={0} className="cursor-help">
-                          {p === "android" ? (
+                          {p.includes("android") ? (
                             <SiAndroid
                               className={`w-5 h-5 transition-colors ${status.available ? "text-success" : "text-error opacity-40"}`}
                             />
-                          ) : (
+                          ) : p.includes("ios") ? (
                             <SiApple
                               className={`w-5 h-5 transition-colors ${status.available ? "text-base-content" : "text-error opacity-40"}`}
                             />
-                          )}
+                          ) : null}
                         </label>
                         <div
                           tabIndex={0}
@@ -671,9 +648,9 @@ export function DashboardPage(props: DashboardPageProps) {
                           </div>
                           <p className="text-xs font-semibold opacity-70 leading-relaxed">
                             {status.available
-                              ? `Platform ${p} terdeteksi dan siap digunakan.`
+                              ? `Platform ${p} is ready to use.`
                               : status.reason ||
-                                `Platform ${p} tidak tersedia.`}
+                                `Platform ${p} is not available.`}
                           </p>
                         </div>
                       </div>
@@ -722,28 +699,12 @@ export function DashboardPage(props: DashboardPageProps) {
               {/* Launch Button */}
               <div className="relative group/launch flex">
                 <button
-                  className={`btn h-full py-5 px-6 rounded-2xl border-none transition-all flex items-center justify-between group w-full ${
-                    platformStatus.android.available ||
-                    platformStatus.ios.available
-                      ? "bg-gradient-to-r from-success/10 to-primary/5 text-base-content hover:from-success/20 hover:to-primary/10 shadow-sm hover:shadow-md active:scale-[0.98]"
-                      : "bg-base-200 text-base-content/20 cursor-not-allowed opacity-50"
-                  }`}
-                  disabled={
-                    props.running ||
-                    (!platformStatus.android.available &&
-                      !platformStatus.ios.available)
-                  }
+                  className="btn h-full py-5 px-6 rounded-2xl border-none transition-all flex items-center justify-between group w-full bg-gradient-to-r from-success/10 to-primary/5 text-base-content hover:from-success/20 hover:to-primary/10 shadow-sm hover:shadow-md active:scale-[0.98] disabled:bg-base-200 disabled:text-base-content/20"
+                  disabled={props.running}
                   onClick={() => props.onOpenRunModal(null, "run")}
                 >
                   <div className="flex items-center gap-4 overflow-hidden">
-                    <div
-                      className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${
-                        platformStatus.android.available ||
-                        platformStatus.ios.available
-                          ? "bg-success text-white shadow-lg shadow-success/20"
-                          : "bg-base-300"
-                      }`}
-                    >
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all bg-success text-white shadow-lg shadow-success/20 group-disabled:bg-base-300 group-disabled:shadow-none">
                       <LuRocket className="w-6 h-6" />
                     </div>
                     <div className="text-left truncate">
@@ -751,10 +712,7 @@ export function DashboardPage(props: DashboardPageProps) {
                         Launch App
                       </div>
                       <div className="text-[10px] opacity-50 font-black uppercase tracking-wider mt-0.5 truncate">
-                        {platformStatus.android.available ||
-                        platformStatus.ios.available
-                          ? "Run on Device"
-                          : "No Platforms"}
+                        Run on Device
                       </div>
                     </div>
                   </div>
@@ -775,32 +733,6 @@ export function DashboardPage(props: DashboardPageProps) {
                     <FiChevronRight className="w-5 h-5 opacity-20 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                   </div>
                 </button>
-
-                {!platformStatus.android.available &&
-                  !platformStatus.ios.available && (
-                    <div className="absolute top-2 right-2">
-                      <div className="dropdown dropdown-hover dropdown-left dropdown-end">
-                        <label
-                          tabIndex={0}
-                          className="btn btn-error btn-xs rounded-full w-6 h-6 p-0 min-h-0 animate-pulse"
-                        >
-                          <FiAlertTriangle className="w-3 h-3" />
-                        </label>
-                        <div
-                          tabIndex={0}
-                          className="dropdown-content z-[20] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200 mr-2"
-                        >
-                          <div className="font-black mb-1.5 text-error text-[10px] uppercase tracking-wider">
-                            Config Required
-                          </div>
-                          <p className="text-[10px] font-semibold opacity-70 leading-relaxed">
-                            No platforms ready. Check dependencies and OS
-                            compatibility.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
               </div>
 
               {/* Build Button */}

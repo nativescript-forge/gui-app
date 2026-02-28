@@ -24,7 +24,6 @@ import { SplashScreen } from "./components/SplashScreen";
 import { AppShell } from "./components/AppShell";
 import { DiscoverModal } from "./components/DiscoverModal";
 import { TitleBar } from "./components/TitleBar";
-import { StatusBar } from "./components/StatusBar";
 
 // Pages
 import { HomePage } from "./pages/main/HomePage";
@@ -1133,6 +1132,65 @@ function App() {
     }
   }
 
+  async function runNpx(args: string[], cwd?: string) {
+    if (actionsRunning) return;
+    setActionsRunning(true);
+    setCurrentAction(`NPX ${args.join(" ")}`);
+    setProcessStatus({ status: "running", action: "npx" });
+    setIsTerminalVisible(true);
+    setLogText("");
+    const path = cwd || actionsProjectPath || "";
+    const projectName = path.split(/[\\/]/).pop() || "Project";
+    const startTime = Date.now();
+
+    try {
+      const result = (await invoke("run_npx", {
+        cwd: path,
+        args,
+      })) as CommandResult;
+
+      const duration = Date.now() - startTime;
+      logActivity(
+        "system",
+        `NPX ${args.join(" ")} on ${projectName} (${formatDuration(duration)})`,
+        "success",
+        {
+          args,
+          duration_ms: duration,
+          command: result.command,
+        },
+      );
+      if (result.statusCode === 0) {
+        showToast(`NPX ${args[0]} completed successfully`, "success");
+      } else {
+        showToast(
+          `NPX ${args[0]} failed with exit code ${result.statusCode}`,
+          "error",
+        );
+      }
+    } catch (e) {
+      const duration = Date.now() - startTime;
+      logActivity(
+        "system",
+        `NPX ${args.join(" ")} on ${projectName} (${formatDuration(duration)})`,
+        "error",
+        {
+          args,
+          duration_ms: duration,
+          error: String(e),
+        },
+      );
+      console.error("NPX failed:", e);
+      showToast(`NPX failed: ${e}`, "error");
+    } finally {
+      setActionsRunning(false);
+      setCurrentAction(null);
+      setProcessStatus((prev) =>
+        prev ? { ...prev, status: "finished", action: prev.action } : null,
+      );
+    }
+  }
+
   async function handleSelectProject(path: string | null) {
     setActiveProjectPath(path);
     if (path) {
@@ -1363,7 +1421,11 @@ function App() {
             />
           )}
           {route === "app-config" && (
-            <ProjectConfigPage projectPath={activeProjectPath} />
+            <ProjectConfigPage
+              projectPath={activeProjectPath}
+              onRunNpm={runNpm}
+              onRunNpx={runNpx}
+            />
           )}
           {route === "settings" && (
             <SettingsPage
@@ -1446,7 +1508,7 @@ function App() {
 
       {/* DaisyUI Toast */}
       {toast && (
-        <div className="toast toast-end toast-bottom z-[100]">
+        <div className="toast toast-end toast-top top-16 z-[100]">
           <div
             className={`alert ${
               toast.type === "success"
