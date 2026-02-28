@@ -81,7 +81,18 @@ pub fn save_android_permissions(project_path: String, permissions: Vec<String>) 
     }
 
     // Backup
-    let backup_path = manifest_path.with_extension("xml.bak");
+    let now = chrono::Utc::now();
+    let timestamp = now.format("%Y-%m-%dT%H-%M-%S-%3fZ").to_string();
+    let backup_dir = Path::new(&project_path)
+        .join(".nsforge")
+        .join("backups")
+        .join("permissions")
+        .join("android")
+        .join(&timestamp);
+    
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+    
+    let backup_path = backup_dir.join("AndroidManifest.xml");
     fs::copy(&manifest_path, backup_path).map_err(|e| e.to_string())?;
 
     let content = fs::read_to_string(&manifest_path).map_err(|e| e.to_string())?;
@@ -113,7 +124,18 @@ pub fn save_ios_permissions(project_path: String, permissions: std::collections:
     }
 
     // Backup
-    let backup_path = plist_path.with_extension("plist.bak");
+    let now = chrono::Utc::now();
+    let timestamp = now.format("%Y-%m-%dT%H-%M-%S-%3fZ").to_string();
+    let backup_dir = Path::new(&project_path)
+        .join(".nsforge")
+        .join("backups")
+        .join("permissions")
+        .join("ios")
+        .join(&timestamp);
+    
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
+    let backup_path = backup_dir.join("Info.plist");
     fs::copy(&plist_path, backup_path).map_err(|e| e.to_string())?;
 
     let mut value = plist::Value::from_file(&plist_path).map_err(|e| e.to_string())?;
