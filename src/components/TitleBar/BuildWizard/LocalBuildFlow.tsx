@@ -19,7 +19,6 @@ interface LocalBuildFlowProps {
   flavor?: string;
   selectKeystore: () => Promise<void>;
   platformStatus: PlatformStatus;
-  isMac: boolean;
 }
 
 export function LocalBuildFlow({
@@ -29,7 +28,6 @@ export function LocalBuildFlow({
   flavor,
   selectKeystore,
   platformStatus,
-  isMac,
 }: LocalBuildFlowProps) {
   switch (wizardStep) {
     case 2:

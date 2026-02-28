@@ -16,14 +16,12 @@ import {
   FiPackage,
   FiCpu,
   FiZap,
-  FiBox,
   FiFolder,
   FiActivity,
   FiRefreshCw,
   FiAlertTriangle,
   FiInfo,
   FiHash,
-  FiDownload,
   FiShield,
   FiArrowUpCircle,
   FiCommand,
@@ -34,10 +32,7 @@ import {
 import { SiAndroid, SiApple } from "react-icons/si";
 import { LuRocket } from "react-icons/lu";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import {
-  detectPlatforms,
-  PlatformStatus,
-} from "../../shared/platformDetection";
+import { PlatformStatus } from "../../shared/platformDetection";
 import { FlavorIcon } from "../../components/FlavorIcon";
 
 export type DashboardPageProps = {
@@ -89,8 +84,7 @@ export type DashboardPageProps = {
 };
 
 export function DashboardPage(props: DashboardPageProps) {
-  const { running, onRunAction, onRunNpm, currentAction, platformStatus } =
-    props;
+  const { running, onRunAction, onRunNpm, platformStatus } = props;
   const [nodeModulesExist, setNodeModulesExist] = useState<boolean | null>(
     null,
   );

@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import {
   FiTerminal,
-  FiChevronUp,
-  FiChevronDown,
   FiX,
   FiCheckCircle,
-  FiMaximize2,
-  FiMinimize2,
   FiSquare,
   FiFolder,
 } from "react-icons/fi";
@@ -48,7 +44,6 @@ interface GlobalTerminalProps {
 export function GlobalTerminal({
   logs,
   isRunning,
-  title = "Terminal Output",
   onClose,
   onStop,
   isVisible,

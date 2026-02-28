@@ -30,7 +30,6 @@ export function BuildModal({
   projectPath,
   db,
   platformStatus,
-  isMac,
 }: BuildModalProps) {
   const [wizardStep, setWizardStep] = useState(1);
   const [copied, setCopied] = useState(false);
@@ -284,7 +283,6 @@ export function BuildModal({
             flavor={flavor}
             selectKeystore={selectKeystore}
             platformStatus={platformStatus}
-            isMac={isMac}
           />
         );
       case 5:

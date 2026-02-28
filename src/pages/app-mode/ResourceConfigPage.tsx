@@ -8,14 +8,12 @@ import {
   FiCheckCircle,
   FiUploadCloud,
   FiAlertCircle,
-  FiClock,
-  FiWifi,
-  FiBattery,
   FiSmartphone,
 } from "react-icons/fi";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { join } from "@tauri-apps/api/path";
 import { readFile } from "@tauri-apps/plugin-fs";
+import { open } from "@tauri-apps/plugin-dialog";
 
 type ActionType =
   | "resources-update"
@@ -53,7 +51,8 @@ export function ResourceConfigPage({
         ? splashSourcePath
         : "";
 
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentAssets, setCurrentAssets] = useState<{
     icon: string | null;
@@ -190,7 +189,6 @@ export function ResourceConfigPage({
 
   const handlePickFile = async () => {
     try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         multiple: false,
         filters: [

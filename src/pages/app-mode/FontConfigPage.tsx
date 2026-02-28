@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FiType,
   FiPlus,
   FiCopy,
   FiCheck,
   FiSearch,
-  FiTrash2,
   FiInfo,
   FiFileText,
   FiFolder,
@@ -27,13 +26,11 @@ type FontInfo = {
 type FontConfigPageProps = {
   projectPath: string | null;
   onRunAction?: (action: any) => Promise<string>;
-  isRunning?: boolean;
 };
 
 export function FontConfigPage({
   projectPath,
   onRunAction,
-  isRunning,
 }: FontConfigPageProps) {
   const [fonts, setFonts] = useState<FontInfo[]>([]);
   const [loading, setLoading] = useState(false);

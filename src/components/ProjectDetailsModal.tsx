@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   FiX,
-  FiCpu,
   FiZap,
   FiPackage,
   FiShield,

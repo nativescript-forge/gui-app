@@ -28,23 +28,23 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
 
-    // build: {
-    //   chunkSizeWarningLimit: 1000,
-    //   rollupOptions: {
-    //     output: {
-    //       manualChunks(id) {
-    //         if (id.includes("node_modules")) {
-    //           if (id.includes("react")) return "vendor-react";
-    //           if (id.includes("@tauri-apps")) return "vendor-tauri";
-    //           if (id.includes("recharts") || id.includes("ncharts"))
-    //             return "vendor-charts";
-    //           if (id.includes("react-icons")) return "vendor-icons";
-    //           return "vendor";
-    //         }
-    //       },
-    //     },
-    //   },
-    // },
+  build: {
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react")) return "vendor-react";
+            if (id.includes("@tauri-apps")) return "vendor-tauri";
+            if (id.includes("recharts") || id.includes("ncharts"))
+              return "vendor-charts";
+            if (id.includes("react-icons")) return "vendor-icons";
+            return "vendor";
+          }
+        },
+      },
+    },
   },
 }));

@@ -23,28 +23,6 @@ interface TitleBarProps {
   onOpenDoctor: () => void;
   setRoute: (route: Route) => void;
   currentRoute: Route;
-  onRunAction: (
-    action:
-      | "run-android"
-      | "run-ios"
-      | "debug-android"
-      | "debug-ios"
-      | "build"
-      | "clean"
-      | "install"
-      | "doctor"
-      | "info"
-      | "update"
-      | "migrate"
-      | "package-manager"
-      | "resources-update"
-      | "resources-generate-splashes"
-      | "resources-generate-icons",
-    deviceId?: string,
-    buildConfig?: any,
-    sourcePath?: string,
-    backgroundColor?: string,
-  ) => Promise<string | void>;
   actionsRunning: boolean;
   brandIconSrc: string;
   theme: Theme;
@@ -54,7 +32,6 @@ interface TitleBarProps {
     platform: "android" | "ios" | null,
     action?: "run" | "debug",
   ) => void;
-  isMac: boolean;
 }
 
 export function TitleBar({
@@ -66,14 +43,12 @@ export function TitleBar({
   onOpenDoctor,
   setRoute,
   currentRoute,
-  onRunAction,
   actionsRunning,
   brandIconSrc,
   theme,
   onToggleTheme,
   onOpenBuildModal,
   onOpenRunModal,
-  isMac,
 }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);

@@ -1,5 +1,3 @@
-import React from "react";
-
 const flavorIcons: Record<string, string> = {
   Angular: "/assets/images/flavors/angular.svg",
   React: "/assets/images/flavors/reactjs.svg",

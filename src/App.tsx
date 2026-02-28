@@ -1259,7 +1259,6 @@ function App() {
         onOpenDoctor={runDoctor}
         setRoute={setRoute}
         currentRoute={route}
-        onRunAction={runAction}
         actionsRunning={actionsRunning}
         brandIconSrc={iconSrc}
         theme={theme}
@@ -1270,7 +1269,6 @@ function App() {
           setRunModalAction(action || "run");
           setIsRunModalOpen(true);
         }}
-        isMac={isMac}
       />
 
       {route === "setup" ? (
@@ -1411,7 +1409,6 @@ function App() {
             <FontConfigPage
               projectPath={actionsProjectPath}
               onRunAction={runAction}
-              isRunning={actionsRunning}
             />
           )}
           {route === "app-permissions" && (

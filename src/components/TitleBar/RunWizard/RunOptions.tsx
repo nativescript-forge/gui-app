@@ -1,11 +1,4 @@
-import {
-  FiSettings,
-  FiZap,
-  FiTrash2,
-  FiClock,
-  FiShield,
-  FiInfo,
-} from "react-icons/fi";
+import { FiZap, FiClock } from "react-icons/fi";
 import type { RunConfig } from "../../../shared/types";
 
 interface RunOptionsProps {
@@ -26,7 +19,6 @@ export function RunOptions({
   };
 
   const OptionItem = ({
-    id,
     label,
     sublabel,
     checked,
