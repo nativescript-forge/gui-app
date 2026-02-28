@@ -403,6 +403,8 @@ export function HomePage(props: HomePageProps) {
       doc.includes("failed") ||
       doc.includes("requires");
 
+    if (hasUpdate) return false;
+
     // It's healthy if:
     // 1. It explicitly says it's healthy and has no negative signs
     // 2. It's up to date and has no negative signs
