@@ -79,7 +79,7 @@ export function HelpMenu({
         <div className="divider my-1 opacity-10"></div>
         <li>
           <a
-            href="https://github.com/kang-cahya/NS-Forge/issues"
+            href="https://github.com/nativescript-forge/gui-app/issues"
             target="_blank"
             onClick={closeDropdown}
             className="py-1.5 hover:bg-white/10 rounded flex items-center gap-2"
@@ -89,7 +89,7 @@ export function HelpMenu({
         </li>
         <li>
           <a
-            href="https://github.com/kang-cahya/NS-Forge"
+            href="https://github.com/nativescript-forge/gui-app"
             target="_blank"
             onClick={closeDropdown}
             className="py-1.5 hover:bg-white/10 rounded flex items-center gap-2"
