@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   FiHome,
   FiActivity,
@@ -6,6 +7,7 @@ import {
   FiHelpCircle,
   FiDownload,
   FiInfo,
+  FiLoader,
 } from "react-icons/fi";
 import type { Route } from "../../shared/types";
 
@@ -13,13 +15,58 @@ interface HelpMenuProps {
   setRoute: (route: Route) => void;
   onOpenDoctor: () => void;
   onShowAbout: () => void;
+  currentVersion: string;
 }
 
 export function HelpMenu({
   setRoute,
   onOpenDoctor,
   onShowAbout,
+  currentVersion,
 }: HelpMenuProps) {
+  const [checking, setChecking] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkUpdate = async () => {
+      if (!currentVersion || currentVersion === "0.0.0") return;
+
+      setChecking(true);
+      try {
+        const response = await fetch(
+          "https://api.github.com/repos/nativescript-forge/gui-app/releases/latest",
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const latest = data.tag_name.replace(/^v/, "");
+          setLatestVersion(latest);
+
+          if (isNewerVersion(currentVersion, latest)) {
+            setUpdateAvailable(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check for updates:", err);
+      } finally {
+        setChecking(false);
+      }
+    };
+
+    checkUpdate();
+  }, [currentVersion]);
+
+  const isNewerVersion = (current: string, latest: string) => {
+    const c = current.split(".").map(Number);
+    const l = latest.split(".").map(Number);
+
+    for (let i = 0; i < 3; i++) {
+      if ((l[i] || 0) > (c[i] || 0)) return true;
+      if ((l[i] || 0) < (c[i] || 0)) return false;
+    }
+    return false;
+  };
+
   const closeDropdown = (e: React.MouseEvent) => {
     (e.currentTarget.closest(".dropdown") as HTMLElement)?.blur();
     if (document.activeElement instanceof HTMLElement) {
@@ -100,9 +147,26 @@ export function HelpMenu({
         </li>
         <div className="divider my-1 opacity-10"></div>
         <li>
-          <button className="py-1.5 opacity-30 cursor-not-allowed flex items-center gap-2">
-            <FiDownload className="w-3.5 h-3.5" /> Check for Updates...
-          </button>
+          {checking ? (
+            <div className="py-1.5 px-3 flex items-center gap-2 opacity-50">
+              <FiLoader className="w-3.5 h-3.5 animate-spin" /> Checking for
+              updates...
+            </div>
+          ) : updateAvailable ? (
+            <a
+              href="https://github.com/nativescript-forge/gui-app/releases"
+              target="_blank"
+              onClick={closeDropdown}
+              className="py-1.5 hover:bg-white/10 rounded flex items-center gap-2 text-info font-medium"
+            >
+              <FiDownload className="w-3.5 h-3.5 animate-bounce" /> Update
+              Available (v{latestVersion})
+            </a>
+          ) : (
+            <button className="py-1.5 opacity-30 cursor-not-allowed flex items-center gap-2 w-full text-left">
+              <FiDownload className="w-3.5 h-3.5" /> Check for Updates...
+            </button>
+          )}
         </li>
         <li>
           <button

@@ -1,6 +1,6 @@
 [package]
 name = "nativescript-forge"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 description = "NativeScript Forge Desktop App"
 authors = ["Kang Cahya"]
 edition = "2021"
@@ -26,3 +26,5 @@ base64 = "0.22"
 roxmltree = "0.20"
 plist = "1"
 chrono = "0.4"
+image = { version = "0.25", features = ["png", "ico"] }
+ico = "0.3.0"

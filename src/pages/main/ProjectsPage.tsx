@@ -16,6 +16,7 @@ import {
   FiPackage,
   FiRefreshCw,
   FiInfo,
+  FiImage,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 
@@ -227,6 +228,26 @@ function ProjectCard({
             <FiExternalLink className="w-3.5 h-3.5" />
             Reveal in Explorer
           </button>
+          <button
+            className="w-full px-4 py-2 text-left text-xs hover:bg-primary hover:text-white flex items-center gap-2"
+            onClick={async () => {
+              try {
+                await invoke("set_project_folder_icon", {
+                  projectPath: project.path,
+                });
+                alert(
+                  "Folder icon updated! You may need to restart Explorer to see changes.",
+                );
+              } catch (err) {
+                console.error("Failed to set folder icon:", err);
+                alert("Failed to set folder icon: " + err);
+              }
+              setContextMenu(null);
+            }}
+          >
+            <FiImage className="w-3.5 h-3.5" />
+            Set Folder Icon
+          </button>
           <div className="h-px bg-base-200 my-1" />
           <button
             className="w-full px-4 py-2 text-left text-xs hover:bg-primary hover:text-white flex items-center gap-2"
@@ -323,12 +344,12 @@ export function ProjectsPage(props: ProjectsPageProps) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              className="btn btn-outline btn-sm"
+              className="btn btn-outline btn-sm gap-2"
               onClick={handleRefresh}
-              title="Refresh list and check existence"
+              title="Refresh project list and automatically update folder icons"
             >
               <FiRefreshCw className="h-4 w-4" />
-              Refresh
+              Refresh Projects
             </button>
             <button
               type="button"

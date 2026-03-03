@@ -95,6 +95,8 @@ pub fn run() {
             commands::fs::remove_dir,
             commands::fs::read_dir,
             commands::fs::get_project_icon,
+            commands::fs::set_project_folder_icon,
+            commands::fs::bulk_set_project_icons,
             commands::project::analyze_project,
             commands::project::get_project_packages,
             commands::project::discover_projects,

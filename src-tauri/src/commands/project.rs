@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
+use crate::commands::fs::internal_set_project_folder_icon;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,50 +73,58 @@ fn get_dep_version(pkg: &serde_json::Value, key: &str) -> Option<String> {
 fn detect_framework(project_path: &str, pkg: &serde_json::Value) -> Option<String> {
     let has = |dep: &str| get_dep_version(pkg, dep).is_some();
 
-    if has("@nativescript/angular") {
+    println!("[Analyze] Detecting framework for project at: {}", project_path);
+
+    if has("@nativescript/angular") || has("@angular/core") {
+        println!("[Analyze] Result: Angular");
         return Some("Angular".to_string());
     }
-    if has("react-nativescript") {
-        return Some("React".to_string());
-    }
-    if has("@nativescript-community/solid-js") {
-        return Some("Solid".to_string());
-    }
-    if has("@nativescript-community/svelte-native") {
-        return Some("Svelte".to_string());
-    }
-    if has("nativescript-vue") {
+    if has("nativescript-vue") || has("@nativescript/vue") || has("vue") {
+        println!("[Analyze] Result: Vue");
         return Some("Vue".to_string());
     }
-    if has("@nativescript/core")
-        && (!has("@nativescript/angular")
-            || !has("react-nativescript")
-            || !has("@nativescript-community/solid-js")
-            || !has("@nativescript-community/svelte-native")
-            || !has("nativescript-vue"))
-    {
-        // Check for .ts or .js files in the app folder
-        let app_path = Path::new(project_path).join("app");
-        if app_path.exists() && app_path.is_dir() {
-            if let Ok(entries) = fs::read_dir(app_path) {
-                for entry in entries.flatten() {
-                    let path = entry.path();
-                    if path.is_file() {
-                        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                            if ext == "ts" {
-                                return Some("Core (TS)".to_string());
-                            } else if ext == "js" {
-                                return Some("Core (JS)".to_string());
-                            }
+    if has("react-nativescript") || has("@nativescript/react") || has("react") {
+        println!("[Analyze] Result: React");
+        return Some("React".to_string());
+    }
+    if has("@nativescript-community/svelte-native") || has("@nativescript/svelte") || has("svelte") {
+        println!("[Analyze] Result: Svelte");
+        return Some("Svelte".to_string());
+    }
+    if has("@nativescript-community/solid-js") || has("@nativescript/solid") || has("solid-js") {
+        println!("[Analyze] Result: Solid");
+        return Some("Solid".to_string());
+    }
+
+    // Default to Core TS or JS
+    let app_path = Path::new(project_path).join("app");
+    if app_path.exists() && app_path.is_dir() {
+        if let Ok(entries) = fs::read_dir(app_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() {
+                    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                        if ext == "ts" {
+                            println!("[Analyze] Result: Core (TS)");
+                            return Some("Core (TS)".to_string());
+                        } else if ext == "js" {
+                            println!("[Analyze] Result: Core (JS)");
+                            return Some("Core (JS)".to_string());
                         }
                     }
                 }
             }
         }
-        return Some("Core".to_string());
     }
 
-    None
+    // Fallback based on devDependencies if app folder scan fails
+    if has("typescript") || has("@nativescript/types") {
+        println!("[Analyze] Result: Core (TS) via deps");
+        return Some("Core (TS)".to_string());
+    }
+
+    println!("[Analyze] Result: Core (JS) fallback");
+    Some("Core (JS)".to_string())
 }
 
 fn detect_ns_version(pkg: &serde_json::Value) -> Option<String> {
@@ -278,8 +287,11 @@ pub fn analyze_project_path(project_path: &str) -> ProjectAnalysis {
 }
 
 #[tauri::command]
-pub fn analyze_project(project_path: String) -> Result<ProjectAnalysis, String> {
-    Ok(analyze_project_path(&project_path))
+pub fn analyze_project(app_handle: tauri::AppHandle, project_path: String) -> Result<ProjectAnalysis, String> {
+    let analysis = analyze_project_path(&project_path);
+    // Automatically set folder icon
+    let _ = internal_set_project_folder_icon(&app_handle, &project_path);
+    Ok(analysis)
 }
 
 #[tauri::command]
@@ -326,7 +338,8 @@ fn discover_projects_recursive(dir: &Path, depth_left: u32, out: &mut Vec<Projec
     if package_json.exists() {
         if let Some(pkg) = read_package_json(dir.to_string_lossy().as_ref()) {
             if detect_ns_version(&pkg).is_some() {
-                out.push(analyze_project_path(dir.to_string_lossy().as_ref()));
+                let path_str = dir.to_string_lossy().to_string();
+                out.push(analyze_project_path(&path_str));
                 return;
             }
         }

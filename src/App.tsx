@@ -415,6 +415,13 @@ function App() {
 
       setProjects(validProjects);
 
+      // Automatically set/refresh folder icons for all valid projects
+      if (validProjects.length > 0) {
+        invoke("bulk_set_project_icons", {
+          projectPaths: validProjects.map((p) => p.path),
+        }).catch((err) => console.error("Failed to bulk set icons:", err));
+      }
+
       if (autoSelect && validProjects.length > 0) {
         if (!activeProjectPath) {
           setActiveProjectPath(validProjects[0].path);

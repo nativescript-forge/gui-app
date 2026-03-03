@@ -191,6 +191,7 @@ export function TitleBar({
                 setRoute={setRoute}
                 onOpenDoctor={onOpenDoctor}
                 onShowAbout={() => setShowAboutModal(true)}
+                currentVersion={appInfo.version}
               />
             </>
           )}
