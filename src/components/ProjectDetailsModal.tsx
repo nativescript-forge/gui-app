@@ -8,7 +8,6 @@ import {
   FiCalendar,
   FiExternalLink,
   FiSearch,
-  FiImage,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
@@ -133,25 +132,6 @@ export function ProjectDetailsModal({
                 <div className="text-[10px] font-bold uppercase tracking-widest opacity-30 flex items-center gap-2">
                   <FiSearch className="h-3 w-3" /> Location
                 </div>
-                <button
-                  className="btn btn-ghost btn-xs text-[10px] opacity-50 hover:opacity-100"
-                  onClick={async () => {
-                    if (!project.path) return;
-                    try {
-                      await invoke("set_project_folder_icon", {
-                        projectPath: project.path,
-                      });
-                      alert(
-                        "Folder icon updated! You may need to restart Explorer to see changes.",
-                      );
-                    } catch (err) {
-                      console.error("Failed to set folder icon:", err);
-                      alert("Failed to set folder icon: " + err);
-                    }
-                  }}
-                >
-                  <FiImage className="h-3 w-3" /> Set Folder Icon
-                </button>
                 <button
                   className="btn btn-ghost btn-xs text-[10px] opacity-50 hover:opacity-100"
                   onClick={() => onOpenFolder(project.path)}

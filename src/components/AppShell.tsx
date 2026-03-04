@@ -162,9 +162,11 @@ export function AppShell(props: AppShellProps) {
             </label>
           </div>
 
-          <main className="flex-1 overflow-y-auto">
-            <div className="p-4 lg:p-8">
-              <div className="max-w-[1600px] mx-auto">{props.children}</div>
+          <main className="flex-1 overflow-y-auto relative flex flex-col">
+            <div className="p-4 lg:p-8 flex-1 flex flex-col">
+              <div className="max-w-[1600px] mx-auto w-full flex-1 flex flex-col">
+                {props.children}
+              </div>
             </div>
           </main>
         </div>

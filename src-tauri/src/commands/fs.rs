@@ -186,7 +186,10 @@ pub fn internal_set_project_folder_icon(
     // Priority 1: resource_dir (Production)
     if let Ok(rd) = app_handle.path().resource_dir() {
         search_paths.push(rd.join(icon_name));
+        search_paths.push(rd.join("folders").join(icon_name));
+        search_paths.push(rd.join("assets").join("images").join("folders").join(icon_name));
         search_paths.push(rd.join("public").join("assets").join("images").join("folders").join(icon_name));
+        search_paths.push(rd.join("_up_").join("public").join("assets").join("images").join("folders").join(icon_name));
     }
 
     // Priority 2: Relative to CWD (Dev mode)
@@ -214,7 +217,10 @@ pub fn internal_set_project_folder_icon(
     }
 
     let resource_path = match resource_path {
-        Some(p) => p,
+        Some(p) => {
+            println!("[Icon] Found source icon at: {:?}", p);
+            p
+        },
         None => {
             return Err(format!(
                 "Source icon not found: {}. Searched in resource dir and common dev paths.",

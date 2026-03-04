@@ -1,6 +1,8 @@
+import { Suspense, lazy } from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { parsePlatforms } from "./shared/platforms";
 import { listen } from "@tauri-apps/api/event";
 import Database from "@tauri-apps/plugin-sql";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
@@ -25,23 +27,70 @@ import { AppShell } from "./components/AppShell";
 import { DiscoverModal } from "./components/DiscoverModal";
 import { TitleBar } from "./components/TitleBar";
 
-// Pages
-import { HomePage } from "./pages/main/HomePage";
-import { ProjectsPage } from "./pages/main/ProjectsPage";
-import { PlatformConfigPage } from "./pages/app-mode/PlatformConfigPage";
-import { DashboardPage } from "./pages/app-mode/DashboardPage";
-import { PluginsPage } from "./pages/app-mode/PluginsPage";
-import { PermissionsPage } from "./pages/app-mode/PermissionsPage";
-import { ProjectConfigPage } from "./pages/app-mode/ProjectConfigPage";
-import { ResourceConfigPage } from "./pages/app-mode/ResourceConfigPage";
-import { FontConfigPage } from "./pages/app-mode/FontConfigPage";
-import { SettingsPage } from "./pages/main/SettingsPage";
-import { ActivityPage } from "./pages/main/ActivityPage";
+// Pages (Main)
+const HomePage = lazy(() =>
+  import("./pages/main/HomePage").then((m) => ({ default: m.HomePage })),
+);
+const ProjectsPage = lazy(() =>
+  import("./pages/main/ProjectsPage").then((m) => ({
+    default: m.ProjectsPage,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("./pages/main/SettingsPage").then((m) => ({
+    default: m.SettingsPage,
+  })),
+);
+const ActivityPage = lazy(() =>
+  import("./pages/main/ActivityPage").then((m) => ({
+    default: m.ActivityPage,
+  })),
+);
+const CreateProjectPage = lazy(() =>
+  import("./pages/main/CreateProjectPage").then((m) => ({
+    default: m.CreateProjectPage,
+  })),
+);
+
+// Pages (App Mode)
+const PlatformConfigPage = lazy(() =>
+  import("./pages/app-mode/PlatformConfigPage").then((m) => ({
+    default: m.PlatformConfigPage,
+  })),
+);
+const DashboardPage = lazy(() =>
+  import("./pages/app-mode/DashboardPage").then((m) => ({
+    default: m.DashboardPage,
+  })),
+);
+const PluginsPage = lazy(() =>
+  import("./pages/app-mode/PluginsPage").then((m) => ({
+    default: m.PluginsPage,
+  })),
+);
+const PermissionsPage = lazy(() =>
+  import("./pages/app-mode/PermissionsPage").then((m) => ({
+    default: m.PermissionsPage,
+  })),
+);
+const ProjectConfigPage = lazy(() =>
+  import("./pages/app-mode/ProjectConfigPage").then((m) => ({
+    default: m.ProjectConfigPage,
+  })),
+);
+const ResourceConfigPage = lazy(() =>
+  import("./pages/app-mode/ResourceConfigPage").then((m) => ({
+    default: m.ResourceConfigPage,
+  })),
+);
+const FontConfigPage = lazy(() =>
+  import("./pages/app-mode/FontConfigPage").then((m) => ({
+    default: m.FontConfigPage,
+  })),
+);
+
 import { ensureNsForgeDir } from "./shared/projectConfig";
-import {
-  CreateProjectPage,
-  type ProjectConfig,
-} from "./pages/main/CreateProjectPage";
+import type { ProjectConfig } from "./pages/main/CreateProjectPage";
 import { SetupPage } from "./pages/setup/SetupPage";
 import { BuildModal } from "./components/TitleBar/BuildModal";
 import { RunModal } from "./components/TitleBar/RunModal";
@@ -89,11 +138,23 @@ function App() {
       }
 
       try {
+        const currentProject = projects.find(
+          (p) => p.path === activeProjectPath,
+        );
+        const knownPlatforms = parsePlatforms(
+          currentProject?.platforms || null,
+        );
+
         const pkgs = (await invoke("get_project_packages", {
           projectPath: activeProjectPath,
         })) as Record<string, string>;
 
-        const status = await detectPlatforms(activeProjectPath, pkgs, isMac);
+        const status = await detectPlatforms(
+          activeProjectPath,
+          pkgs,
+          isMac,
+          knownPlatforms,
+        );
         setPlatformStatus(status);
       } catch (err) {
         console.error("Failed to detect platforms in App:", err);
@@ -434,6 +495,8 @@ function App() {
     [activeProjectPath, actionsProjectPath],
   );
 
+  const refreshTimeoutRef = useRef<number | null>(null);
+
   async function removeProject(path: string) {
     if (!db) return;
     const projectName = path.split(/[\\/]/).pop() || "Project";
@@ -445,7 +508,16 @@ function App() {
       if (actionsProjectPath === path) {
         setActionsProjectPath(null);
       }
-      await refreshProjects(db);
+
+      // Debounce refresh to prevent UI freeze during multiple removals
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+      refreshTimeoutRef.current = window.setTimeout(async () => {
+        if (db) await refreshProjects(db);
+        refreshTimeoutRef.current = null;
+      }, 300);
+
       logActivity("project", `Removed project: ${projectName}`, "success", {
         path,
       });
@@ -460,6 +532,21 @@ function App() {
           error: String(err),
         },
       );
+    }
+  }
+
+  async function removeAllProjects() {
+    if (!db) return;
+    try {
+      await db.execute("DELETE FROM projects");
+      setActiveProjectPath(null);
+      setActionsProjectPath(null);
+      await refreshProjects(db);
+      logActivity("project", "Cleared all projects from library", "success");
+      showToast("Project library cleared", "success");
+    } catch (err) {
+      console.error("Failed to clear library:", err);
+      showToast("Failed to clear project library", "error");
     }
   }
 
@@ -619,20 +706,13 @@ function App() {
     };
   }, [db]); // Added db dependency to ensure we can log on close if db is ready
 
-  // Re-analyze project when switching to ensure fresh data
-  useEffect(() => {
-    if (actionsProjectPath) {
-      reAnalyzeProject(actionsProjectPath);
-    }
-  }, [actionsProjectPath]);
-
   async function upsertProject(currentDb: Database, analysis: ProjectAnalysis) {
     const platforms = JSON.stringify(analysis.platforms ?? []);
     const lastOpened = Date.now();
 
     await currentDb.execute(
       `INSERT INTO projects (name, path, nativescript_version, framework, platforms, last_opened, created_at, plugins_count, permissions_count, version_code, version_name, target_sdk, min_sdk)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT(path) DO UPDATE SET
          name = excluded.name,
          nativescript_version = excluded.nativescript_version,
@@ -766,12 +846,29 @@ function App() {
     [db, refreshProjects],
   );
 
-  async function reAnalyzeProject(path: string) {
+  const analysisCacheRef = useRef<Record<string, number>>({});
+  const pendingAnalysisRef = useRef<Set<string>>(new Set());
+
+  async function reAnalyzeProject(path: string, force = false) {
     if (!db) return;
+
+    if (pendingAnalysisRef.current.has(path)) {
+      console.log(`[App] Analysis already in progress for ${path}, skipping.`);
+      return;
+    }
+
+    const lastAnalyzed = analysisCacheRef.current[path] || 0;
+    if (!force && Date.now() - lastAnalyzed < 60000) {
+      console.log(`[App] Skipping re-analysis for ${path}, recently analyzed.`);
+      return;
+    }
+
+    pendingAnalysisRef.current.add(path);
     try {
       const analysis = (await invoke("analyze_project", {
         projectPath: path,
       })) as ProjectAnalysis;
+      analysisCacheRef.current[path] = Date.now();
       await upsertProject(db, analysis);
       await refreshProjects(db);
       logActivity(
@@ -788,6 +885,8 @@ function App() {
         path,
         error: String(err),
       });
+    } finally {
+      pendingAnalysisRef.current.delete(path);
     }
   }
 
@@ -842,6 +941,12 @@ function App() {
 
         await upsertProject(db, analysis);
         await refreshProjects(db);
+
+        // Set folder icon asynchronously (non-blocking)
+        invoke("set_project_folder_icon", { projectPath }).catch((e) =>
+          console.error("Failed to set folder icon:", e),
+        );
+
         setActiveProjectPath(projectPath);
         setActionsProjectPath(projectPath);
         setRoute("app-actions");
@@ -1202,40 +1307,16 @@ function App() {
     setActiveProjectPath(path);
     if (path) {
       setActionsProjectPath(path);
-      // Ensure .nsforge directory exists
       ensureNsForgeDir(path).catch(console.error);
-    }
-
-    // Re-analyze on select to keep metadata fresh
-    if (db && path) {
-      try {
-        const analysis = (await invoke("analyze_project", {
-          projectPath: path,
-        })) as ProjectAnalysis;
-        await upsertProject(db, analysis);
-        await refreshProjects(db);
-      } catch (err) {
-        console.error("Failed to re-analyze project on select:", err);
-      }
     }
   }
 
   async function handleOpenActions(path: string) {
+    setRoute("app-actions");
     setActiveProjectPath(path);
     setActionsProjectPath(path);
-    setRoute("app-actions");
-
-    // Update last_opened
     if (db) {
-      try {
-        const analysis = (await invoke("analyze_project", {
-          projectPath: path,
-        })) as ProjectAnalysis;
-        await upsertProject(db, analysis);
-        await refreshProjects(db);
-      } catch (err) {
-        console.error("Failed to update last_opened on open actions:", err);
-      }
+      reAnalyzeProject(path);
     }
   }
 
@@ -1246,6 +1327,39 @@ function App() {
   const activeProject = activeProjectPath
     ? projects.find((p) => p.path === activeProjectPath)
     : null;
+
+  const getRouteName = (r: Route) => {
+    switch (r) {
+      case "home":
+        return "Home";
+      case "projects":
+        return "Projects";
+      case "create":
+        return "Create Project";
+      case "app-actions":
+        return "Dashboard";
+      case "app-plugins":
+        return "Plugins";
+      case "app-platform-config":
+        return "Platform Config";
+      case "app-resources":
+        return "Resources";
+      case "app-fonts":
+        return "Fonts";
+      case "app-permissions":
+        return "Permissions";
+      case "app-config":
+        return "Project Config";
+      case "activity":
+        return "Activity";
+      case "settings":
+        return "Settings";
+      case "setup":
+        return "Setup";
+      default:
+        return "Module";
+    }
+  };
 
   const isAppMode = route.startsWith("app-");
 
@@ -1307,161 +1421,185 @@ function App() {
           }}
           onOpenBuildModal={() => setIsBuildModalOpen(true)}
         >
-          {route === "home" && (
-            <HomePage
-              logoSrc={logoSrc}
+          <Suspense
+            fallback={
+              <div className="flex-1 w-full flex items-center justify-center bg-transparent">
+                <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-500">
+                  <div className="relative">
+                    <span className="loading loading-spinner loading-lg text-primary scale-150"></span>
+                    <div className="absolute inset-0 blur-xl bg-primary/20 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-sm font-black opacity-50 uppercase tracking-[0.3em] ml-1">
+                      Loading {getRouteName(route)}...
+                    </p>
+                    <div className="flex gap-1">
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]"></div>
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]"></div>
+                      <div className="w-1 h-1 rounded-full bg-primary/40 animate-bounce"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            {route === "home" && (
+              <HomePage
+                logoSrc={logoSrc}
+                projects={projects}
+                db={db}
+                systemReport={systemReport}
+                lastActivityTime={lastActivityTime}
+                onAddProject={browseAndAddProject}
+                onCreateProject={() => setRoute("create")}
+                onOpenDoctor={runDoctor}
+                onViewAllProjects={() => setRoute("projects")}
+                onViewAllActivities={() => setRoute("activity")}
+                onOpenProject={handleOpenActions}
+                onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+                onRunNpm={runNpm}
+                onRefreshSystemReport={async () => {
+                  if (db) await runBackgroundChecks(db);
+                }}
+                isRefreshingSystemReport={isRefreshingSystemReport}
+              />
+            )}
+
+            {route === "projects" && (
+              <ProjectsPage
+                projects={projects}
+                activeProjectPath={activeProjectPath}
+                onSelectProject={handleSelectProject}
+                onScanFolder={scanAndDiscoverProjects}
+                onAddProject={browseAndAddProject}
+                onCreateProject={() => setRoute("create")}
+                onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+                onOpenActions={handleOpenActions}
+                onRemoveProject={removeProject}
+                onRemoveAll={removeAllProjects}
+                onRefresh={() => db && refreshProjects(db, false, true)}
+              />
+            )}
+
+            {route === "create" && (
+              <CreateProjectPage
+                onBack={() => setRoute("home")}
+                onCreate={handleCreateProject}
+                onProjectCreated={() => setRoute("app-actions")}
+                isCreating={createLoading}
+                logs={logText}
+              />
+            )}
+
+            {route === "app-platform-config" && (
+              <PlatformConfigPage projectPath={actionsProjectPath} />
+            )}
+
+            {route === "app-actions" && (
+              <DashboardPage
+                projects={projects}
+                projectPath={actionsProjectPath}
+                setProjectPath={setActionsProjectPath}
+                running={actionsRunning}
+                systemReport={systemReport}
+                onOpenBuildModal={() => setIsBuildModalOpen(true)}
+                onOpenRunModal={(platform, action) => {
+                  setRunModalPlatform(platform);
+                  setRunModalAction(action || "run");
+                  setIsRunModalOpen(true);
+                }}
+                onRunAction={async (action, deviceId, config) => {
+                  await runAction(action, deviceId, config);
+                }}
+                currentAction={currentAction}
+                onRunNpm={runNpm}
+                setRoute={setRoute}
+                onRefreshProject={reAnalyzeProject}
+                isMac={isMac}
+                platformStatus={platformStatus}
+              />
+            )}
+
+            {/* Application Tools */}
+            {route === "app-plugins" && (
+              <PluginsPage
+                projectPath={actionsProjectPath}
+                onInstall={(pluginName) =>
+                  runAction("plugin-add", undefined, undefined, pluginName)
+                }
+                onUninstall={(pluginName) =>
+                  runAction("plugin-remove", undefined, undefined, pluginName)
+                }
+                isRunning={actionsRunning}
+              />
+            )}
+            {route === "app-resources" && (
+              <ResourceConfigPage
+                projectPath={actionsProjectPath}
+                running={actionsRunning}
+                currentAction={currentAction}
+                onRunAction={async (action, sourcePath, backgroundColor) => {
+                  await runAction(
+                    action,
+                    undefined,
+                    undefined,
+                    sourcePath,
+                    backgroundColor,
+                  );
+                }}
+              />
+            )}
+            {route === "app-fonts" && (
+              <FontConfigPage
+                projectPath={actionsProjectPath}
+                onRunAction={runAction}
+              />
+            )}
+            {route === "app-permissions" && (
+              <PermissionsPage
+                projectPath={actionsProjectPath!}
+                showToast={showToast}
+              />
+            )}
+            {route === "app-config" && (
+              <ProjectConfigPage
+                projectPath={activeProjectPath}
+                onRunNpm={runNpm}
+                onRunNpx={runNpx}
+              />
+            )}
+            {route === "settings" && (
+              <SettingsPage
+                systemReport={systemReport}
+                isRefreshingSystemReport={isRefreshingSystemReport}
+                onRefreshSystemReport={async () => {
+                  if (db) await runBackgroundChecks(db);
+                }}
+                onBack={() => setRoute("home")}
+                onReSetup={() => setRoute("setup")}
+                onClearLogs={clearLogs}
+                onRunCommand={async (cmd, args) => {
+                  await runSettingsCommand(cmd, args);
+                }}
+                showToast={showToast}
+                theme={theme}
+              />
+            )}
+
+            {route === "activity" && (
+              <ActivityPage db={db} lastActivityTime={lastActivityTime} />
+            )}
+
+            <DiscoverModal
+              open={discoverOpen}
+              loading={discoverLoading}
+              results={discoverResults}
               projects={projects}
               db={db}
-              systemReport={systemReport}
-              lastActivityTime={lastActivityTime}
-              onAddProject={browseAndAddProject}
-              onCreateProject={() => setRoute("create")}
-              onOpenDoctor={runDoctor}
-              onViewAllProjects={() => setRoute("projects")}
-              onViewAllActivities={() => setRoute("activity")}
-              onOpenProject={handleOpenActions}
-              onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-              onRunNpm={runNpm}
-              onRefreshSystemReport={async () => {
-                if (db) await runBackgroundChecks(db);
-              }}
-              isRefreshingSystemReport={isRefreshingSystemReport}
+              onClose={() => setDiscoverOpen(false)}
+              onImport={handleImportProject}
             />
-          )}
-
-          {route === "projects" && (
-            <ProjectsPage
-              projects={projects}
-              activeProjectPath={activeProjectPath}
-              onSelectProject={handleSelectProject}
-              onScanFolder={scanAndDiscoverProjects}
-              onAddProject={browseAndAddProject}
-              onCreateProject={() => setRoute("create")}
-              onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
-              onOpenActions={handleOpenActions}
-              onRemoveProject={removeProject}
-              onRefresh={() => db && refreshProjects(db, false, true)}
-            />
-          )}
-
-          {route === "create" && (
-            <CreateProjectPage
-              onBack={() => setRoute("home")}
-              onCreate={handleCreateProject}
-              onProjectCreated={() => setRoute("app-actions")}
-              isCreating={createLoading}
-              logs={logText}
-            />
-          )}
-
-          {route === "app-platform-config" && (
-            <PlatformConfigPage projectPath={actionsProjectPath} />
-          )}
-
-          {route === "app-actions" && (
-            <DashboardPage
-              projects={projects}
-              projectPath={actionsProjectPath}
-              setProjectPath={setActionsProjectPath}
-              running={actionsRunning}
-              systemReport={systemReport}
-              onOpenBuildModal={() => setIsBuildModalOpen(true)}
-              onOpenRunModal={(platform, action) => {
-                setRunModalPlatform(platform);
-                setRunModalAction(action || "run");
-                setIsRunModalOpen(true);
-              }}
-              onRunAction={async (action, deviceId, config) => {
-                await runAction(action, deviceId, config);
-              }}
-              currentAction={currentAction}
-              onRunNpm={runNpm}
-              setRoute={setRoute}
-              onRefreshProject={reAnalyzeProject}
-              isMac={isMac}
-              platformStatus={platformStatus}
-            />
-          )}
-
-          {/* Application Tools */}
-          {route === "app-plugins" && (
-            <PluginsPage
-              projectPath={actionsProjectPath}
-              onInstall={(pluginName) =>
-                runAction("plugin-add", undefined, undefined, pluginName)
-              }
-              onUninstall={(pluginName) =>
-                runAction("plugin-remove", undefined, undefined, pluginName)
-              }
-              isRunning={actionsRunning}
-            />
-          )}
-          {route === "app-resources" && (
-            <ResourceConfigPage
-              projectPath={actionsProjectPath}
-              running={actionsRunning}
-              currentAction={currentAction}
-              onRunAction={async (action, sourcePath, backgroundColor) => {
-                await runAction(
-                  action,
-                  undefined,
-                  undefined,
-                  sourcePath,
-                  backgroundColor,
-                );
-              }}
-            />
-          )}
-          {route === "app-fonts" && (
-            <FontConfigPage
-              projectPath={actionsProjectPath}
-              onRunAction={runAction}
-            />
-          )}
-          {route === "app-permissions" && (
-            <PermissionsPage
-              projectPath={actionsProjectPath!}
-              showToast={showToast}
-            />
-          )}
-          {route === "app-config" && (
-            <ProjectConfigPage
-              projectPath={activeProjectPath}
-              onRunNpm={runNpm}
-              onRunNpx={runNpx}
-            />
-          )}
-          {route === "settings" && (
-            <SettingsPage
-              systemReport={systemReport}
-              isRefreshingSystemReport={isRefreshingSystemReport}
-              onRefreshSystemReport={async () => {
-                if (db) await runBackgroundChecks(db);
-              }}
-              onBack={() => setRoute("home")}
-              onReSetup={() => setRoute("setup")}
-              onClearLogs={clearLogs}
-              onRunCommand={async (cmd, args) => {
-                await runSettingsCommand(cmd, args);
-              }}
-              showToast={showToast}
-              theme={theme}
-            />
-          )}
-
-          {route === "activity" && (
-            <ActivityPage db={db} lastActivityTime={lastActivityTime} />
-          )}
-
-          <DiscoverModal
-            open={discoverOpen}
-            loading={discoverLoading}
-            results={discoverResults}
-            projects={projects}
-            db={db}
-            onClose={() => setDiscoverOpen(false)}
-            onImport={handleImportProject}
-          />
+          </Suspense>
         </AppShell>
       )}
 

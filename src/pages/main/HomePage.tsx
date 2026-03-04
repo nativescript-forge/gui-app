@@ -28,6 +28,7 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
+import { isAndroid, isIos } from "../../shared/platformDetection";
 import { ProjectDetailsModal } from "../../components/ProjectDetailsModal";
 import { FlavorIcon } from "../../components/FlavorIcon";
 
@@ -207,9 +208,9 @@ function ProjectCard({
       {/* Platforms Overlay (Top Right) */}
       <div className="absolute top-2 right-2 flex gap-1">
         {parsePlatforms(project.platforms).map((plat) => {
-          const isAndroid = plat.toLowerCase().includes("android");
-          const isIOS = plat.toLowerCase().includes("ios");
-          if (!isAndroid && !isIOS) return null;
+          const android = isAndroid(plat);
+          const ios = isIos(plat);
+          if (!android && !ios) return null;
           return (
             <div
               key={plat}
@@ -217,8 +218,8 @@ function ProjectCard({
                 isActive ? "bg-primary text-white" : "bg-base-200 opacity-40"
               }`}
             >
-              {isAndroid && <FaAndroid />}
-              {isIOS && <FaApple />}
+              {android && <FaAndroid />}
+              {ios && <FaApple />}
             </div>
           );
         })}

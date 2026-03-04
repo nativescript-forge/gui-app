@@ -32,8 +32,20 @@ import {
 import { SiAndroid, SiApple } from "react-icons/si";
 import { LuRocket } from "react-icons/lu";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { PlatformStatus } from "../../shared/platformDetection";
+import {
+  PlatformStatus,
+  isAndroid,
+  isIos,
+} from "../../shared/platformDetection";
 import { FlavorIcon } from "../../components/FlavorIcon";
+import { exists, readTextFile } from "@tauri-apps/plugin-fs";
+
+export interface InstalledPlugin {
+  name: string;
+  version: string;
+  type: "plugin" | "common module";
+  source: "Dependencies" | "Dev Dependencies";
+}
 
 export type DashboardPageProps = {
   projects: ProjectRow[];
@@ -111,6 +123,12 @@ export function DashboardPage(props: DashboardPageProps) {
   >({});
   const [bulkUpdatingPackages, setBulkUpdatingPackages] = useState(false);
   const [packageJsonError, setPackageJsonError] = useState<string | null>(null);
+  const [installedPlugins, setInstalledPlugins] = useState<InstalledPlugin[]>(
+    [],
+  );
+  const [modalTab, setModalTab] = useState<"plugins" | "common" | "dev">(
+    "plugins",
+  );
 
   useEffect(() => {
     const fetchProjectIcon = async () => {
@@ -255,10 +273,49 @@ export function DashboardPage(props: DashboardPageProps) {
     setPackageChecks({});
     setPackageJsonError(null);
 
+    // Initial small delay to let page transition finish
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    if (packageCheckRunIdRef.current !== runId) return;
+
     try {
-      const all = (await invoke("get_project_packages", {
-        projectPath: path,
-      })) as Record<string, string>;
+      // Use scan_ns_plugins for better data consistency with PluginsPage
+      let scannedPlugins: InstalledPlugin[] = [];
+
+      try {
+        const configDir = await join(path, ".nsforge", "configs");
+        const pluginsJsonPath = await join(configDir, "plugins.json");
+
+        if (await exists(pluginsJsonPath)) {
+          const content = await readTextFile(pluginsJsonPath);
+          scannedPlugins = JSON.parse(content);
+        } else {
+          scannedPlugins = await invoke<InstalledPlugin[]>("scan_ns_plugins", {
+            projectPath: path,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch plugins from scan_ns_plugins:", err);
+        // Fallback to basic package retrieval if scan fails
+        const basicPackages = (await invoke("get_project_packages", {
+          projectPath: path,
+        })) as Record<string, string>;
+        scannedPlugins = Object.entries(basicPackages).map(
+          ([name, version]) => ({
+            name,
+            version,
+            type: "common module",
+            source: "Dependencies",
+          }),
+        );
+      }
+
+      setInstalledPlugins(scannedPlugins);
+
+      // Map to Record<string, string> for compatibility with existing check logic
+      const all: Record<string, string> = {};
+      scannedPlugins.forEach((p) => {
+        all[p.name] = p.version;
+      });
       setProjectPackages(all);
 
       const names = Object.keys(all).sort((a, b) => a.localeCompare(b));
@@ -272,50 +329,52 @@ export function DashboardPage(props: DashboardPageProps) {
       );
 
       const queue = [...names];
-      const workerCount = Math.min(8, queue.length);
-      const workers = Array.from({ length: workerCount }).map(async () => {
-        while (queue.length > 0) {
-          const name = queue.shift();
-          if (!name) break;
-          try {
-            const latest = await getLatestFromRegistry(name);
-            if (packageCheckRunIdRef.current !== runId) return;
-            setPackageChecks((prev) => {
-              const current = prev[name]?.currentRange ?? all[name] ?? "";
-              const currentSemver = normalizeSemver(current);
-              const latestSemver = normalizeSemver(latest);
-              const isOutdated =
-                latest != null &&
-                currentSemver != null &&
-                latestSemver != null &&
-                compareSemver(currentSemver, latestSemver) < 0;
-              return {
-                ...prev,
-                [name]: {
-                  currentRange: current,
-                  latest,
-                  status: isOutdated ? "outdated" : "upToDate",
-                },
-              };
-            });
-          } catch {
-            if (packageCheckRunIdRef.current !== runId) return;
-            setPackageChecks((prev) => {
-              const current = prev[name]?.currentRange ?? all[name] ?? "";
-              return {
-                ...prev,
-                [name]: {
-                  currentRange: current,
-                  latest: null,
-                  status: "error",
-                },
-              };
-            });
-          }
-        }
-      });
-
-      await Promise.all(workers);
+      // Process in smaller batches
+      for (let i = 0; i < queue.length; i += 4) {
+        if (packageCheckRunIdRef.current !== runId) return;
+        const batch = queue.slice(i, i + 4);
+        await Promise.all(
+          batch.map(async (name) => {
+            try {
+              const latest = await getLatestFromRegistry(name);
+              if (packageCheckRunIdRef.current !== runId) return;
+              setPackageChecks((prev) => {
+                const current = prev[name]?.currentRange ?? all[name] ?? "";
+                const currentSemver = normalizeSemver(current);
+                const latestSemver = normalizeSemver(latest);
+                const isOutdated =
+                  latest != null &&
+                  currentSemver != null &&
+                  latestSemver != null &&
+                  compareSemver(currentSemver, latestSemver) < 0;
+                return {
+                  ...prev,
+                  [name]: {
+                    currentRange: current,
+                    latest,
+                    status: isOutdated ? "outdated" : "upToDate",
+                  },
+                };
+              });
+            } catch {
+              if (packageCheckRunIdRef.current !== runId) return;
+              setPackageChecks((prev) => {
+                const current = prev[name]?.currentRange ?? all[name] ?? "";
+                return {
+                  ...prev,
+                  [name]: {
+                    currentRange: current,
+                    latest: null,
+                    status: "error",
+                  },
+                };
+              });
+            }
+          }),
+        );
+        // Small yield between batches to keep UI responsive
+        await new Promise((r) => setTimeout(r, 50));
+      }
     } catch (err) {
       console.error("Failed to check project packages:", err);
       if (packageCheckRunIdRef.current === runId) {
@@ -491,6 +550,98 @@ export function DashboardPage(props: DashboardPageProps) {
     return "healthy";
   }, [checkingPackages, packageChecks, outdatedPackages]);
 
+  const renderPackageRow = (pkg: InstalledPlugin) => {
+    const currentRange = projectPackages[pkg.name] ?? null;
+    const check = packageChecks[pkg.name];
+    const isLoading = checkingPackages || check?.status === "loading";
+    const isOutdated = check?.status === "outdated";
+    const isUpdating = updatingPackages[pkg.name] || false;
+
+    return (
+      <div
+        key={pkg.name}
+        className="flex items-center justify-between gap-4 bg-base-200/40 border border-base-200/60 rounded-2xl px-5 py-4 group hover:bg-base-200/70 hover:border-primary/30 transition-all hover:shadow-sm"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="text-sm font-bold truncate text-base-content/90">
+              {pkg.name}
+            </div>
+          </div>
+          <div className="text-xs font-mono flex items-center gap-2">
+            {currentRange ? (
+              isLoading ? (
+                <span className="flex items-center gap-2 text-primary font-medium">
+                  <span className="loading loading-spinner loading-[12px]"></span>
+                  Checking…
+                </span>
+              ) : isOutdated ? (
+                <span className="flex items-center gap-2">
+                  <span className="text-warning font-medium line-through decoration-warning/30">
+                    {currentRange}
+                  </span>
+                  <FiArrowUpCircle className="w-3 h-3 text-success" />
+                  <span className="text-success font-bold bg-success/20 px-1.5 py-0.5 rounded text-[10px]">
+                    {check?.latest}
+                  </span>
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 text-base-content/60">
+                  <span className="font-medium">{currentRange}</span>
+                  <span className="text-[10px] text-success font-black uppercase tracking-wider flex items-center gap-1 bg-success/20 px-1.5 py-0.5 rounded">
+                    <FiCheckCircle className="w-3 h-3" />
+                    latest
+                  </span>
+                </span>
+              )
+            ) : (
+              <span className="text-base-content/30 font-medium italic text-xs">
+                N/A
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          {isOutdated && (
+            <button
+              type="button"
+              className="btn btn-sm btn-primary rounded-xl px-4 h-9 gap-2 shadow-lg shadow-primary/30 hover:scale-105 transition-all"
+              disabled={props.running || isUpdating || bulkUpdatingPackages}
+              onClick={() => updateSinglePackage(pkg.name)}
+            >
+              {isUpdating ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <FiArrowUpCircle className="w-4 h-4" />
+              )}
+              <span className="text-[10px] font-black uppercase tracking-wider">
+                Update
+              </span>
+            </button>
+          )}
+          <span
+            className={`badge badge-sm font-black border-none px-2.5 py-3 rounded-lg text-[10px] ${
+              check?.status === "upToDate"
+                ? "bg-success/20 text-success"
+                : check?.status === "outdated"
+                  ? "bg-warning/20 text-warning"
+                  : check?.status === "error"
+                    ? "bg-error/20 text-error"
+                    : "bg-base-300 text-base-content/60"
+            } opacity-80 group-hover:opacity-100 transition-opacity shadow-sm`}
+          >
+            {check?.status === "loading"
+              ? "…"
+              : check?.status === "upToDate"
+                ? "UP TO DATE"
+                : (check?.status || "WAIT").toUpperCase()}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   if (!props.projectPath) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center px-6">
@@ -527,7 +678,7 @@ export function DashboardPage(props: DashboardPageProps) {
   return (
     <div className="flex flex-col gap-5 pb-10">
       {/* Compact Header & Quick Actions */}
-      <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-6 md:p-8 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 relative overflow-hidden shadow-sm">
+      <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-6 md:p-8 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 relative shadow-sm">
         <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
           <FiPackage className="w-32 h-32" />
         </div>
@@ -612,41 +763,28 @@ export function DashboardPage(props: DashboardPageProps) {
                   <span className="text-sm font-bold opacity-30">None</span>
                 ) : (
                   projectPlatforms.map((p) => {
-                    const status = p.toLowerCase().includes("android")
+                    const status = isAndroid(p)
                       ? platformStatus.android
                       : platformStatus.ios;
                     return (
                       <div
                         key={p}
-                        className="dropdown dropdown-hover dropdown-bottom dropdown-end"
+                        className="tooltip tooltip-left before:text-[10px] before:font-bold z-20"
+                        data-tip={
+                          status.available
+                            ? `Platform ${p} is ready to use.`
+                            : status.reason || `Platform ${p} is not available.`
+                        }
                       >
-                        <label tabIndex={0} className="cursor-help">
-                          {p.includes("android") ? (
-                            <SiAndroid
-                              className={`w-5 h-5 transition-colors ${status.available ? "text-success" : "text-error opacity-40"}`}
-                            />
-                          ) : p.includes("ios") ? (
-                            <SiApple
-                              className={`w-5 h-5 transition-colors ${status.available ? "text-base-content" : "text-error opacity-40"}`}
-                            />
-                          ) : null}
-                        </label>
-                        <div
-                          tabIndex={0}
-                          className="dropdown-content z-[20] card card-compact w-64 p-4 shadow-2xl bg-base-100 border border-base-200 mt-2"
-                        >
-                          <div
-                            className={`font-black mb-1.5 text-sm uppercase tracking-wider ${status.available ? "text-success" : "text-error"}`}
-                          >
-                            {p.toUpperCase()} Platform
-                          </div>
-                          <p className="text-xs font-semibold opacity-70 leading-relaxed">
-                            {status.available
-                              ? `Platform ${p} is ready to use.`
-                              : status.reason ||
-                                `Platform ${p} is not available.`}
-                          </p>
-                        </div>
+                        {isAndroid(p) ? (
+                          <SiAndroid
+                            className={`w-5 h-5 transition-colors ${status.available ? "text-success" : "text-error opacity-40"}`}
+                          />
+                        ) : isIos(p) ? (
+                          <SiApple
+                            className={`w-5 h-5 transition-colors ${status.available ? "text-base-content" : "text-error opacity-40"}`}
+                          />
+                        ) : null}
                       </div>
                     );
                   })
@@ -808,10 +946,25 @@ export function DashboardPage(props: DashboardPageProps) {
                 </div>
                 <div>
                   <div className="text-xs font-black uppercase tracking-wider">
-                    Plugins
+                    Core Context
                   </div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    {activeProject?.plugins_count || 0} packages installed
+                  <div className="text-[10px] opacity-50 font-bold flex flex-wrap gap-x-2">
+                    <span>
+                      {
+                        installedPlugins.filter((p) => p.type === "plugin")
+                          .length
+                      }{" "}
+                      plugins
+                    </span>
+                    <span className="opacity-30">|</span>
+                    <span>
+                      {
+                        installedPlugins.filter(
+                          (p) => p.type === "common module",
+                        ).length
+                      }{" "}
+                      modules
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1031,8 +1184,8 @@ export function DashboardPage(props: DashboardPageProps) {
                   <h3 className="font-extrabold text-2xl tracking-tight text-base-content">
                     Environment Report
                   </h3>
-                  <p className="text-[10px] text-base-content/40 font-black uppercase tracking-[0.2em] mt-1.5">
-                    Package Dependencies Comparison
+                  <p className="text-[10px] text-base-content/40 font-black uppercase tracking-[0.2em] mt-1.5 leading-relaxed">
+                    Comparison of NativeScript Plugins and Modules
                   </p>
                 </div>
               </div>
@@ -1102,17 +1255,96 @@ export function DashboardPage(props: DashboardPageProps) {
               </section>
 
               <section>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <h4 className="text-lg font-bold text-base-content flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                      <FiPackage className="w-4 h-4" />
-                    </div>
-                    Installed Packages
-                  </h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-6">
+                  <div className="flex items-center gap-1 bg-base-200/50 p-1 rounded-2xl border border-base-200/80">
+                    <button
+                      className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                        modalTab === "plugins"
+                          ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                          : "btn-ghost opacity-50 hover:opacity-100"
+                      }`}
+                      onClick={() => setModalTab("plugins")}
+                    >
+                      <FiPackage className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">
+                        Plugins
+                      </span>
+                      <span
+                        className={`badge badge-xs font-bold border-none px-1 ${
+                          modalTab === "plugins"
+                            ? "bg-primary-content/20 text-primary-content"
+                            : "bg-base-300 text-base-content/40"
+                        }`}
+                      >
+                        {
+                          installedPlugins.filter(
+                            (p) =>
+                              p.type === "plugin" &&
+                              p.source === "Dependencies",
+                          ).length
+                        }
+                      </span>
+                    </button>
+                    <button
+                      className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                        modalTab === "common"
+                          ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                          : "btn-ghost opacity-50 hover:opacity-100"
+                      }`}
+                      onClick={() => setModalTab("common")}
+                    >
+                      <FiLayers className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">
+                        Modules
+                      </span>
+                      <span
+                        className={`badge badge-xs font-bold border-none px-1 ${
+                          modalTab === "common"
+                            ? "bg-primary-content/20 text-primary-content"
+                            : "bg-base-300 text-base-content/40"
+                        }`}
+                      >
+                        {
+                          installedPlugins.filter(
+                            (p) =>
+                              p.type === "common module" &&
+                              p.source === "Dependencies",
+                          ).length
+                        }
+                      </span>
+                    </button>
+                    <button
+                      className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                        modalTab === "dev"
+                          ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                          : "btn-ghost opacity-50 hover:opacity-100"
+                      }`}
+                      onClick={() => setModalTab("dev")}
+                    >
+                      <FiCpu className="w-3.5 h-3.5" />
+                      <span className="text-[10px] font-black uppercase tracking-wider">
+                        Dev
+                      </span>
+                      <span
+                        className={`badge badge-xs font-bold border-none px-1 ${
+                          modalTab === "dev"
+                            ? "bg-primary-content/20 text-primary-content"
+                            : "bg-base-300 text-base-content/40"
+                        }`}
+                      >
+                        {
+                          installedPlugins.filter(
+                            (p) => p.source === "Dev Dependencies",
+                          ).length
+                        }
+                      </span>
+                    </button>
+                  </div>
+
                   {outdatedPackages.length > 0 && (
                     <button
                       type="button"
-                      className="btn btn-sm btn-primary rounded-xl px-4 h-10 gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all"
+                      className="btn btn-sm btn-primary rounded-xl px-6 h-11 gap-3 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                       disabled={
                         props.running ||
                         bulkUpdatingPackages ||
@@ -1127,8 +1359,8 @@ export function DashboardPage(props: DashboardPageProps) {
                       ) : (
                         <FiArrowUpCircle className="w-4 h-4" />
                       )}
-                      <span className="text-xs font-bold uppercase tracking-wide">
-                        Update All Outdated
+                      <span className="text-[11px] font-black uppercase tracking-wider">
+                        Update All Packages
                       </span>
                     </button>
                   )}
@@ -1142,105 +1374,75 @@ export function DashboardPage(props: DashboardPageProps) {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3">
-                    {Object.keys(projectPackages)
-                      .sort((a, b) => a.localeCompare(b))
-                      .map((name) => {
-                        const currentRange = projectPackages[name] ?? null;
-                        const check = packageChecks[name];
-                        const isLoading =
-                          checkingPackages || check?.status === "loading";
-                        const isOutdated = check?.status === "outdated";
-                        const isUpdating = updatingPackages[name] || false;
-
-                        return (
-                          <div
-                            key={name}
-                            className="flex items-center justify-between gap-4 bg-base-200/40 border border-base-200/60 rounded-2xl px-5 py-4 group hover:bg-base-200/70 hover:border-primary/30 transition-all hover:shadow-sm"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-bold truncate mb-1 text-base-content/90">
-                                {name}
-                              </div>
-                              <div className="text-xs font-mono flex items-center gap-2">
-                                {currentRange ? (
-                                  isLoading ? (
-                                    <span className="flex items-center gap-2 text-primary font-medium">
-                                      <span className="loading loading-spinner loading-[12px]"></span>
-                                      Checking…
-                                    </span>
-                                  ) : isOutdated ? (
-                                    <span className="flex items-center gap-2">
-                                      <span className="text-warning font-medium line-through decoration-warning/30">
-                                        {currentRange}
-                                      </span>
-                                      <FiArrowUpCircle className="w-3 h-3 text-success" />
-                                      <span className="text-success font-bold bg-success/20 px-1.5 py-0.5 rounded text-[10px]">
-                                        {check?.latest}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-2 text-base-content/60">
-                                      <span className="font-medium">
-                                        {currentRange}
-                                      </span>
-                                      <span className="text-[10px] text-success font-black uppercase tracking-wider flex items-center gap-1 bg-success/20 px-1.5 py-0.5 rounded">
-                                        <FiCheckCircle className="w-3 h-3" />
-                                        latest
-                                      </span>
-                                    </span>
-                                  )
-                                ) : (
-                                  <span className="text-base-content/30 font-medium italic text-xs">
-                                    N/A
-                                  </span>
-                                )}
-                              </div>
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* group 1: dep plugin */}
+                    {modalTab === "plugins" && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {installedPlugins
+                            .filter(
+                              (p) =>
+                                p.type === "plugin" &&
+                                p.source === "Dependencies",
+                            )
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((pkg) => renderPackageRow(pkg))}
+                          {installedPlugins.filter(
+                            (p) =>
+                              p.type === "plugin" &&
+                              p.source === "Dependencies",
+                          ).length === 0 && (
+                            <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                              No NativeScript Plugins found
                             </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                            <div className="flex items-center gap-3 shrink-0">
-                              {isOutdated && (
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-primary rounded-xl px-4 h-9 gap-2 shadow-lg shadow-primary/30 hover:scale-105 transition-all"
-                                  disabled={
-                                    props.running ||
-                                    isUpdating ||
-                                    bulkUpdatingPackages
-                                  }
-                                  onClick={() => updateSinglePackage(name)}
-                                >
-                                  {isUpdating ? (
-                                    <span className="loading loading-spinner loading-xs"></span>
-                                  ) : (
-                                    <FiArrowUpCircle className="w-4 h-4" />
-                                  )}
-                                  <span className="text-[10px] font-black uppercase tracking-wider">
-                                    Update
-                                  </span>
-                                </button>
-                              )}
-                              <span
-                                className={`badge badge-sm font-black border-none px-2.5 py-3 rounded-lg text-[10px] ${
-                                  check?.status === "upToDate"
-                                    ? "bg-success/20 text-success"
-                                    : check?.status === "outdated"
-                                      ? "bg-warning/20 text-warning"
-                                      : check?.status === "error"
-                                        ? "bg-error/20 text-error"
-                                        : "bg-base-300 text-base-content/60"
-                                } opacity-80 group-hover:opacity-100 transition-opacity shadow-sm`}
-                              >
-                                {check?.status === "loading"
-                                  ? "…"
-                                  : check?.status === "upToDate"
-                                    ? "UP TO DATE"
-                                    : (check?.status || "WAIT").toUpperCase()}
-                              </span>
+                    {/* group 2: dep common module */}
+                    {modalTab === "common" && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {installedPlugins
+                            .filter(
+                              (p) =>
+                                p.type === "common module" &&
+                                p.source === "Dependencies",
+                            )
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((pkg) => renderPackageRow(pkg))}
+                          {installedPlugins.filter(
+                            (p) =>
+                              p.type === "common module" &&
+                              p.source === "Dependencies",
+                          ).length === 0 && (
+                            <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                              No Modules found
                             </div>
-                          </div>
-                        );
-                      })}
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* group 3: dev module */}
+                    {modalTab === "dev" && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {installedPlugins
+                            .filter((p) => p.source === "Dev Dependencies")
+                            .sort((a, b) => a.name.localeCompare(b.name))
+                            .map((pkg) => renderPackageRow(pkg))}
+                          {installedPlugins.filter(
+                            (p) => p.source === "Dev Dependencies",
+                          ).length === 0 && (
+                            <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                              No Development Modules found
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </section>

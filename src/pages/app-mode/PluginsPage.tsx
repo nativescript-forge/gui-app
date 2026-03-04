@@ -141,6 +141,9 @@ export function PluginsPage({
   const [installedPackages, setInstalledPackages] = useState<
     Record<string, string>
   >({});
+  const [installedSubTab, setInstalledSubTab] = useState<
+    "plugins" | "common" | "dev"
+  >("plugins");
 
   const fetchPlugins = async () => {
     setLoading(true);
@@ -399,10 +402,23 @@ export function PluginsPage({
   const totalPages = Math.ceil(filteredMarketplace.length / itemsPerPage);
 
   const installedPluginsList = useMemo(() => {
-    if (!searchQuery) return installedPlugins;
+    let list = installedPlugins;
+    if (installedSubTab === "plugins") {
+      list = list.filter(
+        (p) => p.type === "plugin" && p.source === "Dependencies",
+      );
+    } else if (installedSubTab === "common") {
+      list = list.filter(
+        (p) => p.type === "common module" && p.source === "Dependencies",
+      );
+    } else if (installedSubTab === "dev") {
+      list = list.filter((p) => p.source === "Dev Dependencies");
+    }
+
+    if (!searchQuery) return list;
     const q = searchQuery.toLowerCase();
-    return installedPlugins.filter((p) => p.name.toLowerCase().includes(q));
-  }, [installedPlugins, searchQuery]);
+    return list.filter((p) => p.name.toLowerCase().includes(q));
+  }, [installedPlugins, searchQuery, installedSubTab]);
 
   const handleInstall = (name: string) => {
     setProcessingPlugin(name);
@@ -773,85 +789,169 @@ export function PluginsPage({
           ))}
         </div>
       ) : (
-        <div className="space-y-4">
-          {installedPluginsList.length > 0 ? (
-            <div className="grid grid-cols-1 gap-3">
-              {installedPluginsList.map((pkg) => {
-                const isCurrentProcessing = processingPlugin === pkg.name;
-                return (
-                  <div
-                    key={pkg.name}
-                    className="flex items-center justify-between p-4 bg-base-100 border border-base-200 rounded-2xl hover:border-primary/20 transition-all shadow-sm"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div
-                        className={`p-3 rounded-xl ${pkg.type === "plugin" ? "bg-primary/5 text-primary" : "bg-base-300 text-base-content/50"}`}
-                      >
-                        <FiPackage className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold">{pkg.name}</h4>
-                          <span
-                            className={`badge badge-xs font-bold uppercase ${pkg.source === "Dependencies" ? "badge-primary" : "badge-ghost opacity-50"}`}
-                          >
-                            {pkg.source === "Dependencies" ? "Dep" : "Dev"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="badge badge-sm badge-ghost opacity-60 font-mono">
-                            {pkg.version}
-                          </span>
-                          <span
-                            className={`text-[10px] uppercase font-black tracking-widest ${pkg.type === "plugin" ? "text-primary opacity-80" : "opacity-20"}`}
-                          >
-                            {pkg.type === "plugin"
-                              ? "NativeScript Plugin"
-                              : "Common Module"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleUninstall(pkg.name)}
-                        disabled={isRunning}
-                        className="btn btn-ghost btn-sm text-error hover:bg-error/10 px-4 rounded-lg"
-                      >
-                        {isCurrentProcessing && isRunning ? (
-                          <span className="loading loading-spinner loading-xs"></span>
-                        ) : (
-                          <>
-                            <FiTrash2 className="w-3 h-3 mr-1" /> Uninstall
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="py-20 text-center bg-base-100 rounded-3xl border border-dashed border-base-300">
-              <div className="p-4 rounded-full bg-base-200 inline-block opacity-50 mb-4">
-                <FiPackage className="h-12 w-12" />
-              </div>
-              <h3 className="text-lg font-bold">No plugins installed</h3>
-              <p className="text-sm opacity-50 mt-2">
-                Go to Discover to find and install plugins.
-              </p>
+        <div className="space-y-6">
+          {activeTab === "installed" && (
+            <div className="flex items-center gap-1 bg-base-200/50 p-1 rounded-2xl border border-base-content/5 w-fit">
+              <button
+                className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                  installedSubTab === "plugins"
+                    ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                    : "btn-ghost opacity-50 hover:opacity-100"
+                }`}
+                onClick={() => setInstalledSubTab("plugins")}
+              >
+                <FiPackage className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-black uppercase tracking-wider">
+                  Plugins
+                </span>
+                <span
+                  className={`badge badge-xs font-bold border-none px-1 ${
+                    installedSubTab === "plugins"
+                      ? "bg-primary-content/20 text-primary-content"
+                      : "bg-base-300 text-base-content/40"
+                  }`}
+                >
+                  {
+                    installedPlugins.filter(
+                      (p) => p.type === "plugin" && p.source === "Dependencies",
+                    ).length
+                  }
+                </span>
+              </button>
+              <button
+                className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                  installedSubTab === "common"
+                    ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                    : "btn-ghost opacity-50 hover:opacity-100"
+                }`}
+                onClick={() => setInstalledSubTab("common")}
+              >
+                <FiLayout className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-black uppercase tracking-wider">
+                  Modules
+                </span>
+                <span
+                  className={`badge badge-xs font-bold border-none px-1 ${
+                    installedSubTab === "common"
+                      ? "bg-primary-content/20 text-primary-content"
+                      : "bg-base-300 text-base-content/40"
+                  }`}
+                >
+                  {
+                    installedPlugins.filter(
+                      (p) =>
+                        p.type === "common module" &&
+                        p.source === "Dependencies",
+                    ).length
+                  }
+                </span>
+              </button>
+              <button
+                className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                  installedSubTab === "dev"
+                    ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                    : "btn-ghost opacity-50 hover:opacity-100"
+                }`}
+                onClick={() => setInstalledSubTab("dev")}
+              >
+                <FiCpu className="w-3.5 h-3.5" />
+                <span className="text-[10px] font-black uppercase tracking-wider">
+                  Dev
+                </span>
+                <span
+                  className={`badge badge-xs font-bold border-none px-1 ${
+                    installedSubTab === "dev"
+                      ? "bg-primary-content/20 text-primary-content"
+                      : "bg-base-300 text-base-content/40"
+                  }`}
+                >
+                  {
+                    installedPlugins.filter(
+                      (p) => p.source === "Dev Dependencies",
+                    ).length
+                  }
+                </span>
+              </button>
             </div>
           )}
 
-          <div className="mt-8 p-6 bg-primary/5 rounded-3xl border border-primary/10 flex gap-4">
-            <FiInfo className="w-6 h-6 text-primary shrink-0 mt-1" />
-            <div>
-              <h4 className="font-bold text-primary">About Uninstallation</h4>
-              <p className="text-sm opacity-70 mt-1 leading-relaxed">
-                Only identified NativeScript plugins can be uninstalled from
-                this view to protect your project's core dependencies. If you
-                need to remove other packages, please use the terminal.
-              </p>
+          <div className="space-y-4">
+            {installedPluginsList.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3">
+                {installedPluginsList.map((pkg) => {
+                  const isCurrentProcessing = processingPlugin === pkg.name;
+                  return (
+                    <div
+                      key={pkg.name}
+                      className="flex items-center justify-between p-4 bg-base-100 border border-base-200 rounded-2xl hover:border-primary/20 transition-all shadow-sm"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div
+                          className={`p-3 rounded-xl ${pkg.type === "plugin" ? "bg-primary/5 text-primary" : "bg-base-300 text-base-content/50"}`}
+                        >
+                          <FiPackage className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold">{pkg.name}</h4>
+                          </div>
+                          <div className="text-xs opacity-40 font-mono mt-0.5">
+                            {pkg.version}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleUninstall(pkg.name)}
+                          disabled={isRunning}
+                          className="btn btn-ghost btn-sm text-error hover:bg-error/10 px-4 rounded-lg"
+                        >
+                          {isCurrentProcessing && isRunning ? (
+                            <span className="loading loading-spinner loading-xs"></span>
+                          ) : (
+                            <>
+                              <FiTrash2 className="w-3 h-3 mr-1" /> Uninstall
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {installedPluginsList.length === 0 && (
+                  <div className="py-20 text-center bg-base-100 rounded-3xl border border-dashed border-base-300">
+                    <div className="p-4 rounded-full bg-base-200 inline-block opacity-50 mb-4">
+                      <FiSearch className="h-10 w-10" />
+                    </div>
+                    <h3 className="text-lg font-bold">No packages found</h3>
+                    <p className="text-sm opacity-50 mt-2">
+                      Try adjusting your search query or switch tabs.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="py-20 text-center bg-base-100 rounded-3xl border border-dashed border-base-300">
+                <div className="p-4 rounded-full bg-base-200 inline-block opacity-50 mb-4">
+                  <FiPackage className="h-12 w-12" />
+                </div>
+                <h3 className="text-lg font-bold">No plugins installed</h3>
+                <p className="text-sm opacity-50 mt-2">
+                  Go to Discover to find and install plugins.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-8 p-6 bg-primary/5 rounded-3xl border border-primary/10 flex gap-4">
+              <FiInfo className="w-6 h-6 text-primary shrink-0 mt-1" />
+              <div>
+                <h4 className="font-bold text-primary">About Uninstallation</h4>
+                <p className="text-sm opacity-70 mt-1 leading-relaxed">
+                  Only identified NativeScript plugins can be uninstalled from
+                  this view to protect your project's core dependencies. If you
+                  need to remove other packages, please use the terminal.
+                </p>
+              </div>
             </div>
           </div>
         </div>

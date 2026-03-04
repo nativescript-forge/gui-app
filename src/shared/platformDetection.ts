@@ -11,6 +11,14 @@ export interface PlatformStatus {
   };
 }
 
+export function isAndroid(platform: string): boolean {
+  return platform.toLowerCase().includes("android");
+}
+
+export function isIos(platform: string): boolean {
+  return platform.toLowerCase().includes("ios");
+}
+
 /**
  * Detects if Android and iOS platforms are available based on:
  * 1. package.json dependencies (@nativescript/android, @nativescript/ios)
@@ -21,6 +29,7 @@ export async function detectPlatforms(
   projectPath: string | null,
   packages: Record<string, string>,
   isMac: boolean,
+  knownPlatforms: string[] = [],
 ): Promise<PlatformStatus> {
   if (!projectPath) {
     return {
@@ -29,8 +38,11 @@ export async function detectPlatforms(
     };
   }
 
-  const hasAndroidPkg = !!packages["@nativescript/android"];
-  const hasIosPkg = !!packages["@nativescript/ios"];
+  const hasAndroidPkg =
+    !!packages["@nativescript/android"] ||
+    knownPlatforms.some((p) => isAndroid(p));
+  const hasIosPkg =
+    !!packages["@nativescript/ios"] || knownPlatforms.some((p) => isIos(p));
 
   let androidAvailable = false;
   let androidReason = "";

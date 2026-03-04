@@ -16,9 +16,9 @@ import {
   FiPackage,
   FiRefreshCw,
   FiInfo,
-  FiImage,
 } from "react-icons/fi";
 import { FaAndroid, FaApple } from "react-icons/fa";
+import { isAndroid, isIos } from "../../shared/platformDetection";
 
 type ProjectsPageProps = {
   projects: ProjectRow[];
@@ -30,6 +30,7 @@ type ProjectsPageProps = {
   onOpenFolder: (projectPath: string) => void;
   onOpenActions: (projectPath: string) => void;
   onRemoveProject: (projectPath: string) => void;
+  onRemoveAll: () => void;
   onRefresh: () => void;
 };
 
@@ -228,26 +229,6 @@ function ProjectCard({
             <FiExternalLink className="w-3.5 h-3.5" />
             Reveal in Explorer
           </button>
-          <button
-            className="w-full px-4 py-2 text-left text-xs hover:bg-primary hover:text-white flex items-center gap-2"
-            onClick={async () => {
-              try {
-                await invoke("set_project_folder_icon", {
-                  projectPath: project.path,
-                });
-                alert(
-                  "Folder icon updated! You may need to restart Explorer to see changes.",
-                );
-              } catch (err) {
-                console.error("Failed to set folder icon:", err);
-                alert("Failed to set folder icon: " + err);
-              }
-              setContextMenu(null);
-            }}
-          >
-            <FiImage className="w-3.5 h-3.5" />
-            Set Folder Icon
-          </button>
           <div className="h-px bg-base-200 my-1" />
           <button
             className="w-full px-4 py-2 text-left text-xs hover:bg-primary hover:text-white flex items-center gap-2"
@@ -282,10 +263,20 @@ export function ProjectsPage(props: ProjectsPageProps) {
     null,
   );
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showRemoveAllConfirm, setShowRemoveAllConfirm] = useState(false);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
     props.onRefresh();
+  };
+
+  const handleRemoveAll = () => {
+    setShowRemoveAllConfirm(true);
+  };
+
+  const confirmClearLibrary = () => {
+    props.onRemoveAll();
+    setShowRemoveAllConfirm(false);
   };
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -311,15 +302,15 @@ export function ProjectsPage(props: ProjectsPageProps) {
     return (
       <div className="flex gap-2">
         {platforms.map((plat) => {
-          const isAndroid = plat.toLowerCase().includes("android");
-          const isIOS = plat.toLowerCase().includes("ios");
+          const android = isAndroid(plat);
+          const ios = isIos(plat);
           return (
             <div
               key={plat}
               className="flex items-center gap-1 bg-base-300/50 px-1.5 py-0.5 rounded text-[10px] font-medium"
             >
-              {isAndroid && <FaAndroid className="h-2.5 w-2.5" />}
-              {isIOS && <FaApple className="h-2.5 w-2.5" />}
+              {android && <FaAndroid className="h-2.5 w-2.5" />}
+              {ios && <FaApple className="h-2.5 w-2.5" />}
               {plat}
             </div>
           );
@@ -342,38 +333,59 @@ export function ProjectsPage(props: ProjectsPageProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <div className="join">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm join-item"
+                onClick={props.onCreateProject}
+                title="Create New Project"
+              >
+                <FiPlus className="h-4 w-4" />
+                Create New
+              </button>
+              <button
+                type="button"
+                className="btn btn-neutral btn-sm join-item"
+                onClick={props.onAddProject}
+                title="Add Existing Project"
+              >
+                <FiFolderPlus className="h-4 w-4" />
+                Add Existing
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-base-300 mx-1 hidden sm:block" />
+
+            <div className="join">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm join-item"
+                onClick={handleRefresh}
+                title="Refresh project list"
+              >
+                <FiRefreshCw className="h-4 w-4 opacity-50 capitalize" />
+                Refresh
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm join-item"
+                onClick={props.onScanFolder}
+                title="Scan Folder"
+              >
+                <FiSearch className="h-4 w-4 opacity-50" />
+                Scan
+              </button>
+            </div>
+
             <button
               type="button"
-              className="btn btn-outline btn-sm gap-2"
-              onClick={handleRefresh}
-              title="Refresh project list and automatically update folder icons"
+              className="btn btn-ghost btn-sm text-error hover:bg-error/10"
+              onClick={handleRemoveAll}
+              title="Clear all projects from library"
+              disabled={props.projects.length === 0}
             >
-              <FiRefreshCw className="h-4 w-4" />
-              Refresh Projects
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={props.onCreateProject}
-            >
-              <FiPlus className="h-4 w-4" />
-              Create New
-            </button>
-            <button
-              type="button"
-              className="btn btn-neutral btn-sm"
-              onClick={props.onAddProject}
-            >
-              <FiFolderPlus className="h-4 w-4" />
-              Add Existing
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={props.onScanFolder}
-            >
-              <FiSearch className="h-4 w-4" />
-              Scan Folder
+              <FiTrash2 className="h-4 w-4" />
+              Clear Library
             </button>
           </div>
         </div>
@@ -478,6 +490,43 @@ export function ProjectsPage(props: ProjectsPageProps) {
             <button>close</button>
           </form>
         </dialog>
+
+        {/* Remove All Confirmation Modal */}
+        {showRemoveAllConfirm && (
+          <div className="modal modal-open">
+            <div className="modal-box border border-base-300 shadow-2xl">
+              <div className="flex items-center gap-4 mb-4 text-error">
+                <div className="p-3 rounded-full bg-error/10">
+                  <FiTrash2 className="h-6 w-6" />
+                </div>
+                <h3 className="font-bold text-lg">Clear Project Library?</h3>
+              </div>
+              <p className="py-2 opacity-70">
+                Are you sure you want to clear **ALL** projects from your
+                library? This action only removes them from the list, not from
+                your disk.
+              </p>
+              <div className="modal-action flex gap-2">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShowRemoveAllConfirm(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-error btn-sm"
+                  onClick={confirmClearLibrary}
+                >
+                  Yes, Clear Library
+                </button>
+              </div>
+            </div>
+            <div
+              className="modal-backdrop bg-black/40"
+              onClick={() => setShowRemoveAllConfirm(false)}
+            ></div>
+          </div>
+        )}
       </div>
     </div>
   );
