@@ -72,8 +72,15 @@ pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
+        
+        // Normalize path: replace / with \ and ensure it's a valid Windows path
+        let normalized_path = path.replace("/", "\\");
+        
+        // Use /select, to showcase the file/folder in its parent
+        // This is more reliable than just passing the path
         Command::new("explorer")
-            .arg(&path)
+            .arg("/select,")
+            .arg(&normalized_path)
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| e.to_string())?;

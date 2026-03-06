@@ -438,7 +438,7 @@ export function HomePage(props: HomePageProps) {
       if (props.onRunNpm) {
         // Run global upgrade. We can pass a dummy or specific path if needed,
         // but runNpm handles it if we pass cwd.
-        await props.onRunNpm(args, "");
+        await props.onRunNpm(args, ".");
 
         // Refresh system report after successful upgrade
         if (props.onRefreshSystemReport) {

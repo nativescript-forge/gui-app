@@ -64,15 +64,7 @@ export function GlobalTerminal({
   const handleRevealInExplorer = async () => {
     if (!buildOutputPath) return;
     try {
-      // Get directory path from file path
-      const dirPath = buildOutputPath.substring(
-        0,
-        Math.max(
-          buildOutputPath.lastIndexOf("\\"),
-          buildOutputPath.lastIndexOf("/"),
-        ),
-      );
-      await invoke("reveal_in_explorer", { path: dirPath });
+      await invoke("reveal_in_explorer", { path: buildOutputPath });
     } catch (err) {
       console.error("Failed to reveal in explorer:", err);
     }

@@ -81,7 +81,7 @@ const TEMPLATES = [
     label: "No Template",
     description: "Create a project without a predefined template",
     platforms: ["standard", "vision"],
-    flavors: ["js", "ts", "angular", "vue", "react", "solid", "svelte"],
+    flavors: ["js", "ts"], // "angular", "vue", "react", "solid", "svelte"
     previews: {},
   },
   // --- STANDARD PLATFORM TEMPLATES ---

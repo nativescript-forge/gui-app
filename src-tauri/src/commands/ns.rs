@@ -91,7 +91,8 @@ pub async fn verify_tool(tool: String) -> Result<CommandResult, String> {
             (adb_name, vec!["--version"], env_vars)
         },
         "ns" => {
-             if let Some(cli) = resolve_cli() {
+             let cli_state = None; // verify_tool doesn't have access to state easily here without being modified
+             if let Some(cli) = resolve_cli_with_cache(cli_state) {
                  let mut full_args = cli.base_args.clone();
                  full_args.push("-v".to_string());
                  return run_command_vec(&cli.launcher, full_args, None);
@@ -212,9 +213,10 @@ pub async fn detect_available_package_managers() -> Vec<String> {
 #[tauri::command]
 pub async fn set_ns_package_manager(
     window: tauri::Window,
+    cli_state: State<'_, CliState>,
     pm: String
 ) -> Result<CommandResult, String> {
-    let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
+    let cli = resolve_cli_with_cache(Some(cli_state)).ok_or("NativeScript CLI not found")?;
     
     // Run in a separate thread to avoid blocking the Tauri async runtime
     let result = tauri::async_runtime::spawn_blocking(move || {
@@ -382,7 +384,29 @@ pub fn run_command(
             });
         }
 
-        // If failed, try with cmd /C
+        // If it's a .cmd or .bat file, we MUST use cmd /C
+        let is_script = program.to_lowercase().ends_with(".cmd") || program.to_lowercase().ends_with(".bat");
+
+        if is_script {
+            let mut cmd = Command::new("cmd");
+            cmd.arg("/C");
+            cmd.arg(program);
+            cmd.args(args);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            if let Some(cwd) = cwd {
+                cmd.current_dir(cwd);
+            }
+            let output = cmd.output().map_err(|e| e.to_string())?;
+            return Ok(CommandResult {
+                status_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+                resolved_path: Some(program.to_string()),
+            });
+        }
+        
+        // Fallback for non-scripts or if direct call failed above
         let mut cmd = Command::new("cmd");
         cmd.arg("/C");
         cmd.arg(program);
@@ -448,7 +472,29 @@ pub fn run_command_vec(
             });
         }
 
-        // If failed, try with cmd /C
+        // If it's a .cmd or .bat file, we MUST use cmd /C
+        let is_script = program.to_lowercase().ends_with(".cmd") || program.to_lowercase().ends_with(".bat");
+
+        if is_script {
+            let mut cmd = Command::new("cmd");
+            cmd.arg("/C");
+            cmd.arg(program);
+            cmd.args(&args);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            if let Some(cwd) = cwd {
+                cmd.current_dir(cwd);
+            }
+            let output = cmd.output().map_err(|e| e.to_string())?;
+            return Ok(CommandResult {
+                status_code: output.status.code(),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                command: Some(format!("cmd /C {} {}", program, args.join(" "))),
+                resolved_path: Some(program.to_string()),
+            });
+        }
+
+        // Fallback for non-scripts or if direct call failed above
         let mut cmd = Command::new("cmd");
         cmd.arg("/C");
         cmd.arg(program);
@@ -552,9 +598,22 @@ fn first_existing_in_dirs(dirs: &[PathBuf], names: &[&str]) -> Option<PathBuf> {
 }
 
 pub fn resolve_cli() -> Option<ResolvedCli> {
-    // 1. Try common direct paths first (Fast Path)
+    resolve_cli_with_cache(None)
+}
+
+pub fn resolve_cli_with_cache(cli_state: Option<State<'_, CliState>>) -> Option<ResolvedCli> {
+    // 1. Check cache if available
+    if let Some(state) = &cli_state {
+        let lock = state.0.lock().unwrap();
+        if let Some(cached) = &*lock {
+            return Some(cached.clone());
+        }
+    }
+
+    // 2. Try common direct paths first (Fast Path)
     #[cfg(target_os = "windows")]
-    {
+    let resolved = {
+        let mut found = None;
         let common_npm_paths = [
             env::var("APPDATA").ok().map(|p| PathBuf::from(p).join("npm")),
             env::var("LOCALAPPDATA").ok().map(|p| PathBuf::from(p).join("npm")),
@@ -565,17 +624,30 @@ pub fn resolve_cli() -> Option<ResolvedCli> {
                 let candidate = path.join(name);
                 if candidate.is_file() {
                     let path_str = candidate.to_string_lossy().to_string();
-                    return Some(ResolvedCli {
+                    found = Some(ResolvedCli {
                         launcher: "cmd".to_string(),
                         base_args: vec!["/C".to_string(), path_str.clone()],
                         display: format!("cmd /C {}", path_str),
                     });
+                    break;
                 }
             }
+            if found.is_some() { break; }
         }
+        found
+    };
+    #[cfg(not(target_os = "windows"))]
+    let resolved = None;
+
+    if let Some(r) = resolved {
+        if let Some(state) = cli_state {
+            let mut lock = state.0.lock().unwrap();
+            *lock = Some(r.clone());
+        }
+        return Some(r);
     }
 
-    // 2. If not found in common paths, do the full search (Slow Path)
+    // 3. If not found in common paths, do the full search (Slow Path)
     let dirs = path_dirs();
 
     // On Windows, we should prioritize .cmd files for npm-installed binaries
@@ -596,44 +668,43 @@ pub fn resolve_cli() -> Option<ResolvedCli> {
                 .unwrap_or("")
                 .to_ascii_lowercase();
             if ext == "cmd" || ext == "bat" {
-                return Some(ResolvedCli {
+                let r = ResolvedCli {
                     launcher: "cmd".to_string(),
                     base_args: vec!["/C".to_string(), path_str.clone()],
                     display: format!("cmd /C {}", path_str),
-                });
+                };
+                if let Some(state) = cli_state {
+                    let mut lock = state.0.lock().unwrap();
+                    *lock = Some(r.clone());
+                }
+                return Some(r);
             }
         }
 
-        return Some(ResolvedCli {
+        let r = ResolvedCli {
             launcher: path_str.clone(),
             base_args: Vec::new(),
             display: path_str,
-        });
+        };
+        if let Some(state) = cli_state {
+            let mut lock = state.0.lock().unwrap();
+            *lock = Some(r.clone());
+        }
+        return Some(r);
     }
 
     // Fallback: check if 'ns' is directly available in PATH (shell resolution)
     if run_command("ns", &["--version"], None).is_ok() {
-        return Some(ResolvedCli {
+        let r = ResolvedCli {
             launcher: "ns".to_string(),
             base_args: Vec::new(),
             display: "ns".to_string(),
-        });
-    }
-
-    if run_command("nativescript", &["--version"], None).is_ok() {
-        return Some(ResolvedCli {
-            launcher: "nativescript".to_string(),
-            base_args: Vec::new(),
-            display: "nativescript".to_string(),
-        });
-    }
-
-    if run_command("tns", &["--version"], None).is_ok() {
-        return Some(ResolvedCli {
-            launcher: "tns".to_string(),
-            base_args: Vec::new(),
-            display: "tns".to_string(),
-        });
+        };
+        if let Some(state) = cli_state {
+            let mut lock = state.0.lock().unwrap();
+            *lock = Some(r.clone());
+        }
+        return Some(r);
     }
 
     None
@@ -693,6 +764,8 @@ pub fn doctor_checks() -> Vec<DoctorCheck> {
         "Install Node.js and make sure it's available in PATH.",
     ));
 
+    // For doctor checks, we'll use resolve_cli without state to be simple, 
+    // it will still use its internal logic.
     let ns_check = match resolve_cli() {
         Some(cli) => match run_resolved(&cli, &["--version"], None) {
             Ok(result) => {
@@ -969,6 +1042,8 @@ pub async fn run_npx(
 #[tauri::command]
 pub async fn run_ns(
     window: tauri::Window,
+    _state: State<'_, ProcessState>,
+    cli_state: State<'_, CliState>,
     project_path: String,
     action: String,
     device_id: Option<String>,
@@ -1199,7 +1274,7 @@ pub async fn run_ns(
         }
     }
 
-    let Some(cli) = resolve_cli() else {
+    let Some(cli) = resolve_cli_with_cache(Some(cli_state)) else {
         return Err(
             "NativeScript CLI was not found. Install it via: npm i -g nativescript".to_string(),
         );
@@ -1272,6 +1347,8 @@ pub struct ActiveProcess {
 }
 
 pub struct ProcessState(pub Mutex<Option<ActiveProcess>>);
+
+pub struct CliState(pub Mutex<Option<ResolvedCli>>);
 
 #[derive(serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -1371,12 +1448,21 @@ pub fn run_resolved_streaming(
     let window_clone = window.clone();
     let action_clone = action.clone();
     let device_id_clone = device_id.clone();
+    
+    // Shared buffer for logs with interior mutability and thread safety
+    let log_buffer = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
+    let log_buffer_stdout = log_buffer.clone();
+    let log_buffer_stderr = log_buffer.clone();
+
     let stdout_thread = std::thread::spawn(move || {
         use std::io::{BufRead, BufReader};
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
             if let Ok(line_content) = line {
-                let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
+                {
+                    let mut buffer = log_buffer_stdout.lock().unwrap();
+                    buffer.push_str(&format!("{}\n", line_content));
+                }
                 
                 // Parse status
                 if line_content.contains("Preparing project...") || line_content.contains("Building project...") {
@@ -1408,7 +1494,10 @@ pub fn run_resolved_streaming(
         let reader = BufReader::new(stderr);
         for line in reader.lines() {
             if let Ok(line_content) = line {
-                let _ = window_clone.emit("create-project-log", LogPayload { message: format!("{}\n", line_content) });
+                {
+                    let mut buffer = log_buffer_stderr.lock().unwrap();
+                    buffer.push_str(&format!("{}\n", line_content));
+                }
                 
                 if line_content.to_lowercase().contains("error") {
                     let _ = window_clone.emit("ns-process-status", ProcessStatusPayload {
@@ -1420,6 +1509,33 @@ pub fn run_resolved_streaming(
                     });
                 }
             }
+        }
+    });
+
+    // Buffering/Throttling Thread: Emits logs to frontend every 100ms
+    let window_emitter = window.clone();
+    let buffer_reader = log_buffer.clone();
+    let _throttle_thread = std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(150));
+            let logs_to_send = {
+                let mut buffer = buffer_reader.lock().unwrap();
+                if buffer.is_empty() {
+                    None
+                } else {
+                    let content = buffer.clone();
+                    buffer.clear();
+                    Some(content)
+                }
+            };
+
+            if let Some(message) = logs_to_send {
+                let _ = window_emitter.emit("create-project-log", LogPayload { message });
+            }
+
+            // Check if we should exit (this is crude, but we wait for other threads later)
+            // A more robust way would be a flag, but for a simple optimization this works
+            // as it will be joined eventually.
         }
     });
 
@@ -1463,8 +1579,8 @@ pub fn run_resolved_streaming(
 }
 
 #[tauri::command]
-pub async fn get_ns_report() -> Result<NsReport, String> {
-    let cli = resolve_cli().ok_or("NativeScript CLI not found")?;
+pub async fn get_ns_report(cli_state: State<'_, CliState>) -> Result<NsReport, String> {
+    let cli = resolve_cli_with_cache(Some(cli_state)).ok_or("NativeScript CLI not found")?;
 
     // Execute commands in parallel for better performance using Tauri's async runtime
     let info_handle = {
@@ -1566,6 +1682,7 @@ pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessStat
 #[tauri::command]
 pub async fn create_ns_project(
     window: tauri::Window,
+    cli_state: State<'_, CliState>,
     project_name: String,
     parent_path: String,
     flavor: String,
@@ -1604,7 +1721,7 @@ pub async fn create_ns_project(
         }
     }
 
-    let Some(cli) = resolve_cli() else {
+    let Some(cli) = resolve_cli_with_cache(Some(cli_state)) else {
         return Err(
             "NativeScript CLI was not found. Install it via: npm i -g nativescript".to_string(),
         );

@@ -3,7 +3,7 @@ mod commands;
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 use std::sync::Mutex;
-use commands::ns::ProcessState;
+use commands::ns::{ProcessState, CliState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -75,6 +75,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(ProcessState(Mutex::new(None)))
+        .manage(CliState(Mutex::new(None)))
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_sql::Builder::default()
