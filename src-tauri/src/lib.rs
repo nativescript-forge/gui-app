@@ -101,6 +101,7 @@ pub fn run() {
             commands::project::analyze_project,
             commands::project::get_project_packages,
             commands::project::discover_projects,
+            commands::project::check_sync_status,
             commands::project::read_ns_config,
             commands::project::write_ns_config,
             commands::ns::doctor_checks,

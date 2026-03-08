@@ -31,15 +31,15 @@ Focuses on the project management home, application GUI settings, and historical
 
 |  No | Category           | Feature Name                                | Windows | Win Note | Linux | Lin Note | macOS | Mac Note |
 | --: | :----------------- | :------------------------------------------ | :-----: | :------- | :---: | :------- | :---: | :------- |
-|   1 | **Home**           | Global System Report Overview               |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   2 | **Home**           | Project Import & Discovery (Single/Batch)   |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   3 | **Projects**       | Project Library / Overview List             |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   4 | **Projects**       | Quick Access & Project Removal              |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   5 | **Create Project** | Support for multiple flavors & Templates    |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   6 | **Create Project** | Real-time creation logs output              |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   7 | **Activity**       | Categorized Activity Logs (SQLite)          |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   8 | **Settings**       | Application Preferences (Theme, Default PM) |   ⬜    |          |  ⬜   |          |  ⬜   |          |
-|   9 | **Settings**       | Data Management (Clear logs, DB integrity)  |   ⬜    |          |  ⬜   |          |  ⬜   |          |
+|   1 | **Home**           | Global System Report Overview               |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   2 | **Home**           | Project Import & Discovery (Single/Batch)   |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   3 | **Projects**       | Project Library / Overview List             |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   4 | **Projects**       | Quick Access & Project Removal              |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   5 | **Create Project** | Support for multiple flavors & Templates    |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   6 | **Create Project** | Real-time creation logs output              |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   7 | **Activity**       | Categorized Activity Logs (SQLite)          |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   8 | **Settings**       | Application Preferences (Theme, Default PM) |   ✅    |          |  ⬜   |          |  ⬜   |          |
+|   9 | **Settings**       | Data Management (Clear logs, DB integrity)  |   ✅    |          |  ⬜   |          |  ⬜   |          |
 
 ---
 

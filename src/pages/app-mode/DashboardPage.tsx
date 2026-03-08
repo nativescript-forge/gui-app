@@ -24,7 +24,6 @@ import {
   FiHash,
   FiShield,
   FiArrowUpCircle,
-  FiCommand,
   FiLayers,
   FiX,
   FiChevronRight,
@@ -38,7 +37,6 @@ import {
   isIos,
 } from "../../shared/platformDetection";
 import { FlavorIcon } from "../../components/FlavorIcon";
-import { exists, readTextFile } from "@tauri-apps/plugin-fs";
 
 export interface InstalledPlugin {
   name: string;
@@ -102,6 +100,7 @@ export function DashboardPage(props: DashboardPageProps) {
   );
   const [checkingHealth, setCheckingHealth] = useState(false);
   const [showSystemModal, setShowSystemModal] = useState(false);
+  const [showMaintenanceActions, setShowMaintenanceActions] = useState(false);
   const [projectIcon, setProjectIcon] = useState<string | null>(null);
   const packageCheckRunIdRef = useRef(0);
   const [projectPackages, setProjectPackages] = useState<
@@ -129,6 +128,49 @@ export function DashboardPage(props: DashboardPageProps) {
   const [modalTab, setModalTab] = useState<"plugins" | "common" | "dev">(
     "plugins",
   );
+  const [useLegacyPeerDeps, setUseLegacyPeerDeps] = useState(false);
+  const [useForce, setUseForce] = useState(false);
+  const [selectedOutdated, setSelectedOutdated] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const togglePackageSelection = (pkgName: string) => {
+    setSelectedOutdated((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkgName)) next.delete(pkgName);
+      else next.add(pkgName);
+      return next;
+    });
+  };
+
+  const toggleAllOutdated = (allOutdated: string[]) => {
+    if (
+      selectedOutdated.size === allOutdated.length &&
+      allOutdated.length > 0
+    ) {
+      setSelectedOutdated(new Set());
+    } else {
+      setSelectedOutdated(new Set(allOutdated));
+    }
+  };
+
+  // Keep selection clean when packages change
+  useEffect(() => {
+    setSelectedOutdated((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      const validOutdated = Object.entries(packageChecks)
+        .filter(([, v]) => v.status === "outdated")
+        .map(([name]) => name);
+      for (const item of next) {
+        if (!validOutdated.includes(item)) {
+          next.delete(item);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [packageChecks]);
 
   useEffect(() => {
     const fetchProjectIcon = async () => {
@@ -279,20 +321,13 @@ export function DashboardPage(props: DashboardPageProps) {
 
     try {
       // Use scan_ns_plugins for better data consistency with PluginsPage
+      // Always call scan_ns_plugins to ensure we get the latest data from package.json/node_modules
       let scannedPlugins: InstalledPlugin[] = [];
 
       try {
-        const configDir = await join(path, ".nsforge", "configs");
-        const pluginsJsonPath = await join(configDir, "plugins.json");
-
-        if (await exists(pluginsJsonPath)) {
-          const content = await readTextFile(pluginsJsonPath);
-          scannedPlugins = JSON.parse(content);
-        } else {
-          scannedPlugins = await invoke<InstalledPlugin[]>("scan_ns_plugins", {
-            projectPath: path,
-          });
-        }
+        scannedPlugins = await invoke<InstalledPlugin[]>("scan_ns_plugins", {
+          projectPath: path,
+        });
       } catch (err) {
         console.error("Failed to fetch plugins from scan_ns_plugins:", err);
         // Fallback to basic package retrieval if scan fails
@@ -395,9 +430,13 @@ export function DashboardPage(props: DashboardPageProps) {
   const updateSinglePackage = async (packageName: string) => {
     if (!props.projectPath) return;
     if (props.running) return;
+
     setUpdatingPackages((prev) => ({ ...prev, [packageName]: true }));
     try {
-      await onRunNpm(["install", `${packageName}@latest`], props.projectPath);
+      const args = ["install", `${packageName}@latest`];
+      if (useLegacyPeerDeps) args.push("--legacy-peer-deps");
+      if (useForce) args.push("--force");
+      await onRunNpm(args, props.projectPath);
       await loadAndCheckProjectPackages(props.projectPath);
     } finally {
       setUpdatingPackages((prev) => ({ ...prev, [packageName]: false }));
@@ -408,12 +447,16 @@ export function DashboardPage(props: DashboardPageProps) {
     if (!props.projectPath) return;
     if (props.running) return;
     if (packageNames.length === 0) return;
+
     setBulkUpdatingPackages(true);
     try {
       for (const name of packageNames) {
         setUpdatingPackages((prev) => ({ ...prev, [name]: true }));
         try {
-          await onRunNpm(["install", `${name}@latest`], props.projectPath);
+          const args = ["install", `${name}@latest`];
+          if (useLegacyPeerDeps) args.push("--legacy-peer-deps");
+          if (useForce) args.push("--force");
+          await onRunNpm(args, props.projectPath);
         } finally {
           setUpdatingPackages((prev) => ({ ...prev, [name]: false }));
         }
@@ -478,14 +521,14 @@ export function DashboardPage(props: DashboardPageProps) {
 
       // 4. install latest core
       await onRunNpm(
-        ["install", "@nativescript/core@latest"],
+        ["install", "@nativescript/core@latest", "--legacy-peer-deps"],
         props.projectPath,
       );
 
       // 5. install latest android if exists
       if (projectPlatforms.includes("android")) {
         await onRunNpm(
-          ["install", "@nativescript/android@latest"],
+          ["install", "@nativescript/android@latest", "--legacy-peer-deps"],
           props.projectPath,
         );
       }
@@ -493,14 +536,14 @@ export function DashboardPage(props: DashboardPageProps) {
       // 6. install latest ios if exists
       if (projectPlatforms.includes("ios")) {
         await onRunNpm(
-          ["install", "@nativescript/ios@latest"],
+          ["install", "@nativescript/ios@latest", "--legacy-peer-deps"],
           props.projectPath,
         );
       }
 
       // 7. install latest webpack
       await onRunNpm(
-        ["install", "@nativescript/webpack@latest"],
+        ["install", "@nativescript/webpack@latest", "--legacy-peer-deps"],
         props.projectPath,
       );
 
@@ -560,45 +603,56 @@ export function DashboardPage(props: DashboardPageProps) {
     return (
       <div
         key={pkg.name}
-        className="flex items-center justify-between gap-4 bg-base-200/40 border border-base-200/60 rounded-2xl px-5 py-4 group hover:bg-base-200/70 hover:border-primary/30 transition-all hover:shadow-sm"
+        className={`flex items-center justify-between gap-4 bg-base-200/40 border ${isOutdated && selectedOutdated.has(pkg.name) ? "border-primary/50 bg-primary/5" : "border-base-200/60"} rounded-2xl px-5 py-4 group hover:bg-base-200/70 hover:border-primary/30 transition-all hover:shadow-sm`}
       >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="text-sm font-bold truncate text-base-content/90">
-              {pkg.name}
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          {isOutdated && (
+            <input
+              type="checkbox"
+              className="checkbox checkbox-sm checkbox-primary rounded shrink-0 transition-transform hover:scale-110"
+              checked={selectedOutdated.has(pkg.name)}
+              disabled={props.running || isUpdating || bulkUpdatingPackages}
+              onChange={() => togglePackageSelection(pkg.name)}
+            />
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-sm font-bold truncate text-base-content/90">
+                {pkg.name}
+              </div>
             </div>
-          </div>
-          <div className="text-xs font-mono flex items-center gap-2">
-            {currentRange ? (
-              isLoading ? (
-                <span className="flex items-center gap-2 text-primary font-medium">
-                  <span className="loading loading-spinner loading-[12px]"></span>
-                  Checking…
-                </span>
-              ) : isOutdated ? (
-                <span className="flex items-center gap-2">
-                  <span className="text-warning font-medium line-through decoration-warning/30">
-                    {currentRange}
+            <div className="text-xs font-mono flex items-center gap-2">
+              {currentRange ? (
+                isLoading ? (
+                  <span className="flex items-center gap-2 text-primary font-medium">
+                    <span className="loading loading-spinner loading-[12px]"></span>
+                    Checking…
                   </span>
-                  <FiArrowUpCircle className="w-3 h-3 text-success" />
-                  <span className="text-success font-bold bg-success/20 px-1.5 py-0.5 rounded text-[10px]">
-                    {check?.latest}
+                ) : isOutdated ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-warning font-medium line-through decoration-warning/30">
+                      {currentRange}
+                    </span>
+                    <FiArrowUpCircle className="w-3 h-3 text-success" />
+                    <span className="text-success font-bold bg-success/20 px-1.5 py-0.5 rounded text-[10px]">
+                      {check?.latest}
+                    </span>
                   </span>
-                </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-base-content/60">
+                    <span className="font-medium">{currentRange}</span>
+                    <span className="text-[10px] text-success font-black uppercase tracking-wider flex items-center gap-1 bg-success/20 px-1.5 py-0.5 rounded">
+                      <FiCheckCircle className="w-3 h-3" />
+                      latest
+                    </span>
+                  </span>
+                )
               ) : (
-                <span className="flex items-center gap-2 text-base-content/60">
-                  <span className="font-medium">{currentRange}</span>
-                  <span className="text-[10px] text-success font-black uppercase tracking-wider flex items-center gap-1 bg-success/20 px-1.5 py-0.5 rounded">
-                    <FiCheckCircle className="w-3 h-3" />
-                    latest
-                  </span>
+                <span className="text-base-content/30 font-medium italic text-xs">
+                  N/A
                 </span>
-              )
-            ) : (
-              <span className="text-base-content/30 font-medium italic text-xs">
-                N/A
-              </span>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -641,6 +695,93 @@ export function DashboardPage(props: DashboardPageProps) {
       </div>
     );
   };
+
+  const renderPackageRowReadOnly = (pkg: InstalledPlugin) => {
+    const currentRange = projectPackages[pkg.name] ?? null;
+    const check = packageChecks[pkg.name];
+    const isLoading = checkingPackages || check?.status === "loading";
+    const isOutdated = check?.status === "outdated";
+
+    return (
+      <div
+        key={pkg.name}
+        className={`flex items-center justify-between gap-4 bg-base-200/40 border ${
+          isOutdated ? "border-warning/30" : "border-base-200/60"
+        } rounded-2xl px-5 py-4 group hover:bg-base-200/70 transition-all hover:shadow-sm`}
+      >
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-sm font-bold truncate text-base-content/90">
+                {pkg.name}
+              </div>
+            </div>
+            <div className="text-xs font-mono flex items-center gap-2">
+              {currentRange ? (
+                isLoading ? (
+                  <span className="flex items-center gap-2 text-primary font-medium">
+                    <span className="loading loading-spinner loading-[12px]"></span>
+                    Checking…
+                  </span>
+                ) : isOutdated ? (
+                  <span className="flex items-center gap-2">
+                    <span className="text-warning font-medium line-through decoration-warning/30">
+                      {currentRange}
+                    </span>
+                    <FiArrowUpCircle className="w-3 h-3 text-success" />
+                    <span className="text-success font-bold bg-success/20 px-1.5 py-0.5 rounded text-[10px]">
+                      {check?.latest}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2 text-base-content/60">
+                    <span className="font-medium">{currentRange}</span>
+                    <span className="text-[10px] text-success font-black uppercase tracking-wider flex items-center gap-1 bg-success/20 px-1.5 py-0.5 rounded">
+                      <FiCheckCircle className="w-3 h-3" />
+                      latest
+                    </span>
+                  </span>
+                )
+              ) : (
+                <span className="text-base-content/30 font-medium italic text-xs">
+                  N/A
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 shrink-0">
+          <span
+            className={`badge badge-sm font-black border-none px-2.5 py-3 rounded-lg text-[10px] ${
+              check?.status === "upToDate"
+                ? "bg-success/20 text-success"
+                : check?.status === "outdated"
+                  ? "bg-warning/20 text-warning"
+                  : check?.status === "error"
+                    ? "bg-error/20 text-error"
+                    : "bg-base-300 text-base-content/60"
+            } opacity-80 group-hover:opacity-100 transition-opacity shadow-sm`}
+          >
+            {check?.status === "loading"
+              ? "…"
+              : check?.status === "upToDate"
+                ? "UP TO DATE"
+                : (check?.status || "WAIT").toUpperCase()}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Detect if project uses a flavor that may have 'overrides' in package.json
+  const hasOverridesWarning = useMemo(() => {
+    const flavor = activeProject?.framework?.toLowerCase() ?? "";
+    return flavor.includes("react") || flavor.includes("svelte");
+  }, [activeProject]);
+
+  // Manage Package Manager section tab
+  const [pmTab, setPmTab] = useState<"plugins" | "common" | "dev">("plugins");
 
   if (!props.projectPath) {
     return (
@@ -816,9 +957,9 @@ export function DashboardPage(props: DashboardPageProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 gap-5">
         {/* Main Column */}
-        <div className="lg:col-span-8 flex flex-col gap-5">
+        <div className="flex flex-col gap-5">
           {/* Quick Actions - Combined Launch and Build */}
           <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-4 sm:p-6 shadow-sm flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -900,167 +1041,39 @@ export function DashboardPage(props: DashboardPageProps) {
                 <FiActivity className="w-3.5 h-3.5 text-success" /> Project
                 Health & Status
               </h3>
-              <button
-                onClick={checkProjectHealth}
-                className={`btn btn-ghost btn-xs btn-circle h-7 w-7 min-h-0 ${checkingHealth ? "animate-spin" : "opacity-30 hover:opacity-100 bg-base-200/50"}`}
-              >
-                <FiRefreshCw className="w-3 h-3" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm transition-all ${nodeModulesExist ? "bg-success/10 text-success" : "bg-error/10 text-error"}`}
-                >
-                  {nodeModulesExist ? (
-                    <FiCheckCircle className="w-6 h-6" />
-                  ) : (
-                    <FiAlertTriangle className="w-6 h-6" />
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider">
-                    Dependencies
-                  </div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    {nodeModulesExist
-                      ? "Ready to build"
-                      : "Missing node_modules"}
-                  </div>
-                </div>
-                {!nodeModulesExist && nodeModulesExist !== null && (
-                  <button
-                    onClick={() => onRunAction("install")}
-                    disabled={running}
-                    className="btn btn-error btn-xs ml-auto rounded-lg font-black h-8 px-3"
-                  >
-                    INSTALL
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4 p-4 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shadow-sm transition-all">
-                  <FiHash className="w-6 h-6" />
-                </div>
-                <div>
-                  <div className="text-xs font-black uppercase tracking-wider">
-                    Core Context
-                  </div>
-                  <div className="text-[10px] opacity-50 font-bold flex flex-wrap gap-x-2">
-                    <span>
-                      {
-                        installedPlugins.filter((p) => p.type === "plugin")
-                          .length
-                      }{" "}
-                      plugins
-                    </span>
-                    <span className="opacity-30">|</span>
-                    <span>
-                      {
-                        installedPlugins.filter(
-                          (p) => p.type === "common module",
-                        ).length
-                      }{" "}
-                      modules
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Column */}
-        <div className="lg:col-span-4 flex flex-col gap-5">
-          {/* Maintenance & Tools Section */}
-          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
-                <FiShield className="w-3.5 h-3.5 text-info" /> Maintenance
-              </h3>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  id: "doctor",
-                  icon: FiShield,
-                  label: "Doctor",
-                  color: "info",
-                  bg: "hover:bg-info/10 hover:text-info",
-                },
-                {
-                  id: "info",
-                  icon: FiInfo,
-                  label: "CLI Info",
-                  color: "primary",
-                  bg: "hover:bg-primary/10 hover:text-primary",
-                },
-                {
-                  id: "update",
-                  icon: FiRefreshCw,
-                  label: "Update",
-                  color: "success",
-                  bg: "hover:bg-success/10 hover:text-success",
-                },
-                {
-                  id: "migrate",
-                  icon: FiArrowUpCircle,
-                  label: "Migrate",
-                  color: "warning",
-                  bg: "hover:bg-warning/10 hover:text-warning",
-                  disabled: !isMigrationRequired || migrating,
-                  onClick: runMigration,
-                  loading: migrating,
-                },
-              ].map((tool) => (
-                <button
-                  key={tool.id}
-                  className={`btn btn-ghost bg-base-200/40 ${tool.bg} flex flex-col items-center justify-center gap-2 rounded-2xl h-24 border-none transition-all group w-full`}
-                  disabled={props.running || tool.disabled}
-                  onClick={
-                    tool.onClick || (() => props.onRunAction(tool.id as any))
-                  }
-                >
-                  <div className="w-10 h-10 rounded-xl bg-base-100 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
-                    {tool.loading ? (
-                      <span className="loading loading-spinner loading-xs text-warning"></span>
-                    ) : (
-                      <tool.icon className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </div>
-                  <span className="text-[11px] font-black tracking-tight">
-                    {tool.label}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-[9px] font-bold opacity-40">
+                  <span>
+                    {installedPlugins.filter((p) => p.type === "plugin").length}{" "}
+                    plugins
                   </span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Environment & Packages Section */}
-          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
-                <FiCpu className="w-3.5 h-3.5" /> Environment
-              </h3>
-              <div
-                className={`badge badge-sm text-[8px] h-4 font-bold border-none ${
-                  packageJsonError
-                    ? "bg-error/10 text-error"
-                    : packagesHealth === "healthy"
-                      ? "bg-success/10 text-success"
-                      : packagesHealth === "outdated"
-                        ? "bg-warning/10 text-warning"
-                        : "bg-base-200 text-base-content/30"
-                }`}
-              >
-                {packageJsonError ? "ERROR" : packagesHealth.toUpperCase()}
+                  <span className="opacity-30">·</span>
+                  <span>
+                    {
+                      installedPlugins.filter((p) => p.type === "common module")
+                        .length
+                    }{" "}
+                    modules
+                  </span>
+                </div>
+                <div
+                  className={`badge badge-sm text-[8px] h-4 font-bold border-none ${
+                    packageJsonError
+                      ? "bg-error/10 text-error"
+                      : packagesHealth === "healthy"
+                        ? "bg-success/10 text-success"
+                        : packagesHealth === "outdated"
+                          ? "bg-warning/10 text-warning"
+                          : "bg-base-200 text-base-content/30"
+                  }`}
+                >
+                  {packageJsonError ? "ERROR" : packagesHealth.toUpperCase()}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-2.5">
+            <div className="mt-6 pt-5 border-t border-base-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {corePackages.map((name) => {
                   const currentRange = projectPackages[name] ?? null;
                   const check = packageChecks[name];
@@ -1071,100 +1084,375 @@ export function DashboardPage(props: DashboardPageProps) {
                   return (
                     <div
                       key={name}
-                      className="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-base-200/30 border border-base-200/50 group transition-all hover:bg-base-200/50"
+                      className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-base-200/30 border border-base-200/50"
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black truncate opacity-60">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            isLoading
+                              ? "bg-base-300 animate-pulse"
+                              : !currentRange
+                                ? "bg-base-300"
+                                : isOutdated
+                                  ? "bg-warning"
+                                  : "bg-success"
+                          }`}
+                        />
+                        <span className="text-xs font-bold truncate">
                           {name.replace("@nativescript/", "")}
                         </span>
-                        {isOutdated && (
-                          <button
-                            className="btn btn-primary btn-xs h-5 min-h-0 text-[8px] rounded-lg px-2 font-black"
-                            disabled={props.running || updatingPackages[name]}
-                            onClick={() => updateSinglePackage(name)}
-                          >
-                            {updatingPackages[name] ? "..." : "UPDATE"}
-                          </button>
-                        )}
                       </div>
-                      <div className="text-[10px] font-mono font-bold truncate flex items-center gap-1.5">
+                      <div className="text-[10px] font-mono font-bold truncate flex items-center gap-1.5 flex-shrink-0">
                         {isLoading ? (
                           <span className="opacity-40">Checking...</span>
                         ) : !currentRange ? (
-                          <span className="opacity-40">Not installed</span>
+                          <span className="opacity-30 text-[9px]">
+                            Not installed
+                          </span>
                         ) : isOutdated ? (
                           <>
-                            <span className="text-error">{currentRange}</span>
-                            <span className="opacity-20">→</span>
-                            <span className="text-success">
+                            <span className="text-error line-through opacity-60">
+                              {currentRange}
+                            </span>
+                            <span className="text-success font-black">
                               {check?.latest}
                             </span>
                           </>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="opacity-40">{currentRange}</span>
-                            <div className="flex items-center gap-1 text-[8px] text-success/60 font-black uppercase tracking-wider">
-                              <FiCheckCircle className="w-2.5 h-2.5" />
-                              Up to date
-                            </div>
-                          </div>
+                          <span className="opacity-50">{currentRange}</span>
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-
               <button
                 onClick={() => setShowSystemModal(true)}
-                className="btn btn-ghost btn-block btn-xs text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 mt-2 h-8 rounded-xl bg-base-200/30 border-none transition-all"
+                className="btn btn-ghost btn-block btn-xs text-[9px] font-black uppercase tracking-widest opacity-30 hover:opacity-100 mt-3 h-8 rounded-xl bg-base-200/30 border-none transition-all"
               >
-                Full Package Report
+                Full Environment Report
               </button>
             </div>
           </div>
 
-          {/* Utilities Section */}
-          <div className="bg-base-100 border border-base-200 rounded-[2rem] p-5 md:p-6 shadow-sm">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-5 flex items-center gap-2">
-              <FiCommand className="w-3.5 h-3.5" /> Quick Tools
-            </h3>
-            <div className="flex flex-col gap-2.5">
-              <button
-                className="btn btn-ghost bg-base-200/40 hover:bg-primary/10 hover:text-primary justify-start gap-4 rounded-2xl h-auto py-3 px-4 border-none group transition-all"
-                onClick={() => props.setRoute("app-resources")}
-              >
-                <div className="w-10 h-10 rounded-xl bg-base-100 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
-                  <FiLayers className="w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <div className="text-left">
-                  <div className="font-black text-sm">App Resources</div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    Icons & Splash Screens
-                  </div>
-                </div>
-              </button>
+          {/* Maintenance & Package Manager Section */}
+          <div className="bg-base-100 border border-base-200 rounded-[2.5rem] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
+                <FiPackage className="w-3.5 h-3.5" /> Maintenance & Package
+                Manager
+              </h3>
+            </div>
 
-              <button
-                className="btn btn-ghost bg-base-200/40 hover:bg-error/10 hover:text-error justify-start gap-4 rounded-2xl h-auto py-3 px-4 border-none group transition-all"
-                disabled={props.running}
-                onClick={async () => {
-                  await props.onRunAction("clean");
-                  checkProjectHealth();
-                }}
-              >
-                <div className="w-10 h-10 rounded-xl bg-base-100 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
-                  <FiRefreshCw
-                    className={`w-5 h-5 opacity-40 group-hover:opacity-100 transition-opacity ${props.running && props.currentAction === "clean" ? "animate-spin" : ""}`}
-                  />
+            {/* Maintenance Actions Banner */}
+            <div className="bg-info/5 border border-info/10 rounded-2xl p-4 flex items-center justify-between mb-8 group transition-all hover:bg-info/10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-info/10 text-info flex items-center justify-center shadow-sm">
+                  <FiShield className="w-6 h-6" />
                 </div>
-                <div className="text-left">
-                  <div className="font-black text-sm">Clean Project</div>
-                  <div className="text-[10px] opacity-50 font-bold">
-                    Wipe build artifacts
+                <div>
+                  <div className="text-sm font-black tracking-tight">
+                    Maintenance Actions
+                  </div>
+                  <div className="text-[10px] opacity-60 font-bold leading-relaxed">
+                    Doctor, Updates, Migration & Clean Project
                   </div>
                 </div>
+              </div>
+              <button
+                onClick={() => setShowMaintenanceActions(true)}
+                disabled={running}
+                className="btn btn-info btn-sm rounded-xl font-black shadow-lg shadow-info/20 text-[10px] uppercase tracking-wider pt-0"
+              >
+                Open Maintenance
               </button>
+            </div>
+
+            <div className="border-t border-base-200 pt-6">
+              <div className="flex items-center justify-between mb-5">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 flex items-center gap-2">
+                  <FiPackage className="w-3.5 h-3.5" /> Project Dependencies
+                </h4>
+                {outdatedPackages.length > 0 && (
+                  <div className="badge badge-sm text-[8px] h-4 font-bold border-none bg-warning/10 text-warning">
+                    {outdatedPackages.length} OUTDATED
+                  </div>
+                )}
+              </div>
+
+              {/* Overrides Warning Banner */}
+              {hasOverridesWarning && outdatedPackages.length > 0 && (
+                <div className="bg-warning/5 border border-warning/20 rounded-2xl p-4 mb-5 flex items-start gap-3">
+                  <FiAlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                  <div className="text-xs text-base-content/70 leading-relaxed">
+                    <span className="font-black text-warning">
+                      Overrides Detected
+                    </span>
+                    <span className="mx-1">{"\u2014"}</span>
+                    NativeScript React/Svelte templates include an{" "}
+                    <code className="bg-base-200 px-1 py-0.5 rounded text-[10px] font-mono font-bold">
+                      "overrides"
+                    </code>{" "}
+                    block in{" "}
+                    <code className="bg-base-200 px-1 py-0.5 rounded text-[10px] font-mono font-bold">
+                      package.json
+                    </code>{" "}
+                    to lock dependency versions. If updates fail with{" "}
+                    <span className="font-bold text-error">EOVERRIDE</span>{" "}
+                    error, please manually edit the{" "}
+                    <code className="bg-base-200 px-1 py-0.5 rounded text-[10px] font-mono font-bold">
+                      "overrides"
+                    </code>{" "}
+                    section in your project{"'"}s{" "}
+                    <code className="bg-base-200 px-1 py-0.5 rounded text-[10px] font-mono font-bold">
+                      package.json
+                    </code>{" "}
+                    to match the new version, or remove it entirely.
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs */}
+              <div className="flex items-center gap-1 bg-base-200/50 p-1 rounded-2xl border border-base-200/80 mb-5 w-fit">
+                <button
+                  className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                    pmTab === "plugins"
+                      ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                      : "btn-ghost opacity-50 hover:opacity-100"
+                  }`}
+                  onClick={() => setPmTab("plugins")}
+                >
+                  <FiPackage className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">
+                    Plugins
+                  </span>
+                  <span
+                    className={`badge badge-xs font-bold border-none px-1 ${
+                      pmTab === "plugins"
+                        ? "bg-primary-content/20 text-primary-content"
+                        : "bg-base-300 text-base-content/40"
+                    }`}
+                  >
+                    {
+                      installedPlugins.filter(
+                        (p) =>
+                          p.type === "plugin" && p.source === "Dependencies",
+                      ).length
+                    }
+                  </span>
+                </button>
+                <button
+                  className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                    pmTab === "common"
+                      ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                      : "btn-ghost opacity-50 hover:opacity-100"
+                  }`}
+                  onClick={() => setPmTab("common")}
+                >
+                  <FiLayers className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">
+                    Modules
+                  </span>
+                  <span
+                    className={`badge badge-xs font-bold border-none px-1 ${
+                      pmTab === "common"
+                        ? "bg-primary-content/20 text-primary-content"
+                        : "bg-base-300 text-base-content/40"
+                    }`}
+                  >
+                    {
+                      installedPlugins.filter(
+                        (p) =>
+                          p.type === "common module" &&
+                          p.source === "Dependencies",
+                      ).length
+                    }
+                  </span>
+                </button>
+                <button
+                  className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
+                    pmTab === "dev"
+                      ? "bg-primary text-primary-content shadow-lg shadow-primary/20"
+                      : "btn-ghost opacity-50 hover:opacity-100"
+                  }`}
+                  onClick={() => setPmTab("dev")}
+                >
+                  <FiCpu className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-black uppercase tracking-wider">
+                    Dev
+                  </span>
+                  <span
+                    className={`badge badge-xs font-bold border-none px-1 ${
+                      pmTab === "dev"
+                        ? "bg-primary-content/20 text-primary-content"
+                        : "bg-base-300 text-base-content/40"
+                    }`}
+                  >
+                    {
+                      installedPlugins.filter(
+                        (p) => p.source === "Dev Dependencies",
+                      ).length
+                    }
+                  </span>
+                </button>
+              </div>
+
+              {/* Package List */}
+              {packageJsonError ? (
+                <div className="bg-error/5 border border-error/10 rounded-2xl p-6 text-center">
+                  <FiAlertTriangle className="w-8 h-8 text-error mx-auto mb-3 opacity-50" />
+                  <p className="text-sm font-bold text-error opacity-70">
+                    Failed to read package.json
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2.5 max-h-[50vh] overflow-y-auto custom-scrollbar pr-1">
+                  {pmTab === "plugins" && (
+                    <>
+                      {installedPlugins
+                        .filter(
+                          (p) =>
+                            p.type === "plugin" && p.source === "Dependencies",
+                        )
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((pkg) => renderPackageRow(pkg))}
+                      {installedPlugins.filter(
+                        (p) =>
+                          p.type === "plugin" && p.source === "Dependencies",
+                      ).length === 0 && (
+                        <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                          No NativeScript Plugins found
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {pmTab === "common" && (
+                    <>
+                      {installedPlugins
+                        .filter(
+                          (p) =>
+                            p.type === "common module" &&
+                            p.source === "Dependencies",
+                        )
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((pkg) => renderPackageRow(pkg))}
+                      {installedPlugins.filter(
+                        (p) =>
+                          p.type === "common module" &&
+                          p.source === "Dependencies",
+                      ).length === 0 && (
+                        <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                          No Modules found
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {pmTab === "dev" && (
+                    <>
+                      {installedPlugins
+                        .filter((p) => p.source === "Dev Dependencies")
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((pkg) => renderPackageRow(pkg))}
+                      {installedPlugins.filter(
+                        (p) => p.source === "Dev Dependencies",
+                      ).length === 0 && (
+                        <div className="text-center py-10 opacity-30 text-xs font-bold uppercase tracking-widest italic">
+                          No Development Modules found
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Footer Action Bar */}
+              {outdatedPackages.length > 0 && (
+                <div className="mt-5 pt-5 border-t border-base-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 mr-auto">
+                    <label className="label cursor-pointer flex items-center gap-3 px-0 py-0 opacity-90 hover:opacity-100 transition-opacity group">
+                      <input
+                        type="checkbox"
+                        className="checkbox checkbox-primary rounded border-base-300 group-hover:border-primary"
+                        checked={
+                          selectedOutdated.size === outdatedPackages.length &&
+                          outdatedPackages.length > 0
+                        }
+                        onChange={() => toggleAllOutdated(outdatedPackages)}
+                        disabled={
+                          props.running ||
+                          bulkUpdatingPackages ||
+                          checkingPackages
+                        }
+                      />
+                      <span className="label-text text-sm font-black tracking-widest pl-1">
+                        SELECT ALL ({selectedOutdated.size}/
+                        {outdatedPackages.length})
+                      </span>
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-6 flex-wrap justify-end">
+                    <div className="flex bg-base-200/50 rounded-xl px-4 py-2 gap-5 border border-base-200">
+                      <label className="label cursor-pointer flex items-center gap-2 px-0 py-0 opacity-70 hover:opacity-100 transition-opacity">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-xs checkbox-primary rounded"
+                          checked={useLegacyPeerDeps}
+                          onChange={(e) =>
+                            setUseLegacyPeerDeps(e.target.checked)
+                          }
+                          disabled={
+                            props.running ||
+                            bulkUpdatingPackages ||
+                            checkingPackages
+                          }
+                        />
+                        <span className="label-text text-[10px] font-bold tracking-widest font-mono">
+                          --legacy-peer-deps
+                        </span>
+                      </label>
+                      <label className="label cursor-pointer flex items-center gap-2 px-0 py-0 opacity-70 hover:opacity-100 transition-opacity">
+                        <input
+                          type="checkbox"
+                          className="checkbox checkbox-xs checkbox-warning rounded border-warning/50"
+                          checked={useForce}
+                          onChange={(e) => setUseForce(e.target.checked)}
+                          disabled={
+                            props.running ||
+                            bulkUpdatingPackages ||
+                            checkingPackages
+                          }
+                        />
+                        <span className="label-text text-[10px] font-bold tracking-widest text-warning font-mono">
+                          --force
+                        </span>
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-primary rounded-xl px-8 h-12 gap-3 shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all group"
+                      disabled={
+                        props.running ||
+                        bulkUpdatingPackages ||
+                        checkingPackages ||
+                        selectedOutdated.size === 0
+                      }
+                      onClick={() =>
+                        updateAllOutdatedPackages(Array.from(selectedOutdated))
+                      }
+                    >
+                      {bulkUpdatingPackages ? (
+                        <span className="loading loading-spinner loading-sm"></span>
+                      ) : (
+                        <FiArrowUpCircle className="w-5 h-5 group-hover:-translate-y-0.5 transition-transform" />
+                      )}
+                      <span className="text-sm font-black uppercase tracking-widest">
+                        Update Selected
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1255,7 +1543,7 @@ export function DashboardPage(props: DashboardPageProps) {
               </section>
 
               <section>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-6">
+                <div className="flex flex-wrap items-center justify-between gap-6 mb-6">
                   <div className="flex items-center gap-1 bg-base-200/50 p-1 rounded-2xl border border-base-200/80">
                     <button
                       className={`btn btn-sm rounded-xl px-4 h-9 gap-2 border-none transition-all ${
@@ -1340,30 +1628,6 @@ export function DashboardPage(props: DashboardPageProps) {
                       </span>
                     </button>
                   </div>
-
-                  {outdatedPackages.length > 0 && (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-primary rounded-xl px-6 h-11 gap-3 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                      disabled={
-                        props.running ||
-                        bulkUpdatingPackages ||
-                        checkingPackages
-                      }
-                      onClick={() =>
-                        updateAllOutdatedPackages(outdatedPackages)
-                      }
-                    >
-                      {bulkUpdatingPackages ? (
-                        <span className="loading loading-spinner loading-xs"></span>
-                      ) : (
-                        <FiArrowUpCircle className="w-4 h-4" />
-                      )}
-                      <span className="text-[11px] font-black uppercase tracking-wider">
-                        Update All Packages
-                      </span>
-                    </button>
-                  )}
                 </div>
 
                 {packageJsonError ? (
@@ -1386,7 +1650,7 @@ export function DashboardPage(props: DashboardPageProps) {
                                 p.source === "Dependencies",
                             )
                             .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((pkg) => renderPackageRow(pkg))}
+                            .map((pkg) => renderPackageRowReadOnly(pkg))}
                           {installedPlugins.filter(
                             (p) =>
                               p.type === "plugin" &&
@@ -1411,7 +1675,7 @@ export function DashboardPage(props: DashboardPageProps) {
                                 p.source === "Dependencies",
                             )
                             .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((pkg) => renderPackageRow(pkg))}
+                            .map((pkg) => renderPackageRowReadOnly(pkg))}
                           {installedPlugins.filter(
                             (p) =>
                               p.type === "common module" &&
@@ -1432,7 +1696,7 @@ export function DashboardPage(props: DashboardPageProps) {
                           {installedPlugins
                             .filter((p) => p.source === "Dev Dependencies")
                             .sort((a, b) => a.name.localeCompare(b.name))
-                            .map((pkg) => renderPackageRow(pkg))}
+                            .map((pkg) => renderPackageRowReadOnly(pkg))}
                           {installedPlugins.filter(
                             (p) => p.source === "Dev Dependencies",
                           ).length === 0 && (
@@ -1451,6 +1715,129 @@ export function DashboardPage(props: DashboardPageProps) {
           <div
             className="modal-backdrop bg-base-900/60 backdrop-blur-sm"
             onClick={() => setShowSystemModal(false)}
+          ></div>
+        </div>
+      )}
+      {/* Maintenance Actions Modal */}
+      {showMaintenanceActions && (
+        <div className="modal modal-open bg-black/60 backdrop-blur-md transition-all duration-300">
+          <div className="modal-box w-11/12 max-w-2xl flex flex-col p-0 overflow-hidden border border-base-200 shadow-2xl rounded-[2.5rem] bg-base-100">
+            {/* Header */}
+            <div className="px-8 py-6 border-b border-base-200 flex items-center justify-between bg-base-100">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-info/10 text-info flex items-center justify-center shadow-inner">
+                  <FiShield className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-2xl tracking-tight text-base-content">
+                    Maintenance Actions
+                  </h3>
+                  <p className="text-[10px] text-base-content/40 font-black uppercase tracking-[0.2em] mt-1.5 leading-relaxed">
+                    Diagnose, Update, and Clean Your Project
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMaintenanceActions(false)}
+                className="btn btn-ghost btn-md btn-circle hover:bg-base-200 transition-colors"
+              >
+                <FiX className="w-6 h-6 opacity-40" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-6 bg-base-100/50">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  {
+                    id: "doctor",
+                    icon: FiShield,
+                    label: "Doctor",
+                    desc: "Diagnose project issues and check environment compatibility",
+                    color: "info",
+                    bg: "hover:bg-info/10 hover:text-info",
+                  },
+                  {
+                    id: "info",
+                    icon: FiInfo,
+                    label: "CLI Info",
+                    desc: "Show installed CLI version, runtime versions, and config",
+                    color: "primary",
+                    bg: "hover:bg-primary/10 hover:text-primary",
+                  },
+                  {
+                    id: "update",
+                    icon: FiRefreshCw,
+                    label: "Update",
+                    desc: "Update NativeScript project config and tooling to latest standards",
+                    color: "success",
+                    bg: "hover:bg-success/10 hover:text-success",
+                  },
+                  {
+                    id: "migrate",
+                    icon: FiArrowUpCircle,
+                    label: "Migrate",
+                    desc: isMigrationRequired
+                      ? "Upgrade project to the latest NativeScript major version"
+                      : "No migration needed \u2014 project is up to date",
+                    color: "warning",
+                    bg: "hover:bg-warning/10 hover:text-warning",
+                    disabled: !isMigrationRequired || props.running,
+                    onClick: runMigration,
+                    loading: migrating,
+                  },
+                  {
+                    id: "clean",
+                    icon: FiActivity,
+                    label: "Clean Project",
+                    desc: "Wipe build artifacts and node_modules for a fresh start",
+                    color: "error",
+                    bg: "hover:bg-error/10 hover:text-error",
+                    onClick: async () => {
+                      setShowMaintenanceActions(false);
+                      await props.onRunAction("clean");
+                      checkProjectHealth();
+                    },
+                  },
+                ].map((tool) => (
+                  <button
+                    key={tool.id}
+                    className={`btn btn-ghost bg-base-200/40 ${tool.bg} flex flex-col items-center justify-center gap-3 rounded-2xl h-32 border-none transition-all group w-full text-center px-4`}
+                    disabled={props.running || tool.disabled}
+                    onClick={() => {
+                      if (!tool.loading) {
+                        setShowMaintenanceActions(false);
+                        if (tool.onClick) {
+                          tool.onClick();
+                        } else {
+                          props.onRunAction(tool.id as any);
+                        }
+                      }
+                    }}
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-base-100 flex items-center justify-center shadow-sm group-hover:shadow-md transition-all">
+                      {tool.loading ? (
+                        <span className="loading loading-spinner loading-md text-warning"></span>
+                      ) : (
+                        <tool.icon className="w-6 h-6 opacity-40 group-hover:opacity-100 transition-opacity" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-sm font-black tracking-tight">
+                        {tool.label}
+                      </div>
+                      <div className="text-[9px] opacity-50 font-bold leading-tight mt-1 px-2 line-clamp-2">
+                        {tool.desc}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div
+            className="modal-backdrop bg-base-900/60 backdrop-blur-sm"
+            onClick={() => setShowMaintenanceActions(false)}
           ></div>
         </div>
       )}

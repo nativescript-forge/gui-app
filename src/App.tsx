@@ -98,6 +98,7 @@ import { GlobalTerminal } from "./components/GlobalTerminal";
 
 function App() {
   const [bootStage, setBootStage] = useState<"splash" | "ready">("splash");
+  const [bootStatus, setBootStatus] = useState<string>("Initializing…");
   const [route, setRoute] = useState<Route>("home");
   const [theme, setTheme] = useState<Theme>("dark");
 
@@ -612,9 +613,24 @@ function App() {
       console.log(
         "[App] Database loaded, refreshing projects (with re-analysis)...",
       );
+      setBootStatus("Analyzing projects…");
       await refreshProjects(currentDb, false, true);
 
+      // Perform full metadata sync for each project at startup
+      const pList = (await currentDb.select(
+        "SELECT name, path FROM projects",
+      )) as { name: string; path: string }[];
+      for (const p of pList) {
+        setBootStatus(`Syncing ${p.name}…`);
+        try {
+          await syncProjectMetadata(p.path);
+        } catch (e) {
+          console.error(`Failed to sync ${p.name}:`, e);
+        }
+      }
+
       // Load existing system report
+      setBootStatus("Loading system report…");
       console.log("[App] Loading system report...");
       const savedReport = await currentDb.select<
         {
@@ -848,6 +864,18 @@ function App() {
 
   const analysisCacheRef = useRef<Record<string, number>>({});
   const pendingAnalysisRef = useRef<Set<string>>(new Set());
+
+  async function syncProjectMetadata(path: string) {
+    if (!db) return;
+    try {
+      // 1. Re-analyze for DB info
+      await reAnalyzeProject(path, true);
+      // 2. Scan plugins to update .nsforge/configs/plugins.json
+      await invoke("scan_ns_plugins", { projectPath: path });
+    } catch (err) {
+      console.error(`[App] Failed to sync project metadata for ${path}:`, err);
+    }
+  }
 
   async function reAnalyzeProject(path: string, force = false) {
     if (!db) return;
@@ -1137,9 +1165,11 @@ function App() {
         if (
           action.startsWith("platform-add") ||
           action === "migrate" ||
-          action === "update"
+          action === "update" ||
+          action === "plugin-add" ||
+          action === "plugin-remove"
         ) {
-          await reAnalyzeProject(actionsProjectPath);
+          await syncProjectMetadata(actionsProjectPath);
         }
       } else {
         showToast(
@@ -1215,6 +1245,8 @@ function App() {
       );
       if (result.statusCode === 0) {
         showToast(`NPM ${args[0]} completed successfully`, "success");
+        // Always sync after NPM success as it might have changed dependencies
+        await syncProjectMetadata(path);
       } else {
         showToast(
           `NPM ${args[0]} failed with exit code ${result.statusCode}`,
@@ -1274,6 +1306,8 @@ function App() {
       );
       if (result.statusCode === 0) {
         showToast(`NPX ${args[0]} completed successfully`, "success");
+        // Always sync after NPX success as it might have changed something
+        await syncProjectMetadata(path);
       } else {
         showToast(
           `NPX ${args[0]} failed with exit code ${result.statusCode}`,
@@ -1321,7 +1355,9 @@ function App() {
   }
 
   if (bootStage === "splash") {
-    return <SplashScreen theme={theme} logoSrc={logoSrc} />;
+    return (
+      <SplashScreen theme={theme} logoSrc={logoSrc} bootStatus={bootStatus} />
+    );
   }
 
   const activeProject = activeProjectPath
@@ -1371,6 +1407,7 @@ function App() {
         onSelectProject={(path) => {
           setActiveProjectPath(path);
           setActionsProjectPath(path);
+          setRoute("app-actions");
         }}
         onAddProject={browseAndAddProject}
         onCreateProject={() => {
@@ -1390,6 +1427,7 @@ function App() {
           setRunModalAction(action || "run");
           setIsRunModalOpen(true);
         }}
+        onSync={syncProjectMetadata}
       />
 
       {route === "setup" ? (
@@ -1457,6 +1495,7 @@ function App() {
                 onViewAllActivities={() => setRoute("activity")}
                 onOpenProject={handleOpenActions}
                 onOpenFolder={(path) => invoke("reveal_in_explorer", { path })}
+                onRemoveProject={removeProject}
                 onRunNpm={runNpm}
                 onRefreshSystemReport={async () => {
                   if (db) await runBackgroundChecks(db);

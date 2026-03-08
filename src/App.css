@@ -64,3 +64,21 @@
   border: 1px solid transparent;
   background-clip: content-box;
 }
+@keyframes progress-indefinite {
+  0% {
+    transform: translateX(-100%);
+    width: 30%;
+  }
+  50% {
+    width: 100%;
+  }
+  100% {
+    transform: translateX(333%);
+    width: 30%;
+  }
+}
+
+.animate-progress-indefinite {
+  animation: progress-indefinite 2.5s infinite linear;
+  overflow: hidden;
+}

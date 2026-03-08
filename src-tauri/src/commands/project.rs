@@ -398,4 +398,40 @@ pub fn write_ns_config(project_path: String, content: String) -> Result<(), Stri
     let config_path = Path::new(&project_path).join("nativescript.config.ts");
     fs::write(config_path, content).map_err(|e| format!("Failed to write config: {}", e))
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub is_synced: bool,
+    pub last_synced: Option<u64>,
+    pub package_modified: Option<u64>,
+}
 
+#[tauri::command]
+pub fn check_sync_status(project_path: String) -> Result<SyncStatus, String> {
+    let package_json_path = Path::new(&project_path).join("package.json");
+    let plugins_json_path = Path::new(&project_path).join(".nsforge").join("configs").join("plugins.json");
+
+    let package_modified = fs::metadata(&package_json_path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs());
+
+    let last_synced = fs::metadata(&plugins_json_path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_secs());
+
+    let is_synced = match (package_modified, last_synced) {
+        (Some(pm), Some(ls)) => ls >= pm,
+        (None, _) => true, 
+        (_, None) => false, 
+    };
+
+    Ok(SyncStatus {
+        is_synced,
+        last_synced,
+        package_modified,
+    })
+}

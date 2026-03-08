@@ -11,6 +11,7 @@ import { RunMenu } from "./TitleBar/RunMenu";
 import { HelpMenu } from "./TitleBar/HelpMenu";
 import { WindowControls } from "./TitleBar/WindowControls";
 import { AboutModal } from "./TitleBar/AboutModal";
+import { SyncModal } from "./TitleBar/SyncModal";
 
 const appWindow = getCurrentWindow();
 
@@ -32,6 +33,7 @@ interface TitleBarProps {
     platform: "android" | "ios" | null,
     action?: "run" | "debug",
   ) => void;
+  onSync: (path: string) => Promise<void>;
 }
 
 export function TitleBar({
@@ -49,9 +51,11 @@ export function TitleBar({
   onToggleTheme,
   onOpenBuildModal,
   onOpenRunModal,
+  onSync,
 }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [appInfo, setAppInfo] = useState({
     name: "NS Forge",
@@ -183,6 +187,7 @@ export function TitleBar({
                 onSelectProject={onSelectProject}
                 projects={projects}
                 onOpenSettings={() => setRoute("settings")}
+                onOpenSync={() => setShowSyncModal(true)}
               />
 
               <RunMenu activeProject={activeProject} setRoute={setRoute} />
@@ -286,6 +291,14 @@ export function TitleBar({
         onClose={() => setShowAboutModal(false)}
         brandIconSrc={brandIconSrc}
         appInfo={appInfo}
+      />
+      {/* Sync Modal */}
+      <SyncModal
+        isOpen={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        projects={projects}
+        onSync={onSync}
+        theme={theme}
       />
       {/* Exit Confirmation Modal */}
       {showExitModal && (

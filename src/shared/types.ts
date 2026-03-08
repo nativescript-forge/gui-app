@@ -237,3 +237,9 @@ export interface NativeScriptConfig {
   hooks?: IConfigHook[];
   security?: ISecurityConfig;
 }
+
+export type SyncStatus = {
+  isSynced: boolean;
+  lastSynced: number | null;
+  packageModified: number | null;
+};
