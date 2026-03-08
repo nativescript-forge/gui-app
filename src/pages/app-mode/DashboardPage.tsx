@@ -21,7 +21,6 @@ import {
   FiRefreshCw,
   FiAlertTriangle,
   FiInfo,
-  FiHash,
   FiShield,
   FiArrowUpCircle,
   FiLayers,
@@ -95,10 +94,8 @@ export type DashboardPageProps = {
 
 export function DashboardPage(props: DashboardPageProps) {
   const { running, onRunAction, onRunNpm, platformStatus } = props;
-  const [nodeModulesExist, setNodeModulesExist] = useState<boolean | null>(
-    null,
-  );
-  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [, setNodeModulesExist] = useState<boolean | null>(null);
+  const [, setCheckingHealth] = useState(false);
   const [showSystemModal, setShowSystemModal] = useState(false);
   const [showMaintenanceActions, setShowMaintenanceActions] = useState(false);
   const [projectIcon, setProjectIcon] = useState<string | null>(null);
