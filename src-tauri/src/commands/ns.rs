@@ -4,6 +4,63 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+pub fn setup_environment() {
+    if std::env::var("ANDROID_HOME").is_err() && std::env::var("ANDROID_SDK_ROOT").is_err() {
+        #[cfg(target_os = "windows")]
+        if let Ok(local_appdata) = std::env::var("LOCALAPPDATA") {
+            let sdk_path = PathBuf::from(local_appdata).join("Android").join("Sdk");
+            if sdk_path.exists() {
+                std::env::set_var("ANDROID_HOME", &sdk_path);
+            } else {
+                let default_paths = ["C:\\Android\\sdk", "C:\\Program Files (x86)\\Android\\android-sdk"];
+                for path in default_paths {
+                    let p = PathBuf::from(path);
+                    if p.exists() {
+                        std::env::set_var("ANDROID_HOME", &p);
+                        break;
+                    }
+                }
+            }
+        }
+        #[cfg(target_os = "macos")]
+        if let Ok(home) = std::env::var("HOME") {
+            let sdk_path = PathBuf::from(home).join("Library").join("Android").join("sdk");
+            if sdk_path.exists() {
+                std::env::set_var("ANDROID_HOME", &sdk_path);
+            }
+        }
+        #[cfg(target_os = "linux")]
+        if let Ok(home) = std::env::var("HOME") {
+            let sdk_path = PathBuf::from(home).join("Android").join("Sdk");
+            if sdk_path.exists() {
+                std::env::set_var("ANDROID_HOME", &sdk_path);
+            }
+        }
+    }
+
+    if std::env::var("JAVA_HOME").is_err() {
+        #[cfg(target_os = "windows")]
+        {
+            let maybe_java_dir1 = PathBuf::from("C:\\Program Files\\Java");
+            let maybe_java_dir2 = PathBuf::from("C:\\Program Files\\Eclipse Adoptium");
+            
+            for base_dir in [maybe_java_dir1, maybe_java_dir2] {
+                if base_dir.exists() {
+                    if let Ok(entries) = std::fs::read_dir(base_dir) {
+                        // find the first directory that looks like a jdk or jre
+                        for entry in entries.flatten() {
+                            if entry.path().is_dir() {
+                                std::env::set_var("JAVA_HOME", entry.path());
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandResult {
@@ -361,6 +418,7 @@ pub fn run_command(
     args: &[&str],
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
+    setup_environment();
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
@@ -449,6 +507,7 @@ pub fn run_command_vec(
     args: Vec<String>,
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
+    setup_environment();
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
@@ -537,6 +596,7 @@ pub fn run_resolved(
     args: &[&str],
     cwd: Option<&str>,
 ) -> Result<CommandResult, String> {
+    setup_environment();
     let mut full_args = cli.base_args.clone();
     full_args.extend(args.iter().map(|a| a.to_string()));
     run_command_vec(&cli.launcher, full_args, cwd)
@@ -754,6 +814,7 @@ fn doctor_command_check(
 
 #[tauri::command]
 pub fn doctor_checks() -> Vec<DoctorCheck> {
+    setup_environment();
     let mut checks = Vec::new();
 
     checks.push(doctor_command_check(
@@ -1378,6 +1439,7 @@ pub fn run_resolved_streaming(
     device_id: Option<String>,
     package_name: Option<String>,
 ) -> Result<CommandResult, String> {
+    setup_environment();
     let mut full_args = cli.base_args.clone();
     full_args.extend(args.iter().map(|a| a.to_string()));
 
