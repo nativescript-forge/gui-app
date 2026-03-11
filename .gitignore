@@ -23,7 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-bun.lock
 package-lock.json
 yarn.lock
 Cargo.lock
