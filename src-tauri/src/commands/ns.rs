@@ -697,7 +697,7 @@ pub fn resolve_cli_with_cache(cli_state: Option<State<'_, CliState>>) -> Option<
         found
     };
     #[cfg(not(target_os = "windows"))]
-    let resolved: Option<String> = None;
+    let resolved: Option<ResolvedCli> = None;
 
     if let Some(r) = resolved {
         if let Some(state) = cli_state {

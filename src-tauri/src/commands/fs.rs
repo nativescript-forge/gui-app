@@ -2,8 +2,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use crate::commands::project::analyze_project_path;
-use image::GenericImageView;
 use tauri::Manager;
+
+#[allow(unused_imports)]
+use image::GenericImageView;
 
 #[tauri::command]
 pub fn path_exists(path: String) -> bool {
