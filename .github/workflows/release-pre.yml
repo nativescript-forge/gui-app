@@ -7,7 +7,10 @@ on:
       - '*.*.*-beta*'     # contoh: 0.1.0-beta, 0.1.0-beta.2
 
 permissions:
-  contents: write   # Agar bisa membuat Release & upload artifacts
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -45,7 +48,7 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: 🍞 Setup Bun
         uses: oven-sh/setup-bun@v2
