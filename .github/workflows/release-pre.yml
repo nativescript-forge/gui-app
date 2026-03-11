@@ -6,6 +6,9 @@ on:
       - '*.*.*-alpha*'    # contoh: 0.1.0-alpha, 0.1.0-alpha.6
       - '*.*.*-beta*'     # contoh: 0.1.0-beta, 0.1.0-beta.2
 
+permissions:
+  contents: write   # Agar bisa membuat Release & upload artifacts
+
 jobs:
   build:
     name: Build (${{ matrix.platform.name }})
