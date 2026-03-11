@@ -7,6 +7,9 @@ on:
 
 # Filter agar TIDAK jalan jika tag mengandung alpha/beta
 # Dilakukan lewat job-level if condition
+permissions:
+  contents: write   # Agar bisa membuat Release & upload artifacts
+
 jobs:
   build:
     name: Build (${{ matrix.platform.name }})
