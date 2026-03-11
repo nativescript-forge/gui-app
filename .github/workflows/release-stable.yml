@@ -3,9 +3,7 @@ name: 🚀 Release (Stable)
 on:
   push:
     tags:
-      - 'v*.*.*'          # contoh: v1.0.0, v1.2.3
-    branches-ignore:
-      - '**'              # Hanya jalan via tag, bukan branch
+      - '*.*.*'           # contoh: 1.0.0, 1.2.3
 
 # Filter agar TIDAK jalan jika tag mengandung alpha/beta
 # Dilakukan lewat job-level if condition
