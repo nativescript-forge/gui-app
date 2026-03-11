@@ -87,8 +87,8 @@ jobs:
           body: |
             ## 🧪 NativeScript Forge ${{ github.ref_name }} (Pre-Release)
 
-            > ⚠️ Ini adalah versi **pre-release** dan mungkin masih mengandung bug.
-            > Tidak disarankan untuk penggunaan production.
+            > ⚠️ This is a **pre-release version** and may still contain bugs.
+            > It is not recommended for use in production environments.
 
             ### Downloads
             | Platform | File |
