@@ -1686,7 +1686,8 @@ pub async fn get_ns_report(cli_state: State<'_, CliState>) -> Result<NsReport, S
 #[tauri::command]
 pub async fn stop_ns_command(window: tauri::Window, state: State<'_, ProcessState>) -> Result<(), String> {
     let mut lock = state.0.lock().unwrap();
-    if let Some(process) = lock.take() {
+    #[allow(unused_mut)]
+    if let Some(mut process) = lock.take() {
         let _ = window.emit("create-project-log", LogPayload { message: "\n--- Process stop requested ---\n".to_string() });
         
         let _ = window.emit("ns-process-status", ProcessStatusPayload {

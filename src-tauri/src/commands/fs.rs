@@ -1,7 +1,11 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(target_os = "windows")]
+use std::path::PathBuf;
 use std::process::Command;
+#[cfg(target_os = "windows")]
 use crate::commands::project::analyze_project_path;
+#[cfg(target_os = "windows")]
 use tauri::Manager;
 
 #[allow(unused_imports)]
@@ -158,8 +162,8 @@ pub async fn set_project_folder_icon(
 }
 
 pub fn internal_set_project_folder_icon(
-    app_handle: &tauri::AppHandle,
-    project_path: &str,
+    _app_handle: &tauri::AppHandle,
+    _project_path: &str,
 ) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     {
@@ -169,6 +173,8 @@ pub fn internal_set_project_folder_icon(
 
     #[cfg(target_os = "windows")]
     {
+        let app_handle = _app_handle;
+        let project_path = _project_path;
         let project_path_buf = PathBuf::from(project_path);
         if !project_path_buf.exists() {
             return Err("Project path does not exist".to_string());
