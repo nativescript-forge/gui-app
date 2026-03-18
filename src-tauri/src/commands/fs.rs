@@ -90,6 +90,7 @@ pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         Command::new("open")
+            .arg("-R")
             .arg(&path)
             .spawn()
             .map_err(|e| e.to_string())?;
@@ -160,93 +161,99 @@ pub fn internal_set_project_folder_icon(
     app_handle: &tauri::AppHandle,
     project_path: &str,
 ) -> Result<(), String> {
-    let project_path_buf = PathBuf::from(project_path);
-    if !project_path_buf.exists() {
-        return Err("Project path does not exist".to_string());
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Only supported on Windows for now to avoid issues on macOS/Linux
+        return Ok(());
     }
 
-    // 1. Detect framework
-    let analysis = analyze_project_path(project_path);
-    let framework = analysis.framework.unwrap_or_else(|| "Core".to_string());
-
-    // 2. Map framework to icon name
-    let icon_name = match framework.as_str() {
-        "Angular" => "nsf-angular.png",
-        "React" => "nsf-reactjs.png",
-        "Solid" => "nsf-solid.png",
-        "Svelte" => "nsf-svelte.png",
-        "Vue" => "nsf-vue.png",
-        "Core (TS)" => "nsf-typescript.png",
-        "Core (JS)" => "nsf-javascript.png",
-        _ => {
-            if framework.to_lowercase().contains("javascript") {
-                "nsf-javascript.png"
-            } else if framework.to_lowercase().contains("typescript") {
-                "nsf-typescript.png"
-            } else {
-                "nsf-javascript.png"
-            }
-        }
-    };
-
-    // 3. Find the source icon
-    let mut search_paths = Vec::new();
-
-    // Priority 1: resource_dir (Production)
-    if let Ok(rd) = app_handle.path().resource_dir() {
-        search_paths.push(rd.join(icon_name));
-        search_paths.push(rd.join("folders").join(icon_name));
-        search_paths.push(rd.join("assets").join("images").join("folders").join(icon_name));
-        search_paths.push(rd.join("public").join("assets").join("images").join("folders").join(icon_name));
-        search_paths.push(rd.join("_up_").join("public").join("assets").join("images").join("folders").join(icon_name));
-    }
-
-    // Priority 2: Relative to CWD (Dev mode)
-    if let Ok(cwd) = std::env::current_dir() {
-        search_paths.push(cwd.join("public").join("assets").join("images").join("folders").join(icon_name));
-        search_paths.push(cwd.join("..").join("public").join("assets").join("images").join("folders").join(icon_name));
-    }
-
-    // Priority 3: Relative to Executable
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            search_paths.push(parent.join("public").join("assets").join("images").join("folders").join(icon_name));
-            if let Some(p2) = parent.parent() {
-                 search_paths.push(p2.join("public").join("assets").join("images").join("folders").join(icon_name));
-            }
-        }
-    }
-
-    let mut resource_path = None;
-    for p in search_paths {
-        if p.exists() {
-            resource_path = Some(p);
-            break;
-        }
-    }
-
-    let resource_path = match resource_path {
-        Some(p) => {
-            println!("[Icon] Found source icon at: {:?}", p);
-            p
-        },
-        None => {
-            return Err(format!(
-                "Source icon not found: {}. Searched in resource dir and common dev paths.",
-                icon_name
-            ));
-        }
-    };
-
-    // 4. Ensure .nsforge directory exists
-    let nsforge_dir = project_path_buf.join(".nsforge");
-    if !nsforge_dir.exists() {
-        fs::create_dir_all(&nsforge_dir).map_err(|e| e.to_string())?;
-    }
-
-    // --- Windows Implementation ---
     #[cfg(target_os = "windows")]
     {
+        let project_path_buf = PathBuf::from(project_path);
+        if !project_path_buf.exists() {
+            return Err("Project path does not exist".to_string());
+        }
+
+        // 1. Detect framework
+        let analysis = analyze_project_path(project_path);
+        let framework = analysis.framework.unwrap_or_else(|| "Core".to_string());
+
+        // 2. Map framework to icon name
+        let icon_name = match framework.as_str() {
+            "Angular" => "nsf-angular.png",
+            "React" => "nsf-reactjs.png",
+            "Solid" => "nsf-solid.png",
+            "Svelte" => "nsf-svelte.png",
+            "Vue" => "nsf-vue.png",
+            "Core (TS)" => "nsf-typescript.png",
+            "Core (JS)" => "nsf-javascript.png",
+            _ => {
+                if framework.to_lowercase().contains("javascript") {
+                    "nsf-javascript.png"
+                } else if framework.to_lowercase().contains("typescript") {
+                    "nsf-typescript.png"
+                } else {
+                    "nsf-javascript.png"
+                }
+            }
+        };
+
+        // 3. Find the source icon
+        let mut search_paths = Vec::new();
+
+        // Priority 1: resource_dir (Production)
+        if let Ok(rd) = app_handle.path().resource_dir() {
+            search_paths.push(rd.join(icon_name));
+            search_paths.push(rd.join("folders").join(icon_name));
+            search_paths.push(rd.join("assets").join("images").join("folders").join(icon_name));
+            search_paths.push(rd.join("public").join("assets").join("images").join("folders").join(icon_name));
+            search_paths.push(rd.join("_up_").join("public").join("assets").join("images").join("folders").join(icon_name));
+        }
+
+        // Priority 2: Relative to CWD (Dev mode)
+        if let Ok(cwd) = std::env::current_dir() {
+            search_paths.push(cwd.join("public").join("assets").join("images").join("folders").join(icon_name));
+            search_paths.push(cwd.join("..").join("public").join("assets").join("images").join("folders").join(icon_name));
+        }
+
+        // Priority 3: Relative to Executable
+        if let Ok(exe) = std::env::current_exe() {
+            if let Some(parent) = exe.parent() {
+                search_paths.push(parent.join("public").join("assets").join("images").join("folders").join(icon_name));
+                if let Some(p2) = parent.parent() {
+                     search_paths.push(p2.join("public").join("assets").join("images").join("folders").join(icon_name));
+                }
+            }
+        }
+
+        let mut resource_path = None;
+        for p in search_paths {
+            if p.exists() {
+                resource_path = Some(p);
+                break;
+            }
+        }
+
+        let resource_path = match resource_path {
+            Some(p) => {
+                println!("[Icon] Found source icon at: {:?}", p);
+                p
+            },
+            None => {
+                return Err(format!(
+                    "Source icon not found: {}. Searched in resource dir and common dev paths.",
+                    icon_name
+                ));
+            }
+        };
+
+        // 4. Ensure .nsforge directory exists
+        let nsforge_dir = project_path_buf.join(".nsforge");
+        if !nsforge_dir.exists() {
+            fs::create_dir_all(&nsforge_dir).map_err(|e| e.to_string())?;
+        }
+
+        // --- Windows Implementation ---
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
 
@@ -348,57 +355,6 @@ pub fn internal_set_project_folder_icon(
 
         Ok(())
     }
-
-    // --- macOS Implementation ---
-    #[cfg(target_os = "macos")]
-    {
-        let dest_png = nsforge_dir.join("folder_icon.png");
-        fs::copy(&resource_path, &dest_png).map_err(|e| e.to_string())?;
-
-        let script = format!(
-            "tell application \"Finder\" to set icon of (POSIX file \"{}\" as alias) to (POSIX file \"{}\" as alias)",
-            project_path,
-            dest_png.to_string_lossy()
-        );
-
-        Command::new("osascript")
-            .args(["-e", &script])
-            .status()
-            .map_err(|e| e.to_string())?;
-
-        Ok(())
-    }
-
-    // --- Linux Implementation ---
-    #[cfg(target_os = "linux")]
-    {
-        let dest_png = nsforge_dir.join("folder_icon.png");
-        fs::copy(&resource_path, &dest_png).map_err(|e| e.to_string())?;
-
-        let _ = Command::new("gio")
-            .args([
-                "set",
-                "-t",
-                "string",
-                project_path,
-                "metadata::custom-icon",
-                &format!("file://{}", dest_png.to_string_lossy()),
-            ])
-            .status();
-
-        let dot_directory = project_path_buf.join(".directory");
-        let content = format!("[Desktop Entry]\nIcon={}\n", dest_png.to_string_lossy());
-        let _ = fs::write(dot_directory, content);
-
-        Ok(())
-    }
-
-    #[cfg(all(
-        not(target_os = "windows"),
-        not(target_os = "macos"),
-        not(target_os = "linux")
-    ))]
-    Err("Platform not supported".to_string())
 }
 
 #[tauri::command]
