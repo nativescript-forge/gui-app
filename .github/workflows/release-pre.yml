@@ -106,7 +106,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: NativeScript Forge ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           draft: false
           prerelease: true
           files: |
@@ -117,7 +117,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: NativeScript Forge ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           draft: false
           prerelease: true
           files: |
