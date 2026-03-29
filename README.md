@@ -42,6 +42,8 @@
   - https://nodejs.org/en/download
 - **Tauri** (v2 or later)
   - https://v2.tauri.app/start/prerequisites  
+- **Rust** (pinned by this repo to v1.88.0 via rustup)
+  - The first Tauri build may download the pinned toolchain automatically.
 - **Android Studio / Xcode** (for NativeScript development)
   - https://developer.android.com/studio
   - https://developer.apple.com/xcode
@@ -64,6 +66,8 @@
    ```
 
 3. Run the application in development mode:
+
+  The repo includes `rust-toolchain.toml`, so `cargo` and `tauri` will use Rust 1.88.0 instead of a globally configured nightly toolchain.
 
    ```bash
    npm run tauri dev
