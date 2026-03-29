@@ -18,6 +18,10 @@ export const IntroPage: React.FC<IntroPageProps> = ({
   const [agreed, setAgreed] = useState(readOnly);
   const [activeDoc, setActiveDoc] = useState<"privacy" | "terms">("privacy");
 
+  const toggleAgreement = () => {
+    setAgreed((current) => !current);
+  };
+
   useEffect(() => {
     const fetchDocs = async () => {
       try {
@@ -191,24 +195,49 @@ export const IntroPage: React.FC<IntroPageProps> = ({
           </div>
         ) : (
           <>
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                className="checkbox checkbox-primary checkbox-sm"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-              />
-              <span className="text-sm text-base-content/70 group-hover:text-base-content transition-colors">
-                I have read and agree to the Privacy Policy and Terms &
-                Conditions.
-              </span>
-            </label>
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={agreed}
+              onClick={toggleAgreement}
+              className={`w-full max-w-2xl rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+                agreed
+                  ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(249,168,37,0.2)]"
+                  : "border-base-300 bg-base-100 hover:border-primary/50 hover:bg-base-100/90"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <span
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                    agreed
+                      ? "border-primary bg-primary text-primary-content"
+                      : "border-base-content/30 bg-base-200/70 text-transparent"
+                  }`}
+                >
+                  <FaCheck className="h-3 w-3" />
+                </span>
+
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-base-content">
+                    I have read and agree to the Privacy Policy and Terms &
+                    Conditions.
+                  </div>
+                  <div className="text-xs text-base-content/60">
+                    Tap anywhere on this row to confirm your agreement.
+                  </div>
+                </div>
+              </div>
+            </button>
 
             <button
               className={`btn btn-primary btn-md gap-2 px-10 transition-all duration-300 ${
                 !agreed ? "btn-disabled opacity-50" : "hover:scale-105"
               }`}
-              onClick={onAgree}
+              onClick={() => {
+                if (agreed) {
+                  onAgree();
+                }
+              }}
               disabled={!agreed}
             >
               <FaCheck /> Accept & Continue
