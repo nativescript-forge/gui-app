@@ -194,19 +194,22 @@ export const IntroPage: React.FC<IntroPageProps> = ({
             <span>You have agreed to these legal documents.</span>
           </div>
         ) : (
-          <>
+          <div className="relative z-10 w-full flex flex-col items-center space-y-4">
             <button
               type="button"
               role="checkbox"
               aria-checked={agreed}
-              onClick={toggleAgreement}
-              className={`w-full max-w-2xl rounded-2xl border px-4 py-3 text-left transition-all duration-200 ${
+              onClick={(e) => {
+                e.preventDefault();
+                toggleAgreement();
+              }}
+              className={`w-full max-w-2xl rounded-2xl border px-4 py-3 text-left transition-all duration-200 cursor-pointer ${
                 agreed
-                  ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(249,168,37,0.2)]"
+                  ? "border-primary bg-primary/10 shadow-[0_0_0_1px_rgba(var(--p),0.2)]"
                   : "border-base-300 bg-base-100 hover:border-primary/50 hover:bg-base-100/90"
               }`}
             >
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 pointer-events-none">
                 <span
                   className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${
                     agreed
@@ -242,7 +245,7 @@ export const IntroPage: React.FC<IntroPageProps> = ({
             >
               <FaCheck /> Accept & Continue
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

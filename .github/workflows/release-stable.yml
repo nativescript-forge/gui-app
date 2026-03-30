@@ -53,6 +53,11 @@ jobs:
         with:
           targets: ${{ matrix.platform.target }}
 
+      - name: 🎯 Verify and Add Rust Target
+        run: |
+          rustup target add ${{ matrix.platform.target }}
+          rustup target list --installed
+
       - name: 🗄️ Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
         with:

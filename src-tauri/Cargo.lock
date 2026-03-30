@@ -2631,7 +2631,7 @@ dependencies = [
 
 [[package]]
 name = "nativescript-forge"
-version = "0.1.0-alpha.8"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "chrono",
